@@ -3,7 +3,7 @@ use log::info;
 use sqlx::{query, query_as, Pool, Postgres};
 use std::{error::Error, fmt};
 
-use crate::env_data::{EnvData, EnvDataEntry};
+use env_data::{EnvData, EnvDataEntry};
 
 #[derive(Debug, Clone)]
 pub struct HandlerError {
@@ -32,6 +32,25 @@ impl IntoResponse for HandlerError {
 }
 
 #[debug_handler]
+pub async fn store_env_data_entry(
+    State(pool): State<Pool<Postgres>>,
+    Json(env_data): Json<EnvDataEntry>,
+) -> Result<String, HandlerError> {
+    info!("POST /entry");
+    query!(
+        "INSERT INTO env_data VALUES ($1, $2, $3, $4)",
+        env_data.ts,
+        env_data.room,
+        env_data.temperature,
+        env_data.humidity
+    )
+    .execute(&pool)
+    .await
+    .map_err(|e| HandlerError::new(500, format!("Failed to store data in database: {}", e)))?;
+    Ok("OK".to_string())
+}
+
+#[debug_handler]
 pub async fn store_env_data(
     State(pool): State<Pool<Postgres>>,
     Json(env_data): Json<EnvData>,
@@ -47,12 +66,7 @@ pub async fn store_env_data(
     )
     .execute(&pool)
     .await
-    .map_err(|e| {
-        HandlerError::new(
-            500,
-            format!("Failed to store data in database: {}", e),
-        )
-    })?;
+    .map_err(|e| HandlerError::new(500, format!("Failed to store data in database: {}", e)))?;
     Ok("OK".to_string())
 }
 
@@ -65,10 +79,7 @@ pub async fn fetch_all_data(
         .fetch_all(&pool)
         .await
         .map_err(|e| {
-            HandlerError::new(
-                500,
-                format!("Failed to fetch data from database: {}", e),
-            )
+            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
         })?;
 
     Ok(Json(rows))
