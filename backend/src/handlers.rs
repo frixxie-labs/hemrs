@@ -1,13 +1,41 @@
-use axum::{extract::State, Json};
+use axum::{debug_handler, extract::State, http::StatusCode, response::IntoResponse, Json};
 use log::info;
 use sqlx::{query, query_as, Pool, Postgres};
+use std::{error::Error, fmt};
 
 use crate::env_data::{EnvData, EnvDataEntry};
 
+#[derive(Debug, Clone)]
+pub struct HandlerError {
+    pub status: u16,
+    pub message: String,
+}
+
+impl HandlerError {
+    pub fn new(status: u16, message: String) -> Self {
+        Self { status, message }
+    }
+}
+
+impl fmt::Display for HandlerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Error {}: {}", self.status, self.message)
+    }
+}
+
+impl Error for HandlerError {}
+
+impl IntoResponse for HandlerError {
+    fn into_response(self) -> axum::response::Response {
+        (StatusCode::from_u16(self.status).unwrap(), self.message).into_response()
+    }
+}
+
+#[debug_handler]
 pub async fn store_env_data(
     State(pool): State<Pool<Postgres>>,
     Json(env_data): Json<EnvData>,
-) -> String {
+) -> Result<String, HandlerError> {
     info!("POST /");
     let env_data_entry: EnvDataEntry = env_data.into();
     query!(
@@ -19,16 +47,29 @@ pub async fn store_env_data(
     )
     .execute(&pool)
     .await
-    .unwrap();
-    "OK".to_string()
+    .map_err(|e| {
+        HandlerError::new(
+            500,
+            format!("Failed to store data in database: {}", e.to_string()),
+        )
+    })?;
+    Ok("OK".to_string())
 }
 
-pub async fn fetch_all_data(State(pool): State<Pool<Postgres>>) -> Json<Vec<EnvDataEntry>> {
+#[debug_handler]
+pub async fn fetch_all_data(
+    State(pool): State<Pool<Postgres>>,
+) -> Result<Json<Vec<EnvDataEntry>>, HandlerError> {
     info!("GET /");
     let rows = query_as!(EnvDataEntry, "SELECT * FROM env_data")
         .fetch_all(&pool)
         .await
-        .unwrap();
+        .map_err(|e| {
+            HandlerError::new(
+                500,
+                format!("Failed to fetch data from database: {}", e.to_string()),
+            )
+        })?;
 
-    Json(rows)
+    Ok(Json(rows))
 }
