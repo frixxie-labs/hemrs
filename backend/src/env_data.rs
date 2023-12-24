@@ -24,7 +24,7 @@ impl fmt::Display for EnvDataEntry {
 impl From<EnvData> for EnvDataEntry {
     fn from(env_data: EnvData) -> Self {
         EnvDataEntry {
-            ts: DateTime::from(Utc::now()),
+            ts: Utc::now(),
             room: env_data.room,
             temperature: env_data.temp,
             humidity: env_data.hum,

@@ -50,7 +50,7 @@ pub async fn store_env_data(
     .map_err(|e| {
         HandlerError::new(
             500,
-            format!("Failed to store data in database: {}", e.to_string()),
+            format!("Failed to store data in database: {}", e),
         )
     })?;
     Ok("OK".to_string())
@@ -67,7 +67,7 @@ pub async fn fetch_all_data(
         .map_err(|e| {
             HandlerError::new(
                 500,
-                format!("Failed to fetch data from database: {}", e.to_string()),
+                format!("Failed to fetch data from database: {}", e),
             )
         })?;
 
