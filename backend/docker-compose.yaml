@@ -1,0 +1,33 @@
+services:
+  grafana:
+    image: grafana/grafana-enterprise
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    volumes:
+      - grafana-storage:/var/lib/grafana
+
+  db:
+    image: postgres
+    restart: always
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_PASSWORD: example
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
+
+  # backend:
+  #   build: .
+  #   ports:
+  #     - '65534:3000'
+  #   depends_on:
+  #     - db
+
+volumes:
+  grafana-storage: {}

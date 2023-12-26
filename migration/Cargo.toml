@@ -1,0 +1,15 @@
+[package]
+name = "migration"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+reqwest = { version = "0.11.23", features = ["json", "blocking"] }
+serde = { version = "1.0.193", features = ["derive"] }
+serde_json = "1.0.108"
+env_data = { path="../env_data" }
+chrono = { version = "0.4.31", features = ["serde"] }
+anyhow = "1.0.76"
+rayon = "1.8.0"
