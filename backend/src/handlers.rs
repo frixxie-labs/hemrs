@@ -1,4 +1,4 @@
-use axum::{debug_handler, extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use log::info;
 use sqlx::{query, query_as, Pool, Postgres};
 use std::{error::Error, fmt};
@@ -31,7 +31,6 @@ impl IntoResponse for HandlerError {
     }
 }
 
-#[debug_handler]
 pub async fn store_env_data_entry(
     State(pool): State<Pool<Postgres>>,
     Json(env_data): Json<EnvDataEntry>,
@@ -50,7 +49,6 @@ pub async fn store_env_data_entry(
     Ok("OK".to_string())
 }
 
-#[debug_handler]
 pub async fn store_env_data(
     State(pool): State<Pool<Postgres>>,
     Json(env_data): Json<EnvData>,
@@ -70,7 +68,6 @@ pub async fn store_env_data(
     Ok("OK".to_string())
 }
 
-#[debug_handler]
 pub async fn fetch_all_data(
     State(pool): State<Pool<Postgres>>,
 ) -> Result<Json<Vec<EnvDataEntry>>, HandlerError> {

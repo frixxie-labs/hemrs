@@ -47,7 +47,7 @@ fn post_data_to_dest(client: Client, data: EnvDataEntry, dest_uri: &str) -> Resu
 fn main() -> Result<(), Error> {
     let bclient = Client::new();
     let src_uri = "http://server:65534/";
-    let dest_uri = "http://localhost:65534/entry";
+    let dest_uri = "http://server:65533/entry";
 
     println!("Getting data from {}", src_uri);
     let data = get_data_from_src(&bclient, src_uri);
