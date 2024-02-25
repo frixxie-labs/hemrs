@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
-    _ "github.com/lib/pq"
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -19,5 +19,5 @@ func main() {
 	r.GET("/sensor_data/latest", GetLatestSensorData(db))
 	r.GET("/sensor_data/mean", GetMeanData(db))
 	r.GET("/ping", Ping)
-	r.Run() // listen and serve on 0.0.0.0:8080
+	r.Run()
 }

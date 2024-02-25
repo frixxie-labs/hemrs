@@ -1,4 +1,4 @@
-FROM golang:alpine
+FROM golang:alpine as build-stage
 
 # Set the Current Working Directory inside the container
 WORKDIR /app
@@ -14,6 +14,15 @@ COPY . .
 
 # Build the Go app
 RUN go build -o main .
+
+# Start a new stage from scratch
+FROM alpine:latest
+
+# Set the Current Working Directory inside the container
+WORKDIR /app
+
+# Copy the Pre-built binary file from the previous stage
+COPY --from=build-stage /app/main .
 
 # Expose port 8080 to the outside world
 EXPOSE 8080
