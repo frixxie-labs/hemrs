@@ -36,7 +36,6 @@ func GetMeanData(db *sqlx.DB) gin.HandlerFunc {
 		context.JSON(200, gin.H{
 			"mean_temperature": mean_temp,
 			"mean_humidity":    mean_hum,
-			"len_data":         len(sensor_data),
 		})
 	}
 }
