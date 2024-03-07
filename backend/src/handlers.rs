@@ -36,16 +36,14 @@ pub async fn store_env_data_entry(
     Json(env_data): Json<EnvDataEntry>,
 ) -> Result<String, HandlerError> {
     info!("POST /entry");
-    query!(
-        "INSERT INTO env_data VALUES ($1, $2, $3, $4)",
-        env_data.ts,
-        env_data.room,
-        env_data.temperature,
-        env_data.humidity
-    )
-    .execute(&pool)
-    .await
-    .map_err(|e| HandlerError::new(500, format!("Failed to store data in database: {}", e)))?;
+    query("INSERT INTO env_data VALUES ($1, $2, $3, $4)")
+        .bind(env_data.ts)
+        .bind(env_data.room)
+        .bind(env_data.temperature)
+        .bind(env_data.humidity)
+        .execute(&pool)
+        .await
+        .map_err(|e| HandlerError::new(500, format!("Failed to store data in database: {}", e)))?;
     Ok("OK".to_string())
 }
 
@@ -55,16 +53,15 @@ pub async fn store_env_data(
 ) -> Result<String, HandlerError> {
     info!("POST /");
     let env_data_entry: EnvDataEntry = env_data.into();
-    query!(
-        "INSERT INTO env_data VALUES ($1, $2, $3, $4)",
-        env_data_entry.ts,
-        env_data_entry.room,
-        env_data_entry.temperature,
-        env_data_entry.humidity
-    )
-    .execute(&pool)
-    .await
-    .map_err(|e| HandlerError::new(500, format!("Failed to store data in database: {}", e)))?;
+
+    query("INSERT INTO env_data VALUES ($1, $2, $3, $4)")
+        .bind(env_data_entry.ts)
+        .bind(env_data_entry.room)
+        .bind(env_data_entry.temperature)
+        .bind(env_data_entry.humidity)
+        .execute(&pool)
+        .await
+        .map_err(|e| HandlerError::new(500, format!("Failed to store data in database: {}", e)))?;
     Ok("OK".to_string())
 }
 
@@ -72,7 +69,7 @@ pub async fn fetch_all_data(
     State(pool): State<Pool<Postgres>>,
 ) -> Result<Json<Vec<EnvDataEntry>>, HandlerError> {
     info!("GET /");
-    let rows = query_as!(EnvDataEntry, "SELECT * FROM env_data")
+    let rows: Vec<EnvDataEntry> = query_as("SELECT * FROM env_data")
         .fetch_all(&pool)
         .await
         .map_err(|e| {

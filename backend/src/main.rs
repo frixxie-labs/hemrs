@@ -15,6 +15,13 @@ mod handlers;
 pub struct Opts {
     #[structopt(short, long, default_value = "0.0.0.0:65534")]
     host: String,
+
+    #[structopt(
+        short,
+        long,
+        default_value = "postgres://postgres:password@localhost:5432/env_data"
+    )]
+    db_url: String,
 }
 
 #[tokio::main]
@@ -25,7 +32,7 @@ async fn main() -> Result<(), anyhow::Error> {
         .init()?;
 
     info!("Connecting to DB");
-    let connection = PgPool::connect(env!("DATABASE_URL")).await.unwrap();
+    let connection = PgPool::connect(&opts.db_url).await.unwrap();
 
     let app = Router::new()
         .route("/", get(fetch_all_data))
