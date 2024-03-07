@@ -19,6 +19,7 @@ pub struct Opts {
     #[structopt(
         short,
         long,
+        env = "DATABASE_URL",
         default_value = "postgres://postgres:password@localhost:5432/env_data"
     )]
     db_url: String,
