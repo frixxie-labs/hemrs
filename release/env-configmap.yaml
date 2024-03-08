@@ -4,5 +4,5 @@ data:
 kind: ConfigMap
 metadata:
   labels:
-    io.kompose.service: backend-env
+    io.kompose.service: hemrs-env
   name: env
