@@ -1,6 +1,6 @@
 services:
   backend:
-    build: .
+    image: ghcr.io/frixxie/hemrs:master
     ports:
       - '65534:3000'
     env_file:
