@@ -5,12 +5,12 @@ metadata:
     kompose.cmd: kompose -f ./docker-compose.yaml convert -o release
     kompose.version: 1.32.0 (HEAD)
   labels:
-    io.kompose.service: backend
-  name: backend
+    io.kompose.service: hemrs
+  name: hemrs
 spec:
   ports:
     - name: "65534"
       port: 65534
       targetPort: 3000
   selector:
-    io.kompose.service: backend
+    io.kompose.service: hemrs
