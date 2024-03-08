@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose -f ./docker-compose.yaml convert -o release
+    kompose.version: 1.32.0 (HEAD)
+  labels:
+    io.kompose.service: backend
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: backend
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose -f ./docker-compose.yaml convert -o release
+        kompose.version: 1.32.0 (HEAD)
+      labels:
+        io.kompose.network/hemrs-default: "true"
+        io.kompose.service: backend
+    spec:
+      containers:
+        - env:
+            - name: DATABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: DATABASE_URL
+                  name: env
+          image: ghcr.io/frixxie/hemrs:master
+          name: backend
+          ports:
+            - containerPort: 3000
+              hostPort: 65534
+              protocol: TCP
+      restartPolicy: Always

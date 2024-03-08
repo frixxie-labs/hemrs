@@ -1,0 +1,8 @@
+apiVersion: v1
+data:
+  DATABASE_URL: postgresql://postgres:admin@server:5432/postgres
+kind: ConfigMap
+metadata:
+  labels:
+    io.kompose.service: backend-env
+  name: env
