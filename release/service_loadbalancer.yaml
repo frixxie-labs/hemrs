@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: hemrs
+    kustomize.toolkit.fluxcd.io/name: hemrs-release
+    kustomize.toolkit.fluxcd.io/namespace: flux-system
+  name: hemrs-ext
+  namespace: default
+spec:
+  ports:
+  - port: 65534
+    protocol: TCP
+    targetPort: 65534
+  selector:
+    io.kompose.service: hemrs
+  type: LoadBalancer
+status:
+  loadBalancer: {}
