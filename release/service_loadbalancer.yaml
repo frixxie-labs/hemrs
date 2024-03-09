@@ -12,7 +12,7 @@ spec:
   ports:
   - port: 65534
     protocol: TCP
-    targetPort: 65534
+    targetPort: 3000
   selector:
     io.kompose.service: hemrs
   type: LoadBalancer
