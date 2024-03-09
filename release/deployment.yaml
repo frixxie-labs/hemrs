@@ -31,7 +31,7 @@ spec:
           image: ghcr.io/frixxie/hemrs:master
           name: hemrs
           ports:
-            - containerPort: 3000
+            - containerPort: 65534
               hostPort: 3000
               protocol: TCP
       restartPolicy: Always
