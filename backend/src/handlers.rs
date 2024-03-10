@@ -65,6 +65,47 @@ pub async fn store_env_data(
     Ok("OK".to_string())
 }
 
+pub async fn fetch_mean_data(
+    State(pool): State<Pool<Postgres>>,
+) -> Result<Json<EnvDataEntry>, HandlerError> {
+    info!("GET /mean");
+    let rows: Vec<EnvDataEntry> = query_as("SELECT * FROM env_data")
+        .fetch_all(&pool)
+        .await
+        .map_err(|e| {
+            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+        })?;
+
+    let (sum_temperature, sum_humidity) = rows.iter().fold((0.0, 0.0), |(temp, hum), row| {
+        (temp + row.temperature, hum + row.humidity)
+    });
+    let temperature = sum_temperature / rows.len() as f32;
+    let humidity = sum_humidity / rows.len() as f32;
+
+    let result = EnvDataEntry {
+        ts: chrono::Utc::now(),
+        room: "mean".to_string(),
+        temperature,
+        humidity,
+    };
+
+    Ok(Json(result))
+}
+
+pub async fn fetch_latest_data(
+    State(pool): State<Pool<Postgres>>,
+) -> Result<Json<EnvDataEntry>, HandlerError> {
+    info!("GET /latest");
+    let row: EnvDataEntry = query_as("SELECT * FROM env_data ORDER BY ts DESC LIMIT 1")
+        .fetch_one(&pool)
+        .await
+        .map_err(|e| {
+            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+        })?;
+
+    Ok(Json(row))
+}
+
 pub async fn fetch_all_data(
     State(pool): State<Pool<Postgres>>,
 ) -> Result<Json<Vec<EnvDataEntry>>, HandlerError> {
