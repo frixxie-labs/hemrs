@@ -7,7 +7,9 @@ use simple_logger::SimpleLogger;
 use sqlx::PgPool;
 use structopt::StructOpt;
 
-use crate::handlers::{fetch_all_data, store_env_data, store_env_data_entry};
+use crate::handlers::{
+    fetch_all_data, fetch_latest_data, fetch_mean_data, store_env_data, store_env_data_entry,
+};
 
 mod handlers;
 
@@ -20,7 +22,7 @@ pub struct Opts {
         short,
         long,
         env = "DATABASE_URL",
-        default_value = "postgres://postgres:password@localhost:5432/env_data"
+        default_value = "postgres://postgres:example@server:5432/postgres"
     )]
     db_url: String,
 }
@@ -37,6 +39,8 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let app = Router::new()
         .route("/", get(fetch_all_data))
+        .route("/latest", get(fetch_latest_data))
+        .route("/mean", get(fetch_mean_data))
         .route("/", post(store_env_data))
         .route("/entry", post(store_env_data_entry))
         .with_state(connection);
