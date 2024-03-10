@@ -28,7 +28,7 @@ spec:
                 configMapKeyRef:
                   key: DATABASE_URL
                   name: env
-          image: ghcr.io/frixxie/hemrs:0.1.0 # {"$imagepolicy": "defualt:hemrs-policy"}
+          image: ghcr.io/frixxie/hemrs:0.1.2
           name: hemrs
           ports:
             - containerPort: 65534
