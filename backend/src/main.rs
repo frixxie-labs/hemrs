@@ -1,11 +1,12 @@
 use axum::{
     routing::{get, post},
-    Router, Server,
+    Router,
 };
 use log::info;
 use simple_logger::SimpleLogger;
 use sqlx::PgPool;
 use structopt::StructOpt;
+use tokio::net::TcpListener;
 
 use crate::handlers::{
     fetch_all_data, fetch_latest_data, fetch_mean_data, store_env_data, store_env_data_entry,
@@ -45,9 +46,8 @@ async fn main() -> Result<(), anyhow::Error> {
         .route("/entry", post(store_env_data_entry))
         .with_state(connection);
 
-    Server::bind(&opts.host.parse()?)
-        .serve(app.into_make_service())
-        .await?;
+    let listener = TcpListener::bind(&opts.host).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
 
     Ok(())
 }
