@@ -28,7 +28,7 @@ spec:
                 configMapKeyRef:
                   key: DATABASE_URL
                   name: env
-          image: ghcr.io/frixxie/hemrs:0.1.3
+          image: ghcr.io/frixxie/hemrs:0.1.5
           name: hemrs
           ports:
             - containerPort: 65534
