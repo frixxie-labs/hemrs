@@ -1,5 +1,6 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use log::info;
+use rayon::prelude::*;
 use sqlx::{query, query_as, Pool, Postgres};
 use std::{error::Error, fmt};
 
@@ -76,9 +77,10 @@ pub async fn fetch_mean_data(
             HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
         })?;
 
-    let (sum_temperature, sum_humidity) = rows.iter().fold((0.0, 0.0), |(temp, hum), row| {
-        (temp + row.temperature, hum + row.humidity)
-    });
+    let (sum_temperature, sum_humidity) =
+        rows.into_par_iter().fold((0.0, 0.0), |(temp, hum), row| {
+            (temp + row.temperature, hum + row.humidity)
+        });
     let temperature = sum_temperature / rows.len() as f32;
     let humidity = sum_humidity / rows.len() as f32;
 

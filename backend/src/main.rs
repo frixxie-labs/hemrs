@@ -35,7 +35,7 @@ async fn main() -> Result<(), anyhow::Error> {
         .with_level(log::LevelFilter::Info)
         .init()?;
 
-    info!("Connecting to DB");
+    info!("Connecting to DB at {}", opts.db_url);
     let connection = PgPool::connect(&opts.db_url).await.unwrap();
 
     let app = Router::new()
