@@ -190,7 +190,6 @@ dependencies = [
  "chrono",
  "env_data",
  "log",
- "rayon",
  "serde",
  "serde_json",
  "simple_logger",
