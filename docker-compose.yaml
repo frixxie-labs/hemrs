@@ -1,6 +1,6 @@
 services:
   hemrs:
-    image: ghcr.io/frixxie/hemrs:master
+    build: .
     ports:
       - '65534:65534'
     env_file:
