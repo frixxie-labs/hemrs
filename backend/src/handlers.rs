@@ -82,12 +82,12 @@ pub async fn fetch_mean_data(
     let temperature = sum_temperature / rows.len() as f32;
     let humidity = sum_humidity / rows.len() as f32;
 
-    let result = EnvDataEntry {
-        ts: chrono::Utc::now(),
-        room: "mean".to_string(),
+    let result = EnvDataEntry::new(
+        chrono::Utc::now(),
+        "mean".to_string(),
         temperature,
         humidity,
-    };
+    );
 
     Ok(Json(result))
 }
