@@ -32,6 +32,6 @@ spec:
           name: hemrs
           ports:
             - containerPort: 65534
-              hostPort: 3000
+              hostPort: 65534
               protocol: TCP
       restartPolicy: Always
