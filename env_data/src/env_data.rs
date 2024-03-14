@@ -11,6 +11,12 @@ pub struct EnvDataEntry {
     pub humidity: f32,
 }
 
+impl EnvDataEntry {
+    pub fn new(ts: DateTime<Utc>, room: String, temperature: f32, humidity: f32) -> Self {
+        Self { ts, room, temperature, humidity }
+    }
+}
+
 impl fmt::Display for EnvDataEntry {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
