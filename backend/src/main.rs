@@ -38,10 +38,13 @@ async fn main() -> Result<(), anyhow::Error> {
     info!("Connecting to DB at {}", opts.db_url);
     let connection = PgPool::connect(&opts.db_url).await.unwrap();
 
-    let app = Router::new()
+    let api = Router::new()
         .route("/", get(fetch_all_data))
         .route("/latest", get(fetch_latest_data))
-        .route("/mean", get(fetch_mean_data))
+        .route("/mean", get(fetch_mean_data));
+
+    let app = Router::new()
+        .nest("/api", api)
         .route("/", post(store_env_data))
         .route("/entry", post(store_env_data_entry))
         .with_state(connection);
