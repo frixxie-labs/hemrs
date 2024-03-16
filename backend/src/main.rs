@@ -8,10 +8,11 @@ use sqlx::PgPool;
 use structopt::StructOpt;
 use tokio::net::TcpListener;
 
-use crate::handlers::{
-    fetch_all_data, fetch_latest_data, fetch_mean_data, store_env_data, store_env_data_entry,
-};
+use crate::handlers::{fetch_all_data, fetch_latest_data, fetch_mean_data, store_env_data};
 
+mod create_read;
+mod db_connection_pool;
+mod error;
 mod handlers;
 
 #[derive(Debug, Clone, StructOpt)]
@@ -38,16 +39,17 @@ async fn main() -> Result<(), anyhow::Error> {
     info!("Connecting to DB at {}", opts.db_url);
     let connection = PgPool::connect(&opts.db_url).await.unwrap();
 
+    let pg_pool = db_connection_pool::Postgres::new(connection);
+
     let api = Router::new()
-        .route("/", get(fetch_all_data))
+        .route("/all", get(fetch_all_data))
         .route("/latest", get(fetch_latest_data))
         .route("/mean", get(fetch_mean_data));
 
     let app = Router::new()
         .nest("/api", api)
         .route("/", post(store_env_data))
-        .route("/entry", post(store_env_data_entry))
-        .with_state(connection);
+        .with_state(pg_pool);
 
     let listener = TcpListener::bind(&opts.host).await.unwrap();
     axum::serve(listener, app).await.unwrap();
