@@ -4,20 +4,25 @@ use sqlx::FromRow;
 use std::fmt;
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
-pub struct EnvDataEntry {
+pub struct Dht11Entry {
     pub ts: DateTime<Utc>,
     pub room: String,
     pub temperature: f32,
     pub humidity: f32,
 }
 
-impl EnvDataEntry {
+impl Dht11Entry {
     pub fn new(ts: DateTime<Utc>, room: String, temperature: f32, humidity: f32) -> Self {
-        Self { ts, room, temperature, humidity }
+        Self {
+            ts,
+            room,
+            temperature,
+            humidity,
+        }
     }
 }
 
-impl fmt::Display for EnvDataEntry {
+impl fmt::Display for Dht11Entry {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -27,9 +32,9 @@ impl fmt::Display for EnvDataEntry {
     }
 }
 
-impl From<EnvData> for EnvDataEntry {
-    fn from(env_data: EnvData) -> Self {
-        EnvDataEntry {
+impl From<Dht11> for Dht11Entry {
+    fn from(env_data: Dht11) -> Self {
+        Dht11Entry {
             ts: Utc::now(),
             room: env_data.room,
             temperature: env_data.temp,
@@ -39,13 +44,13 @@ impl From<EnvData> for EnvDataEntry {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct EnvData {
+pub struct Dht11 {
     room: String,
     temp: f32,
     hum: f32,
 }
 
-impl fmt::Display for EnvData {
+impl fmt::Display for Dht11 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{},{},{}", self.room, self.temp, self.hum,)
     }
