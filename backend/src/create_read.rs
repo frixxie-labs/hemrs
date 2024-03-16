@@ -2,16 +2,20 @@ use anyhow::Result;
 use sensors::Dht11Entry;
 use sqlx::PgPool;
 
-use crate::db_connection_pool::DbConnectionPool;
+use crate::db_connection_pool::{DbConnectionPool, Postgres};
 pub trait CreateRead<TPool>: Sized {
-    async fn create(self, connection_pool: impl DbConnectionPool<TPool>) -> Result<()>;
-    async fn read(connection_pool: impl DbConnectionPool<TPool>) -> Result<Self>;
-    async fn read_all(connection_pool: impl DbConnectionPool<TPool>) -> Result<Vec<Self>>;
+    type Connection: DbConnectionPool<TPool>;
+
+    async fn create(self, connection: Self::Connection) -> Result<()>;
+    async fn read(connection: Self::Connection) -> Result<Self>;
+    async fn read_all(connection: Self::Connection) -> Result<Vec<Self>>;
 }
 
 impl CreateRead<PgPool> for Dht11Entry {
-    async fn create(self, connection_pool: impl DbConnectionPool<PgPool>) -> Result<()> {
-        let pool = connection_pool.get_connection().await;
+    type Connection = Postgres;
+
+    async fn create(self, connection: Self::Connection) -> Result<()> {
+        let pool = connection.get_connection().await;
         sqlx::query("INSERT INTO env_data VALUES ($1, $2, $3, $4)")
             .bind(self.ts)
             .bind(self.room)
@@ -22,21 +26,21 @@ impl CreateRead<PgPool> for Dht11Entry {
         Ok(())
     }
 
-    async fn read(connection_pool: impl DbConnectionPool<PgPool>) -> Result<Self> {
-        let pool = connection_pool.get_connection().await;
-        let env_data_entry =
+    async fn read(connection: Self::Connection) -> Result<Self> {
+        let pool = connection.get_connection().await;
+        let dht11_entry =
             sqlx::query_as::<_, Dht11Entry>("SELECT * FROM env_data ORDER BY ts DESC LIMIT 1")
                 .fetch_one(&pool)
                 .await?;
-        Ok(env_data_entry)
+        Ok(dht11_entry)
     }
 
-    async fn read_all(connection_pool: impl DbConnectionPool<PgPool>) -> Result<Vec<Self>> {
-        let pool = connection_pool.get_connection().await;
-        let env_data_entries =
+    async fn read_all(connection: Self::Connection) -> Result<Vec<Self>> {
+        let pool = connection.get_connection().await;
+        let dht11_entries =
             sqlx::query_as::<_, Dht11Entry>("SELECT * FROM env_data ORDER BY ts DESC")
                 .fetch_all(&pool)
                 .await?;
-        Ok(env_data_entries)
+        Ok(dht11_entries)
     }
 }
