@@ -10,7 +10,8 @@ use tokio::net::TcpListener;
 
 use crate::handlers::{fetch_all_data, fetch_latest_data, fetch_mean_data, store_env_data};
 
-mod create_read;
+mod create;
+mod read;
 mod db_connection_pool;
 mod error;
 mod handlers;

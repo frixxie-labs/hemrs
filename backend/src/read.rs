@@ -3,28 +3,14 @@ use sensors::Dht11Entry;
 use sqlx::PgPool;
 
 use crate::db_connection_pool::{DbConnectionPool, Postgres};
-pub trait CreateRead<TPool>: Sized {
+pub trait Read<TPool>: Sized {
     type Connection: DbConnectionPool<TPool>;
-
-    async fn create(self, connection: Self::Connection) -> Result<()>;
     async fn read(connection: Self::Connection) -> Result<Self>;
-    async fn read_all(connection: Self::Connection) -> Result<Vec<Self>>;
 }
 
-impl CreateRead<PgPool> for Dht11Entry {
-    type Connection = Postgres;
 
-    async fn create(self, connection: Self::Connection) -> Result<()> {
-        let pool = connection.get_connection().await;
-        sqlx::query("INSERT INTO env_data VALUES ($1, $2, $3, $4)")
-            .bind(self.ts)
-            .bind(self.room)
-            .bind(self.temperature)
-            .bind(self.humidity)
-            .execute(&pool)
-            .await?;
-        Ok(())
-    }
+impl Read<PgPool> for Dht11Entry {
+    type Connection = Postgres;
 
     async fn read(connection: Self::Connection) -> Result<Self> {
         let pool = connection.get_connection().await;
@@ -34,8 +20,12 @@ impl CreateRead<PgPool> for Dht11Entry {
                 .await?;
         Ok(dht11_entry)
     }
+}
 
-    async fn read_all(connection: Self::Connection) -> Result<Vec<Self>> {
+impl Read<PgPool> for Vec<Dht11Entry> {
+    type Connection = Postgres;
+
+    async fn read(connection: Self::Connection) -> Result<Self> {
         let pool = connection.get_connection().await;
         let dht11_entries =
             sqlx::query_as::<_, Dht11Entry>("SELECT * FROM env_data ORDER BY ts DESC")

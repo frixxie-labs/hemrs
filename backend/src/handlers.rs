@@ -4,10 +4,11 @@ use log::info;
 
 use sensors::{Dht11, Dht11Entry};
 
+use crate::create::Create;
 use crate::db_connection_pool::Postgres;
 
-use crate::create_read::CreateRead;
 use crate::error::HandlerError;
+use crate::read::Read;
 
 pub async fn store_env_data(
     State(pg_pool): State<Postgres>,
@@ -28,7 +29,7 @@ pub async fn fetch_mean_data(
     State(pg_pool): State<Postgres>,
 ) -> Result<Json<Dht11Entry>, HandlerError> {
     info!("GET api/mean");
-    let dht11_entries = Dht11Entry::read_all(pg_pool).await.map_err(|e| {
+    let dht11_entries = Vec::<Dht11Entry>::read(pg_pool).await.map_err(|e| {
         HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
     })?;
 
@@ -64,7 +65,7 @@ pub async fn fetch_all_data(
     State(pool): State<Postgres>,
 ) -> Result<Json<Vec<Dht11Entry>>, HandlerError> {
     info!("GET api/all");
-    let entry = Dht11Entry::read_all(pool).await.map_err(|e| {
+    let entry = Vec::<Dht11Entry>::read(pool).await.map_err(|e| {
         HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
     })?;
 
