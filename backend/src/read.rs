@@ -8,7 +8,6 @@ pub trait Read<TPool>: Sized {
     async fn read(connection: Self::Connection) -> Result<Self>;
 }
 
-
 impl Read<PgPool> for Dht11Entry {
     type Connection = Postgres;
 
