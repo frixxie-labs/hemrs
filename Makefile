@@ -1,4 +1,5 @@
 PROJECT_NAME=hemrs
+TAG=$(git tag -l --sort=-commiterdate | sed 1q)
 
 all: container
 
