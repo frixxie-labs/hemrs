@@ -1,9 +1,4 @@
-name: Docker
-
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
+name: Make
 
 on:
   schedule:
@@ -12,8 +7,9 @@ on:
     branches: [ "master" ]
     # Publish semver tags as releases.
     tags: [ '*.*.*' ]
-  pull_request:
-    branches: [ "master" ]
+
+env:
+  GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
 jobs:
   build:
@@ -30,5 +26,4 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Publish container 
-        if: github.event_name != 'pull_request'
         run: make publish_container
