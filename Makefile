@@ -1,5 +1,4 @@
 PROJECT_NAME=hemrs
-TAG=$(git tag -l --sort=-commiterdate | sed 1q)
 
 all: container
 
@@ -20,5 +19,5 @@ publish_container: container docker_login
 	docker push ghcr.io/frixxie/$(PROJECT_NAME):latest
 
 publish_tagged_container: container docker_login
-	docker tag ghcr.io/frixxie/$(PROJECT_NAME):latest ghcr.io/frixxie/$(PROJECT_NAME):$(TAG)
-	docker push ghcr.io/frixxie/$(PROJECT_NAME):$(TAG)
+	docker tag ghcr.io/frixxie/$(PROJECT_NAME):latest ghcr.io/frixxie/$(PROJECT_NAME):$(DOCKERTAG)
+	docker push ghcr.io/frixxie/$(PROJECT_NAME):$(DOCKERTAG)
