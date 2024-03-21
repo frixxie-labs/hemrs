@@ -13,10 +13,9 @@ container: test
 	docker build -t ghcr.io/frixxie/$(PROJECT_NAME):latest .
 
 docker_login:
-	docker login ghcr.io -u Frixxie --password-stdin $(GITHUB_TOKEN)
+	docker login ghcr.io -u Frixxie -p $(GITHUB_TOKEN)
 
 publish_container: container docker_login
-	docker login ghcr.io -u Frixxie --password-stdin $(GITHUB_TOKEN)
 	docker push ghcr.io/frixxie/$(PROJECT_NAME):latest
 
 publish_tagged_container: container docker_login
