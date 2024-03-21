@@ -32,8 +32,3 @@ jobs:
       - name: Publish container 
         if: github.event_name != 'pull_request'
         run: make publish_container
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          tags: ${{ steps.meta.outputs.tags }}
