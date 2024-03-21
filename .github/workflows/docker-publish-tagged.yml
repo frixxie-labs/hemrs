@@ -1,0 +1,26 @@
+name: Make-tagged
+
+on:
+  push:
+    branches: [ "master" ]
+    # Publish semver tags as releases.
+    tags: [ '*.*.*' ]
+
+env:
+  GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+  TAG: ${{ steps.meta.outputs.tags }}
+
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Publish container 
+        run: make publish_tagged_container
