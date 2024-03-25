@@ -11,9 +11,7 @@ env:
 jobs:
   build:
 
-    runs-on: 
-      - ubuntu-latest
-      - pimaster
+    runs-on: [ubuntu-latest, pimaster]
     permissions:
       contents: read
       packages: write
