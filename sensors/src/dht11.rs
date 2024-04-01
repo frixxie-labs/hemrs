@@ -43,11 +43,17 @@ impl From<Dht11> for Dht11Entry {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Dht11 {
     room: String,
     temp: f32,
     hum: f32,
+}
+
+impl Dht11 {
+    pub fn new(room: String, temp: f32, hum: f32) -> Self {
+        Self { room, temp, hum }
+    }
 }
 
 impl fmt::Display for Dht11 {
@@ -55,3 +61,4 @@ impl fmt::Display for Dht11 {
         write!(f, "{},{},{}", self.room, self.temp, self.hum,)
     }
 }
+
