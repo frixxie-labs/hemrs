@@ -68,12 +68,12 @@ fn main() -> Result<()> {
                         }
                     };
                     wifi.disconnect()?;
+                    std::thread::sleep(Duration::from_secs(120));
                 }
             }
             Err(e) => warn!("Failed to read! error: {:?}", e),
         }
-
-        std::thread::sleep(Duration::from_secs(120));
+        std::thread::sleep(Duration::from_secs(2));
     }
 }
 
@@ -84,7 +84,9 @@ fn post_reading(payload: sensors::Dht11) -> Result<()> {
         ("content-type", "application/json"),
         ("content-length", &format!("{}", request_payload.len())),
     ];
-    connection.initiate_request(Method::Post, "http://pimaster.lan:65534/", &headers)?;
+    const URL: &str = "http://192.168.88.208:65534/";
+    info!("Sending request to url: {}", URL);
+    connection.initiate_request(Method::Post, URL, &headers)?;
     let mut request = Request::wrap(connection);
     request.write(&request_payload)?;
     request.submit()?;

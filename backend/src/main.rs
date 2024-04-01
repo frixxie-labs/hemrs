@@ -8,13 +8,16 @@ use sqlx::PgPool;
 use structopt::StructOpt;
 use tokio::net::TcpListener;
 
-use crate::handlers::{fetch_all_data, fetch_latest_data, fetch_mean_data, store_env_data};
+use crate::handlers::{fetch_all_data, fetch_latest_data, store_env_data};
 
 mod create;
-mod read;
 mod db_connection_pool;
+mod devices;
 mod error;
 mod handlers;
+mod measurements;
+mod read;
+mod sensors;
 
 #[derive(Debug, Clone, StructOpt)]
 pub struct Opts {
@@ -44,8 +47,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let api = Router::new()
         .route("/all", get(fetch_all_data))
-        .route("/latest", get(fetch_latest_data))
-        .route("/mean", get(fetch_mean_data));
+        .route("/latest", get(fetch_latest_data));
 
     let app = Router::new()
         .nest("/api", api)
