@@ -1,5 +1,6 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use log::info;
 use sensors::Dht11;
 use serde::Serialize;
 use sqlx::{FromRow, PgPool};
@@ -9,8 +10,6 @@ use crate::{
     db_connection_pool::{DbConnectionPool, Postgres},
     read::Read,
 };
-
-// select m.ts, m.value, s.unit, d.name as device_name, d.location as device_location, s.name as sersor_name from measurements m join devices d on d.id = m.device_id join sensors s on s.id = m.sensor_id;
 
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct Measurement {
@@ -28,27 +27,27 @@ impl Create<PgPool> for Dht11 {
     async fn create(self, connection: Self::Connection) -> Result<()> {
         let pool = connection.get_connection().await;
         let transaction = pool.begin().await?;
-        let dht11_temperature_id: i64 =
+        let dht11_temperature_id: i32 =
             sqlx::query_scalar("SELECT id from sensors where name = 'dht11_temperature'")
                 .fetch_one(&pool)
                 .await?;
-        let dht11_humidity_id: i64 =
+        let dht11_humidity_id: i32 =
             sqlx::query_scalar("SELECT id from sensors where name = 'dht11_humidity'")
                 .fetch_one(&pool)
                 .await?;
-        let device_id: i64 = sqlx::query_scalar("SELECT id from devices where location = ($1)")
+        let device_id: i32 = sqlx::query_scalar("SELECT id from devices where location = ($1)")
             .bind(self.room.clone())
             .fetch_one(&pool)
             .await?;
         sqlx::query("INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES (CURRENT_TIMESTAMP, $1, $2, $3)")
-            .bind(dht11_temperature_id)
             .bind(device_id)
+            .bind(dht11_temperature_id)
             .bind(self.temp)
             .execute(&pool)
             .await?;
         sqlx::query("INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES (CURRENT_TIMESTAMP, $1, $2, $3)")
-            .bind(dht11_humidity_id)
             .bind(device_id)
+            .bind(dht11_humidity_id)
             .bind(self.hum)
             .execute(&pool)
             .await?;
