@@ -1,6 +1,6 @@
 use anyhow::Result;
 use axum::{extract::State, Json};
-use log::info;
+use log::{info, warn};
 
 use sensors::Dht11;
 
@@ -17,10 +17,10 @@ pub async fn store_env_data(
 ) -> Result<String, HandlerError> {
     info!("POST /");
 
-    dht11_data
-        .create(pg_pool)
-        .await
-        .map_err(|e| HandlerError::new(500, format!("Failed to store data in database: {}", e)))?;
+    dht11_data.create(pg_pool).await.map_err(|e| {
+        warn!("Failed with error: {}", e);
+        HandlerError::new(500, format!("Failed to store data in database: {}", e))
+    })?;
 
     Ok("OK".to_string())
 }
@@ -30,6 +30,7 @@ pub async fn fetch_latest_data(
 ) -> Result<Json<Measurement>, HandlerError> {
     info!("GET api/latest");
     let entry = Measurement::read(pg_pool).await.map_err(|e| {
+        warn!("Failed with error: {}", e);
         HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
     })?;
 
@@ -41,6 +42,7 @@ pub async fn fetch_all_data(
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
     info!("GET api/all");
     let entry = Vec::<Measurement>::read(pool).await.map_err(|e| {
+        warn!("Failed with error: {}", e);
         HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
     })?;
 
