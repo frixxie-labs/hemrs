@@ -13,7 +13,7 @@ docker_builder: test
 	docker buildx create --name builder --platform linux/amd64,linux/arm64
 
 container: test docker_builder
-	docker buildx build -t ghcr.io/frixxie/$(PROJECT_NAME):latest . --platform linux/amd64,linux/arm64 --builder builder
+	docker buildx build -t ghcr.io/frixxie/$(PROJECT_NAME):latest . --platform linux/amd64,linux/arm64 --builder builder --push
 
 docker_login:
 	docker login ghcr.io -u Frixxie -p $(GITHUB_TOKEN)
