@@ -61,7 +61,7 @@ impl Read<PgPool> for Measurement {
     async fn read(connection: Self::Connection) -> Result<Self> {
         let pool = connection.get_connection().await;
         let measurement = sqlx::query_as::<_, Measurement>(
-            "SELECT m.ts AS timestasmp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id ORDER BY ts DESC LIMIT 1",
+            "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id ORDER BY ts DESC LIMIT 1",
         )
         .fetch_one(&pool)
         .await?;
@@ -75,7 +75,7 @@ impl Read<PgPool> for Vec<Measurement> {
     async fn read(connection: Self::Connection) -> Result<Self> {
         let pool = connection.get_connection().await;
         let dht11_entries =
-            sqlx::query_as::<_, Measurement>("SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id ORDER BY ts DESC LIMIT 1")
+            sqlx::query_as::<_, Measurement>("SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id ORDER BY ts")
                 .fetch_all(&pool)
                 .await?;
         Ok(dht11_entries)
