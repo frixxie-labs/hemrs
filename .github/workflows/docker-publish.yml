@@ -11,18 +11,6 @@ env:
   GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
 jobs:
-  build-pi:
-    runs-on: self-hosted
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Publish container
-        run: make publish_container
-
   build:
     runs-on: ubuntu-latest
     permissions:

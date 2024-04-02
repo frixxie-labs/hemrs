@@ -84,7 +84,7 @@ fn post_reading(payload: sensors::Dht11) -> Result<()> {
         ("content-type", "application/json"),
         ("content-length", &format!("{}", request_payload.len())),
     ];
-    const URL: &str = "http://192.168.88.208:65534/";
+    const URL: &str = "http://pimaster.lan:65534/";
     info!("Sending request to url: {}", URL);
     connection.initiate_request(Method::Post, URL, &headers)?;
     let mut request = Request::wrap(connection);
