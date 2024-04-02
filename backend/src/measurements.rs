@@ -1,6 +1,5 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use log::info;
 use sensors::Dht11;
 use serde::Serialize;
 use sqlx::{FromRow, PgPool};
@@ -14,7 +13,7 @@ use crate::{
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct Measurement {
     timestamp: DateTime<Utc>,
-    value: f64,
+    value: f32,
     unit: String,
     device_name: String,
     device_location: String,
