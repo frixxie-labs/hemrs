@@ -21,4 +21,4 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Publish container
-        run: make publish_container
+        run: make container
