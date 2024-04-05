@@ -2,13 +2,15 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use handlers::{
+    fetch_all_measurements, fetch_devices, fetch_latest_measurement, fetch_sensors,
+    store_measurements,
+};
 use log::info;
 use simple_logger::SimpleLogger;
 use sqlx::PgPool;
 use structopt::StructOpt;
 use tokio::net::TcpListener;
-
-use crate::handlers::{fetch_all_data, fetch_latest_data, store_env_data};
 
 mod create;
 mod db_connection_pool;
@@ -16,6 +18,7 @@ mod devices;
 mod error;
 mod handlers;
 mod measurements;
+mod query;
 mod read;
 mod sensors;
 
@@ -45,13 +48,22 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let pg_pool = db_connection_pool::Postgres::new(connection);
 
+    let measurements = Router::new()
+        .route("/measurements", get(fetch_all_measurements))
+        .route("/measurements/latest", get(fetch_latest_measurement));
+
+    let devices = Router::new().route("/devices", get(fetch_devices));
+
+    let sensors = Router::new().route("/sensors", get(fetch_sensors));
+
     let api = Router::new()
-        .route("/all", get(fetch_all_data))
-        .route("/latest", get(fetch_latest_data));
+        .nest("/api", measurements)
+        .nest("/api", devices)
+        .nest("/api", sensors);
 
     let app = Router::new()
         .nest("/api", api)
-        .route("/", post(store_env_data))
+        .route("/", post(store_measurements))
         .with_state(pg_pool);
 
     let listener = TcpListener::bind(&opts.host).await.unwrap();
