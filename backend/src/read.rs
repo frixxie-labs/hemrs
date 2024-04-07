@@ -1,8 +1,8 @@
 use anyhow::Result;
+use sqlx::PgPool;
 
 use crate::db_connection_pool::DbConnectionPool;
 
-pub trait Read<TPool>: Sized {
-    type Connection: DbConnectionPool<TPool>;
-    async fn read(connection: Self::Connection) -> Result<Self>;
+pub trait Read<TConnection: DbConnectionPool<PgPool>>: Sized {
+    async fn read(connection: TConnection) -> Result<Self>;
 }
