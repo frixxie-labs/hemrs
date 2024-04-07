@@ -21,6 +21,8 @@ mod measurements;
 mod query;
 mod read;
 mod sensors;
+mod delete;
+mod update;
 
 #[derive(Debug, Clone, StructOpt)]
 pub struct Opts {

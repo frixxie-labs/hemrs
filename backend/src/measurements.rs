@@ -2,7 +2,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use sensors::Dht11;
 use serde::Serialize;
-use sqlx::{FromRow, PgPool};
+use sqlx::FromRow;
 
 use crate::{
     create::Create,
@@ -20,10 +20,8 @@ pub struct Measurement {
     sensor_name: String,
 }
 
-impl Create<PgPool> for Dht11 {
-    type Connection = Postgres;
-
-    async fn create(self, connection: Self::Connection) -> Result<()> {
+impl Create<Postgres> for Dht11 {
+    async fn create(self, connection: Postgres) -> Result<()> {
         let pool = connection.get_connection().await;
         let transaction = pool.begin().await?;
         let dht11_temperature_id: i32 =
@@ -55,10 +53,8 @@ impl Create<PgPool> for Dht11 {
     }
 }
 
-impl Read<PgPool> for Measurement {
-    type Connection = Postgres;
-
-    async fn read(connection: Self::Connection) -> Result<Self> {
+impl Read<Postgres> for Measurement {
+    async fn read(connection: Postgres) -> Result<Self> {
         let pool = connection.get_connection().await;
         let measurement = sqlx::query_as::<_, Measurement>(
             "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id ORDER BY ts DESC LIMIT 1",
@@ -69,10 +65,8 @@ impl Read<PgPool> for Measurement {
     }
 }
 
-impl Read<PgPool> for Vec<Measurement> {
-    type Connection = Postgres;
-
-    async fn read(connection: Self::Connection) -> Result<Self> {
+impl Read<Postgres> for Vec<Measurement> {
+    async fn read(connection: Postgres) -> Result<Self> {
         let pool = connection.get_connection().await;
         let dht11_entries =
             sqlx::query_as::<_, Measurement>("SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id ORDER BY ts")
