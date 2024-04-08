@@ -14,8 +14,8 @@ test: build docker_db_up
 	docker compose -f docker-compose-test.yaml down
 
 integration_test:
-	cargo install sqlx-cli hurl
 	docker compose up --build --wait
+	cargo install sqlx-cli hurl
 	sqlx migrate run --source backend/migrations
 	hurl -v backend/backend.hurl
 	docker compose down
