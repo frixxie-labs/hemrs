@@ -13,14 +13,21 @@ test: build docker_db_up
 	cargo t --verbose
 	docker compose -f docker-compose-test.yaml down
 
+integration_test:
+	cargo install sqlx-cli hurl
+	docker compose up --build --wait
+	sqlx migrate run --source backend/migrations
+	hurl -v backend/backend.hurl
+	docker compose down
+
 docker_builder:
 	docker buildx create --name builder --platform linux/amd64,linux/arm64
 
 docker_login:
 	docker login ghcr.io -u Frixxie -p $(GITHUB_TOKEN)
 
-container: test docker_builder docker_login
+container: test integration_test docker_builder docker_login
 	docker buildx build -t ghcr.io/frixxie/$(PROJECT_NAME):latest . --platform linux/amd64,linux/arm64 --builder builder --push
 
-container_tagged: test docker_builder docker_login
+container_tagged: test integration_test docker_builder docker_login
 	docker buildx build -t ghcr.io/frixxie/$(PROJECT_NAME):$(DOCKERTAG) . --platform linux/amd64,linux/arm64 --builder builder --push
