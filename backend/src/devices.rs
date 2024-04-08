@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
-use crate::{
+use crate::database::{
     create::Create,
     db_connection_pool::{DbConnectionPool, Postgres},
     delete::Delete,
@@ -61,8 +61,11 @@ mod tests {
     use sqlx::PgPool;
 
     use crate::{
-        create::Create, db_connection_pool::Postgres, delete::Delete, devices::Device, read::Read,
-        update::Update,
+        database::{
+            create::Create, db_connection_pool::Postgres, delete::Delete, read::Read,
+            update::Update,
+        },
+        devices::Device,
     };
 
     #[sqlx::test]

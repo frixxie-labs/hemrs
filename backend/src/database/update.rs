@@ -1,6 +1,7 @@
-use crate::{create::Create, db_connection_pool::DbConnectionPool, delete::Delete};
 use anyhow::Result;
 use sqlx::PgPool;
+
+use super::{create::Create, db_connection_pool::DbConnectionPool, delete::Delete};
 
 pub trait Update<TConnection>
 where

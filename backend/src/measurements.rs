@@ -4,7 +4,7 @@ use sensors::Dht11;
 use serde::Serialize;
 use sqlx::FromRow;
 
-use crate::{
+use crate::database::{
     create::Create,
     db_connection_pool::{DbConnectionPool, Postgres},
     read::Read,
@@ -83,8 +83,9 @@ mod tests {
     use sqlx::PgPool;
 
     use crate::{
-        create::Create, db_connection_pool::Postgres, devices::Device, measurements::Measurement,
-        read::Read,
+        database::{create::Create, db_connection_pool::Postgres, read::Read},
+        devices::Device,
+        measurements::Measurement,
     };
 
     #[sqlx::test]
