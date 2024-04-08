@@ -75,3 +75,40 @@ impl Read<Postgres> for Vec<Measurement> {
         Ok(dht11_entries)
     }
 }
+
+#[cfg(test)]
+
+mod tests {
+    use sensors::Dht11;
+    use sqlx::PgPool;
+
+    use crate::{
+        create::Create, db_connection_pool::Postgres, devices::Device, measurements::Measurement,
+        read::Read,
+    };
+
+    #[sqlx::test]
+    fn dht11_insert(pool: PgPool) {
+        let postgres = Postgres::new(pool);
+
+        let device = Device::new("test".to_string(), "test".to_string());
+        device.create(postgres.clone()).await.unwrap();
+        let dht11_measurement = Dht11::new("test".to_string(), 10.0, 20.0);
+        dht11_measurement.create(postgres).await.unwrap();
+    }
+
+    #[sqlx::test]
+    fn measurements_read(pool: PgPool) {
+        let postgres = Postgres::new(pool);
+
+        let device = Device::new("test".to_string(), "test".to_string());
+        device.create(postgres.clone()).await.unwrap();
+        let dht11_measurement = Dht11::new("test".to_string(), 10.0, 20.0);
+        dht11_measurement.create(postgres.clone()).await.unwrap();
+
+        let measurements = Vec::<Measurement>::read(postgres.clone()).await.unwrap();
+        assert!(measurements.len() >= 1);
+
+        let _measurement = Measurement::read(postgres.clone()).await.unwrap();
+    }
+}

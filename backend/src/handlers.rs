@@ -1,11 +1,14 @@
 use anyhow::Result;
+use axum::routing::{get, post};
+use axum::Router;
 use axum::{extract::State, Json};
 use log::{info, warn};
 
 use sensors::Dht11;
+use sqlx::Pool;
 
 use crate::create::Create;
-use crate::db_connection_pool::Postgres;
+use crate::db_connection_pool::{self, Postgres};
 
 use crate::devices::Device;
 use crate::error::HandlerError;
@@ -72,3 +75,25 @@ pub async fn fetch_all_measurements(
 
     Ok(Json(entry))
 }
+
+pub fn create_router(connection: Pool<sqlx::Postgres>) -> Router {
+    let pg_pool = db_connection_pool::Postgres::new(connection);
+
+    let measurements = Router::new()
+        .route("/measurements", get(fetch_all_measurements))
+        .route("/measurements/latest", get(fetch_latest_measurement));
+
+    let devices = Router::new().route("/devices", get(fetch_devices));
+
+    let sensors = Router::new().route("/sensors", get(fetch_sensors));
+
+    let app = Router::new()
+        .nest("/api", measurements)
+        .nest("/api", devices)
+        .nest("/api", sensors)
+        .route("/", post(store_measurements))
+        .with_state(pg_pool);
+    app
+}
+
+
