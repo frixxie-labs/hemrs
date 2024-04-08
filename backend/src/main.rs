@@ -14,6 +14,7 @@ use tokio::net::TcpListener;
 
 mod create;
 mod db_connection_pool;
+mod delete;
 mod devices;
 mod error;
 mod handlers;
@@ -21,7 +22,6 @@ mod measurements;
 mod query;
 mod read;
 mod sensors;
-mod delete;
 mod update;
 
 #[derive(Debug, Clone, StructOpt)]

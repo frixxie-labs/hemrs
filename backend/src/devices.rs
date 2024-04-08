@@ -55,3 +55,51 @@ impl Delete<Postgres> for Device {
 }
 
 impl Update<Postgres> for Device {}
+
+#[cfg(test)]
+mod tests {
+    use sqlx::PgPool;
+
+    use crate::{
+        create::Create, db_connection_pool::Postgres, delete::Delete, devices::Device, read::Read,
+        update::Update,
+    };
+
+    #[sqlx::test]
+    async fn insert(pool: PgPool) {
+        let postgres = Postgres::new(pool);
+
+        let device = crate::devices::Device::new("test".to_string(), "test".to_string());
+        device.create(postgres).await.unwrap();
+    }
+
+    #[sqlx::test]
+    async fn delete(pool: PgPool) {
+        let postgres = Postgres::new(pool);
+
+        let device = crate::devices::Device::new("test".to_string(), "test".to_string());
+        device.clone().create(postgres.clone()).await.unwrap();
+        device.delete(postgres).await.unwrap();
+    }
+
+    #[sqlx::test]
+    async fn update(pool: PgPool) {
+        let postgres = Postgres::new(pool);
+
+        let mut device = crate::devices::Device::new("test".to_string(), "test".to_string());
+        device.clone().create(postgres.clone()).await.unwrap();
+        device.name = "newtest".to_string();
+        device.update(postgres).await.unwrap();
+    }
+
+    #[sqlx::test]
+    async fn read(pool: PgPool) {
+        let postgres = Postgres::new(pool);
+
+        let device = crate::devices::Device::new("test".to_string(), "test".to_string());
+        device.create(postgres.clone()).await.unwrap();
+
+        let devices: Vec<Device> = Vec::<Device>::read(postgres).await.unwrap();
+        assert!(devices.len() >= 1);
+    }
+}
