@@ -23,7 +23,7 @@ jobs:
       - name: make build
         run: make build
       - name: make test
-        run: make container
+        run: make test
       - name: make integration
         run: make integration_test
       - name: make container
