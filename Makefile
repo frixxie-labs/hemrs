@@ -6,7 +6,14 @@ build:
 	cargo check --verbose
 	cargo b --verbose
 
-test: build
+docker_db_up:
+	docker compose up -d
+	sleep 10
+
+docker_db_up:
+	docker compose down
+
+test: build docker_db_up
 	cargo t --verbose
 
 docker_builder:
