@@ -69,7 +69,7 @@ mod tests {
     async fn insert(pool: PgPool) {
         let postgres = Postgres::new(pool);
 
-        let device = crate::devices::Device::new("test".to_string(), "test".to_string());
+        let device = Device::new("test".to_string(), "test".to_string());
         device.create(postgres).await.unwrap();
     }
 
@@ -77,7 +77,7 @@ mod tests {
     async fn delete(pool: PgPool) {
         let postgres = Postgres::new(pool);
 
-        let device = crate::devices::Device::new("test".to_string(), "test".to_string());
+        let device = Device::new("test".to_string(), "test".to_string());
         device.clone().create(postgres.clone()).await.unwrap();
         device.delete(postgres).await.unwrap();
     }
@@ -86,7 +86,7 @@ mod tests {
     async fn update(pool: PgPool) {
         let postgres = Postgres::new(pool);
 
-        let mut device = crate::devices::Device::new("test".to_string(), "test".to_string());
+        let mut device = Device::new("test".to_string(), "test".to_string());
         device.clone().create(postgres.clone()).await.unwrap();
         device.name = "newtest".to_string();
         device.update(postgres).await.unwrap();
@@ -96,7 +96,7 @@ mod tests {
     async fn read(pool: PgPool) {
         let postgres = Postgres::new(pool);
 
-        let device = crate::devices::Device::new("test".to_string(), "test".to_string());
+        let device = Device::new("test".to_string(), "test".to_string());
         device.create(postgres.clone()).await.unwrap();
 
         let devices: Vec<Device> = Vec::<Device>::read(postgres).await.unwrap();

@@ -7,14 +7,11 @@ build:
 	cargo b --verbose
 
 docker_db_up:
-	docker compose up -d
-	sleep 10
-
-docker_db_up:
-	docker compose down
+	docker compose -f docker-compose-test.yaml up --wait
 
 test: build docker_db_up
 	cargo t --verbose
+	docker compose -f docker-compose-test.yaml down
 
 docker_builder:
 	docker buildx create --name builder --platform linux/amd64,linux/arm64
