@@ -58,13 +58,10 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let sensors = Router::new().route("/sensors", get(fetch_sensors));
 
-    let api = Router::new()
+    let app = Router::new()
         .nest("/api", measurements)
         .nest("/api", devices)
-        .nest("/api", sensors);
-
-    let app = Router::new()
-        .nest("/api", api)
+        .nest("/api", sensors)
         .route("/", post(store_measurements))
         .with_state(pg_pool);
 
