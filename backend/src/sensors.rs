@@ -24,7 +24,7 @@ impl Sensor {
 impl Read<Postgres> for Vec<Sensor> {
     async fn read(connection: Postgres) -> Result<Self> {
         let pool = connection.get_connection().await;
-        let devices = sqlx::query_as::<_, Sensor>("SELECT (name, unit) FROM devices")
+        let devices = sqlx::query_as::<_, Sensor>("SELECT name, unit FROM sensors")
             .fetch_all(&pool)
             .await?;
         Ok(devices)

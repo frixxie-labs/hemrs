@@ -24,7 +24,7 @@ impl Device {
 impl Read<Postgres> for Vec<Device> {
     async fn read(connection: Postgres) -> anyhow::Result<Self> {
         let pool = connection.get_connection().await;
-        let devices = sqlx::query_as::<_, Device>("SELECT (name, location) FROM devices")
+        let devices = sqlx::query_as::<_, Device>("SELECT name, location FROM devices")
             .fetch_all(&pool)
             .await?;
         Ok(devices)
