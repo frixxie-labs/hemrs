@@ -6,17 +6,11 @@ use tokio::net::TcpListener;
 
 use crate::handlers::create_router;
 
-mod create;
-mod db_connection_pool;
-mod delete;
+mod database;
 mod devices;
-mod error;
 mod handlers;
 mod measurements;
-mod query;
-mod read;
 mod sensors;
-mod update;
 
 #[derive(Debug, Clone, StructOpt)]
 pub struct Opts {

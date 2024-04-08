@@ -1,6 +1,7 @@
 use anyhow::Result;
 
-use crate::db_connection_pool::DbConnectionPool;
+use super::db_connection_pool::DbConnectionPool;
+
 
 pub trait Query<TPool, TQuery, TResult> {
     type Connection: DbConnectionPool<TPool>;
