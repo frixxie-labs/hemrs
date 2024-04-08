@@ -6,8 +6,12 @@ build:
 	cargo check --verbose
 	cargo b --verbose
 
-test: build
+docker_db_up:
+	docker compose -f docker-compose-test.yaml up --wait
+
+test: build docker_db_up
 	cargo t --verbose
+	docker compose -f docker-compose-test.yaml down
 
 docker_builder:
 	docker buildx create --name builder --platform linux/amd64,linux/arm64

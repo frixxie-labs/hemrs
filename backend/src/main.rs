@@ -1,19 +1,14 @@
-use axum::{
-    routing::{get, post},
-    Router,
-};
-use handlers::{
-    fetch_all_measurements, fetch_devices, fetch_latest_measurement, fetch_sensors,
-    store_measurements,
-};
 use log::info;
 use simple_logger::SimpleLogger;
 use sqlx::PgPool;
 use structopt::StructOpt;
 use tokio::net::TcpListener;
 
+use crate::handlers::create_router;
+
 mod create;
 mod db_connection_pool;
+mod delete;
 mod devices;
 mod error;
 mod handlers;
@@ -21,7 +16,6 @@ mod measurements;
 mod query;
 mod read;
 mod sensors;
-mod delete;
 mod update;
 
 #[derive(Debug, Clone, StructOpt)]
@@ -48,22 +42,7 @@ async fn main() -> Result<(), anyhow::Error> {
     info!("Connecting to DB at {}", opts.db_url);
     let connection = PgPool::connect(&opts.db_url).await.unwrap();
 
-    let pg_pool = db_connection_pool::Postgres::new(connection);
-
-    let measurements = Router::new()
-        .route("/measurements", get(fetch_all_measurements))
-        .route("/measurements/latest", get(fetch_latest_measurement));
-
-    let devices = Router::new().route("/devices", get(fetch_devices));
-
-    let sensors = Router::new().route("/sensors", get(fetch_sensors));
-
-    let app = Router::new()
-        .nest("/api", measurements)
-        .nest("/api", devices)
-        .nest("/api", sensors)
-        .route("/", post(store_measurements))
-        .with_state(pg_pool);
+    let app = create_router(connection);
 
     let listener = TcpListener::bind(&opts.host).await.unwrap();
     axum::serve(listener, app).await.unwrap();
