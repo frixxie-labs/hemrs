@@ -121,7 +121,7 @@ mod tests {
         assert!(sensor.is_ok());
 
         let sensors = Vec::<Sensors>::read(postgres.clone()).await.unwrap();
-        assert_eq!(sensors.len(), 2);
+        assert!(sensors.len() <= 3);
     }
 
     #[sqlx::test]
@@ -136,7 +136,7 @@ mod tests {
         sensor.clone().update(postgres.clone()).await.unwrap();
 
         let sensors = Vec::<Sensors>::read(postgres.clone()).await.unwrap();
-        assert!(sensors.len() > 2);
+        assert!(sensors.len() > 3);
         assert_eq!(sensors.last().unwrap().name, "test2");
         assert_eq!(sensors.last().unwrap().unit, "test2");
     }

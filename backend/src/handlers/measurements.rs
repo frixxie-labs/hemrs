@@ -1,6 +1,6 @@
 use axum::{extract::State, Json};
 use log::{info, warn};
-use sensors::Dht11;
+use sensors::Sensors;
 
 use crate::{
     database::{create::Create, db_connection_pool::Postgres, read::Read},
@@ -11,14 +11,26 @@ use super::error::HandlerError;
 
 pub async fn store_measurements(
     State(pg_pool): State<Postgres>,
-    Json(dht11_data): Json<Dht11>,
+    Json(measurement): Json<Sensors>,
 ) -> Result<String, HandlerError> {
     info!("POST /");
 
-    dht11_data.create(pg_pool).await.map_err(|e| {
-        warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to store data in database: {}", e))
-    })?;
+    match measurement {
+        Sensors::Temperature(temperature) => {
+            info!("Got temperature {}", temperature);
+            temperature.create(pg_pool).await.map_err(|e| {
+                warn!("Failed with error: {}", e);
+                HandlerError::new(500, format!("Failed to store data in database: {}", e))
+            })?;
+        }
+        Sensors::Dht11(dht11) => {
+            info!("Got dht11 {}", dht11);
+            dht11.create(pg_pool).await.map_err(|e| {
+                warn!("Failed with error: {}", e);
+                HandlerError::new(500, format!("Failed to store data in database: {}", e))
+            })?;
+        }
+    };
 
     Ok("OK".to_string())
 }

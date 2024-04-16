@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use sensors::Dht11;
+use sensors::{Dht11, Temperature};
 use serde::Serialize;
 use sqlx::FromRow;
 
@@ -53,6 +53,29 @@ impl Create<Postgres> for Dht11 {
     }
 }
 
+impl Create<Postgres> for Temperature {
+    async fn create(self, connection: Postgres) -> Result<()> {
+        let pool = connection.get_connection().await;
+        let transaction = pool.begin().await?;
+        let sensor_id: i32 =
+            sqlx::query_scalar("SELECT id from sensors where name = 'temperature'")
+                .fetch_one(&pool)
+                .await?;
+        let device_id: i32 = sqlx::query_scalar("SELECT id from devices where location = ($1)")
+            .bind(self.room.clone())
+            .fetch_one(&pool)
+            .await?;
+        sqlx::query("INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES (CURRENT_TIMESTAMP, $1, $2, $3)")
+            .bind(device_id)
+            .bind(sensor_id)
+            .bind(self.temperature)
+            .execute(&pool)
+            .await?;
+        transaction.commit().await?;
+        Ok(())
+    }
+}
+
 impl Read<Postgres> for Measurement {
     async fn read(connection: Postgres) -> Result<Self> {
         let pool = connection.get_connection().await;
@@ -79,7 +102,7 @@ impl Read<Postgres> for Vec<Measurement> {
 #[cfg(test)]
 
 mod tests {
-    use sensors::Dht11;
+    use sensors::{Dht11, Temperature};
     use sqlx::PgPool;
 
     use crate::{
@@ -96,6 +119,16 @@ mod tests {
         device.create(postgres.clone()).await.unwrap();
         let dht11_measurement = Dht11::new("test".to_string(), 10.0, 20.0);
         dht11_measurement.create(postgres).await.unwrap();
+    }
+
+    #[sqlx::test]
+    fn tempterture_insert(pool: PgPool) {
+        let postgres = Postgres::new(pool);
+
+        let device = Device::new("test".to_string(), "test".to_string());
+        device.create(postgres.clone()).await.unwrap();
+        let temperature_measurement = Temperature::new("test".to_string(), 10.0);
+        temperature_measurement.create(postgres).await.unwrap();
     }
 
     #[sqlx::test]
