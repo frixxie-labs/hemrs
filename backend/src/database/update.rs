@@ -1,16 +1,12 @@
 use anyhow::Result;
 use sqlx::PgPool;
 
-use super::{create::Create, db_connection_pool::DbConnectionPool, delete::Delete};
+use super::db_connection_pool::DbConnectionPool;
 
 pub trait Update<TConnection>
 where
-    Self: Sized + Create<TConnection> + Delete<TConnection> + Clone,
+    Self: Sized,
     TConnection: DbConnectionPool<PgPool> + Clone,
 {
-    async fn update(self, connection: TConnection) -> Result<()> {
-        self.clone().delete(connection.clone()).await?;
-        self.create(connection).await?;
-        Ok(())
-    }
+    async fn update(self, connection: TConnection) -> Result<()>;
 }

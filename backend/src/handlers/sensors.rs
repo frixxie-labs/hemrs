@@ -5,16 +5,16 @@ use crate::{
     database::{
         create::Create, db_connection_pool::Postgres, delete::Delete, read::Read, update::Update,
     },
-    sensors::Sensor,
+    sensors::{Sensor, Sensors},
 };
 
 use super::error::HandlerError;
 
 pub async fn fetch_sensors(
     State(pg_pool): State<Postgres>,
-) -> Result<Json<Vec<Sensor>>, HandlerError> {
+) -> Result<Json<Vec<Sensors>>, HandlerError> {
     info!("GET api/sensors");
-    let sensors = Vec::<Sensor>::read(pg_pool).await.map_err(|e| {
+    let sensors = Vec::<Sensors>::read(pg_pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
         HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
     })?;
@@ -35,7 +35,7 @@ pub async fn insert_sensor(
 
 pub async fn delete_sensor(
     State(pg_pool): State<Postgres>,
-    Json(sensor): Json<Sensor>,
+    Json(sensor): Json<Sensors>,
 ) -> Result<String, HandlerError> {
     info!("DELETE api/sensors");
     sensor.delete(pg_pool).await.map_err(|e| {
@@ -47,7 +47,7 @@ pub async fn delete_sensor(
 
 pub async fn update_sensor(
     State(pg_pool): State<Postgres>,
-    Json(sensor): Json<Sensor>,
+    Json(sensor): Json<Sensors>,
 ) -> Result<String, HandlerError> {
     info!("DELETE api/sensors");
     sensor.update(pg_pool).await.map_err(|e| {
