@@ -9,10 +9,23 @@ use crate::database::{
     update::Update,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize, FromRow)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Device {
     name: String,
     location: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, FromRow)]
+pub struct Devices {
+    id: i32,
+    name: String,
+    location: String,
+}
+
+impl Devices {
+    pub fn new(id: i32, name: String, location: String) -> Self {
+        Self { id, name, location }
+    }
 }
 
 impl Device {
@@ -21,10 +34,10 @@ impl Device {
     }
 }
 
-impl Read<Postgres> for Vec<Device> {
+impl Read<Postgres> for Vec<Devices> {
     async fn read(connection: Postgres) -> anyhow::Result<Self> {
         let pool = connection.get_connection().await;
-        let devices = sqlx::query_as::<_, Device>("SELECT name, location FROM devices")
+        let devices = sqlx::query_as::<_, Devices>("SELECT id, name, location FROM devices")
             .fetch_all(&pool)
             .await?;
         Ok(devices)
@@ -43,18 +56,29 @@ impl Create<Postgres> for Device {
     }
 }
 
-impl Delete<Postgres> for Device {
+impl Delete<Postgres> for Devices {
     async fn delete(self, connection: Postgres) -> anyhow::Result<()> {
         let pool = connection.get_connection().await;
-        sqlx::query("DELETE FROM devices WHERE name = $1")
-            .bind(self.name)
+        sqlx::query("DELETE FROM devices WHERE id = $1")
+            .bind(self.id)
             .execute(&pool)
             .await?;
         Ok(())
     }
 }
 
-impl Update<Postgres> for Device {}
+impl Update<Postgres> for Devices {
+    async fn update(self, connection: Postgres) -> anyhow::Result<()> {
+        let pool = connection.get_connection().await;
+        sqlx::query("UPDATE devices SET name = $1,location = $2 WHERE id = $3")
+            .bind(self.name)
+            .bind(self.location)
+            .bind(self.id)
+            .execute(&pool)
+            .await?;
+        Ok(())
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -65,7 +89,7 @@ mod tests {
             create::Create, db_connection_pool::Postgres, delete::Delete, read::Read,
             update::Update,
         },
-        devices::Device,
+        devices::{Device, Devices},
     };
 
     #[sqlx::test]
@@ -73,7 +97,11 @@ mod tests {
         let postgres = Postgres::new(pool);
 
         let device = Device::new("test".to_string(), "test".to_string());
-        device.create(postgres).await.unwrap();
+        device.create(postgres.clone()).await.unwrap();
+        let devices = Vec::<Devices>::read(postgres.clone()).await.unwrap();
+        assert!(devices.len() >= 1);
+        assert_eq!(devices[0].name, "test");
+        assert_eq!(devices[0].location, "test");
     }
 
     #[sqlx::test]
@@ -82,27 +110,28 @@ mod tests {
 
         let device = Device::new("test".to_string(), "test".to_string());
         device.clone().create(postgres.clone()).await.unwrap();
-        device.delete(postgres).await.unwrap();
+        let devices = Vec::<Devices>::read(postgres.clone()).await.unwrap();
+        let device = devices[0].clone().delete(postgres.clone()).await;
+        assert!(device.is_ok());
+
+        let devices = Vec::<Devices>::read(postgres.clone()).await.unwrap();
+        assert_eq!(devices.len(), 0);
     }
 
     #[sqlx::test]
     async fn update(pool: PgPool) {
         let postgres = Postgres::new(pool);
 
-        let mut device = Device::new("test".to_string(), "test".to_string());
-        device.clone().create(postgres.clone()).await.unwrap();
-        device.name = "newtest".to_string();
-        device.update(postgres).await.unwrap();
-    }
-
-    #[sqlx::test]
-    async fn read(pool: PgPool) {
-        let postgres = Postgres::new(pool);
-
         let device = Device::new("test".to_string(), "test".to_string());
-        device.create(postgres.clone()).await.unwrap();
+        device.clone().create(postgres.clone()).await.unwrap();
+        let devices = Vec::<Devices>::read(postgres.clone()).await.unwrap();
+        let device = devices[0].clone();
+        let device = Devices::new(device.id, "test2".to_string(), "test2".to_string());
+        device.clone().update(postgres.clone()).await.unwrap();
 
-        let devices: Vec<Device> = Vec::<Device>::read(postgres).await.unwrap();
-        assert!(devices.len() >= 1);
+        let devices = Vec::<Devices>::read(postgres.clone()).await.unwrap();
+        assert_eq!(devices.len(), 1);
+        assert_eq!(devices[0].name, "test2");
+        assert_eq!(devices[0].location, "test2");
     }
 }
