@@ -30,6 +30,13 @@ pub async fn store_measurements(
                 HandlerError::new(500, format!("Failed to store data in database: {}", e))
             })?;
         }
+        Sensors::Measurement(measurement) => {
+            info!("Got measurement {}", measurement);
+            measurement.create(pg_pool).await.map_err(|e| {
+                warn!("Failed with error: {}", e);
+                HandlerError::new(500, format!("Failed to store data in database: {}", e))
+            })?;
+        }
     };
 
     Ok("OK".to_string())

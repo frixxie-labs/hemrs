@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use sensors::{Dht11, Temperature};
+use sensors::{Dht11, Measurement as GenericMeasurement, Temperature};
 use serde::Serialize;
 use sqlx::FromRow;
 
@@ -53,6 +53,19 @@ impl Create<Postgres> for Dht11 {
     }
 }
 
+impl Create<Postgres> for GenericMeasurement {
+    async fn create(self, connection: Postgres) -> Result<()> {
+        let pool = connection.get_connection().await;
+        sqlx::query("INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES (CURRENT_TIMESTAMP, $1, $2, $3)")
+            .bind(self.device)
+            .bind(self.sensor)
+            .bind(self.measurement)
+            .execute(&pool)
+            .await?;
+        Ok(())
+    }
+}
+
 impl Create<Postgres> for Temperature {
     async fn create(self, connection: Postgres) -> Result<()> {
         let pool = connection.get_connection().await;
@@ -100,8 +113,8 @@ impl Read<Postgres> for Vec<Measurement> {
 }
 
 #[cfg(test)]
-
 mod tests {
+    use sensors::Measurement as GenericMeasurement;
     use sensors::{Dht11, Temperature};
     use sqlx::PgPool;
 
@@ -129,6 +142,16 @@ mod tests {
         device.create(postgres.clone()).await.unwrap();
         let temperature_measurement = Temperature::new("test".to_string(), 10.0);
         temperature_measurement.create(postgres).await.unwrap();
+    }
+
+    #[sqlx::test]
+    fn measurement_insert(pool: PgPool) {
+        let postgres = Postgres::new(pool);
+
+        let device = Device::new("test".to_string(), "test".to_string());
+        device.create(postgres.clone()).await.unwrap();
+        let measurement = GenericMeasurement::new(1, 1, 1.0);
+        measurement.create(postgres).await.unwrap();
     }
 
     #[sqlx::test]
