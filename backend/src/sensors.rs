@@ -100,7 +100,7 @@ mod tests {
         let sensor = Sensor::new("test".to_string(), "test".to_string());
         sensor.create(postgres.clone()).await.unwrap();
         let sensors = Vec::<Sensors>::read(postgres.clone()).await.unwrap();
-        assert!(sensors.len() >= 1);
+        assert!(!sensors.is_empty());
         assert_eq!(sensors.last().unwrap().name, "test");
         assert_eq!(sensors.last().unwrap().unit, "test");
     }

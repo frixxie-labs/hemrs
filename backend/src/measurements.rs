@@ -164,7 +164,7 @@ mod tests {
         dht11_measurement.create(postgres.clone()).await.unwrap();
 
         let measurements = Vec::<Measurement>::read(postgres.clone()).await.unwrap();
-        assert!(measurements.len() >= 1);
+        assert!(!measurements.is_empty());
 
         let _measurement = Measurement::read(postgres.clone()).await.unwrap();
     }
