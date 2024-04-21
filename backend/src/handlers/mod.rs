@@ -36,11 +36,11 @@ pub fn create_router(connection: Pool<sqlx::Postgres>) -> Router {
         .route("/sensors", delete(delete_sensor))
         .route("/sensors", put(update_sensor));
 
-    let app = Router::new()
+    
+    Router::new()
         .nest("/api", measurements)
         .nest("/api", devices)
         .nest("/api", sensors)
         .route("/", post(store_measurements))
-        .with_state(pg_pool);
-    app
+        .with_state(pg_pool)
 }

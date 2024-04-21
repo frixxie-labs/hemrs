@@ -99,7 +99,7 @@ mod tests {
         let device = Device::new("test".to_string(), "test".to_string());
         device.create(postgres.clone()).await.unwrap();
         let devices = Vec::<Devices>::read(postgres.clone()).await.unwrap();
-        assert!(devices.len() >= 1);
+        assert!(!devices.is_empty());
         assert_eq!(devices[0].name, "test");
         assert_eq!(devices[0].location, "test");
     }
