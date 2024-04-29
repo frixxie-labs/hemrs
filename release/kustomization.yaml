@@ -4,3 +4,4 @@ namespace: default
 resources:
   - deployment.yaml
   - service_loadbalancer.yaml
+  - configmap.yaml
