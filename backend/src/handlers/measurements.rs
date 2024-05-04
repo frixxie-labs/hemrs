@@ -57,7 +57,7 @@ pub async fn fetch_latest_measurement(
 pub async fn fetch_all_measurements(
     State(pool): State<Postgres>,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
-    info!("GET api/measurements/all");
+    info!("GET api/measurements");
     let entry = Vec::<Measurement>::read(pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
         HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
