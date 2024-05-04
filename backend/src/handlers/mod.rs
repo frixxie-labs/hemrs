@@ -22,7 +22,8 @@ pub fn create_router(connection: Pool<sqlx::Postgres>) -> Router {
 
     let measurements = Router::new()
         .route("/measurements", get(fetch_all_measurements))
-        .route("/measurements/latest", get(fetch_latest_measurement));
+        .route("/measurements/latest", get(fetch_latest_measurement))
+        .route("/measurements", post(store_measurements));
 
     let devices = Router::new()
         .route("/devices", get(fetch_devices))
@@ -36,7 +37,6 @@ pub fn create_router(connection: Pool<sqlx::Postgres>) -> Router {
         .route("/sensors", delete(delete_sensor))
         .route("/sensors", put(update_sensor));
 
-    
     Router::new()
         .nest("/api", measurements)
         .nest("/api", devices)
