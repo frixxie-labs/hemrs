@@ -5,3 +5,4 @@ resources:
   - deployment.yaml
   - service_loadbalancer.yaml
   - configmap.yaml
+  - service.yaml

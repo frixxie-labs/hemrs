@@ -6,7 +6,7 @@ metadata:
     io.kompose.service: hemrs
     kustomize.toolkit.fluxcd.io/name: hemrs-release
     kustomize.toolkit.fluxcd.io/namespace: flux-system
-  name: hemrs-int
+  name: hemrs
   namespace: default
 spec:
   ports:
