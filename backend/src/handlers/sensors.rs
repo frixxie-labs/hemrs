@@ -3,7 +3,7 @@ use log::{info, warn};
 
 use crate::{
     database::{
-        create::Create, db_connection_pool::Postgres, delete::Delete, read::Read, update::Update,
+        create::Insert, db_connection_pool::Postgres, delete::Delete, read::Read, update::Update,
     },
     sensors::{Sensor, Sensors},
 };

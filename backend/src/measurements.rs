@@ -5,7 +5,7 @@ use serde::Serialize;
 use sqlx::FromRow;
 
 use crate::database::{
-    create::Create,
+    create::Insert,
     db_connection_pool::{DbConnectionPool, Postgres},
     read::Read,
 };
@@ -20,7 +20,7 @@ pub struct Measurement {
     sensor_name: String,
 }
 
-impl Create<Postgres> for Dht11 {
+impl Insert<Postgres> for Dht11 {
     async fn create(self, connection: Postgres) -> Result<()> {
         let pool = connection.get_connection().await;
         let transaction = pool.begin().await?;
@@ -53,7 +53,7 @@ impl Create<Postgres> for Dht11 {
     }
 }
 
-impl Create<Postgres> for GenericMeasurement {
+impl Insert<Postgres> for GenericMeasurement {
     async fn create(self, connection: Postgres) -> Result<()> {
         let pool = connection.get_connection().await;
         sqlx::query("INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES (CURRENT_TIMESTAMP, $1, $2, $3)")
@@ -66,7 +66,7 @@ impl Create<Postgres> for GenericMeasurement {
     }
 }
 
-impl Create<Postgres> for Temperature {
+impl Insert<Postgres> for Temperature {
     async fn create(self, connection: Postgres) -> Result<()> {
         let pool = connection.get_connection().await;
         let transaction = pool.begin().await?;
@@ -119,7 +119,7 @@ mod tests {
     use sqlx::PgPool;
 
     use crate::{
-        database::{create::Create, db_connection_pool::Postgres, read::Read},
+        database::{create::Insert, db_connection_pool::Postgres, read::Read},
         devices::Device,
         measurements::Measurement,
     };

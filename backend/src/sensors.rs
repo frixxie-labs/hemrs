@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 use crate::database::{
-    create::Create,
+    create::Insert,
     db_connection_pool::{DbConnectionPool, Postgres},
     delete::Delete,
     read::Read,
@@ -45,7 +45,7 @@ impl Read<Postgres> for Vec<Sensors> {
     }
 }
 
-impl Create<Postgres> for Sensor {
+impl Insert<Postgres> for Sensor {
     async fn create(self, connection: Postgres) -> Result<()> {
         let pool = connection.get_connection().await;
         sqlx::query("INSERT INTO sensors (name, unit) VALUES ($1, $2)")
@@ -87,7 +87,7 @@ mod tests {
 
     use crate::{
         database::{
-            create::Create, db_connection_pool::Postgres, delete::Delete, read::Read,
+            create::Insert, db_connection_pool::Postgres, delete::Delete, read::Read,
             update::Update,
         },
         sensors::{Sensor, Sensors},
