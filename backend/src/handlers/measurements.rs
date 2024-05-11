@@ -3,7 +3,7 @@ use log::{info, warn};
 use sensors::Sensors;
 
 use crate::{
-    database::{create::Create, db_connection_pool::Postgres, read::Read},
+    database::{create::Insert, db_connection_pool::Postgres, read::Read},
     measurements::Measurement,
 };
 
