@@ -1,9 +1,8 @@
 use anyhow::Result;
+use sqlx::PgPool;
 
 use super::db_connection_pool::DbConnectionPool;
 
-
-pub trait Query<TPool, TQuery, TResult> {
-    type Connection: DbConnectionPool<TPool>;
-    async fn query(connection: Self::Connection, query: TQuery) -> Result<TResult>;
+pub trait Query<TConnection: DbConnectionPool<PgPool>, TResult> {
+    async fn query(self: Self, connection: TConnection) -> Result<TResult>;
 }

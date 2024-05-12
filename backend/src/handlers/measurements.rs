@@ -1,9 +1,13 @@
-use axum::{extract::State, Json};
+use axum::{
+    extract::{Query, State},
+    Json,
+};
 use log::{info, warn};
 use sensors::Sensors;
+use serde::Deserialize;
 
 use crate::{
-    database::{create::Insert, db_connection_pool::Postgres, read::Read},
+    database::{db_connection_pool::Postgres, insert::Insert, query::Query as MQuery, read::Read},
     measurements::Measurement,
 };
 
@@ -18,21 +22,21 @@ pub async fn store_measurements(
     match measurement {
         Sensors::Temperature(temperature) => {
             info!("Got temperature {}", temperature);
-            temperature.create(pg_pool).await.map_err(|e| {
+            temperature.insert(pg_pool).await.map_err(|e| {
                 warn!("Failed with error: {}", e);
                 HandlerError::new(500, format!("Failed to store data in database: {}", e))
             })?;
         }
         Sensors::Dht11(dht11) => {
             info!("Got dht11 {}", dht11);
-            dht11.create(pg_pool).await.map_err(|e| {
+            dht11.insert(pg_pool).await.map_err(|e| {
                 warn!("Failed with error: {}", e);
                 HandlerError::new(500, format!("Failed to store data in database: {}", e))
             })?;
         }
         Sensors::Measurement(measurement) => {
             info!("Got measurement {}", measurement);
-            measurement.create(pg_pool).await.map_err(|e| {
+            measurement.insert(pg_pool).await.map_err(|e| {
                 warn!("Failed with error: {}", e);
                 HandlerError::new(500, format!("Failed to store data in database: {}", e))
             })?;
@@ -42,14 +46,28 @@ pub async fn store_measurements(
     Ok("OK".to_string())
 }
 
+#[derive(Deserialize)]
+pub struct MeasurementQuery {
+    pub device_name: String,
+    pub sensor_name: String,
+}
+
 pub async fn fetch_latest_measurement(
     State(pg_pool): State<Postgres>,
+    Query(measurements_query): Query<Option<MeasurementQuery>>,
 ) -> Result<Json<Measurement>, HandlerError> {
     info!("GET api/measurements/latest");
-    let entry = Measurement::read(pg_pool).await.map_err(|e| {
-        warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
-    })?;
+
+    let entry = match measurements_query {
+        Some(query) => query.query(pg_pool).await.map_err(|e| {
+            warn!("Failed with error: {}", e);
+            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+        })?,
+        None => Measurement::read(pg_pool).await.map_err(|e| {
+            warn!("Failed with error: {}", e);
+            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+        })?,
+    };
 
     Ok(Json(entry))
 }

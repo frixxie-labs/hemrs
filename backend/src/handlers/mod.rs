@@ -12,6 +12,8 @@ use self::{
     sensors::{delete_sensor, fetch_sensors, insert_sensor, update_sensor},
 };
 
+pub use measurements::MeasurementQuery;
+
 mod devices;
 mod error;
 mod measurements;

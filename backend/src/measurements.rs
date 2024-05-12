@@ -4,10 +4,14 @@ use sensors::{Dht11, Measurement as GenericMeasurement, Temperature};
 use serde::Serialize;
 use sqlx::FromRow;
 
-use crate::database::{
-    create::Insert,
-    db_connection_pool::{DbConnectionPool, Postgres},
-    read::Read,
+use crate::{
+    database::{
+        db_connection_pool::{DbConnectionPool, Postgres},
+        insert::Insert,
+        query::Query,
+        read::Read,
+    },
+    handlers::MeasurementQuery,
 };
 
 #[derive(Debug, Clone, Serialize, FromRow)]
@@ -21,7 +25,7 @@ pub struct Measurement {
 }
 
 impl Insert<Postgres> for Dht11 {
-    async fn create(self, connection: Postgres) -> Result<()> {
+    async fn insert(self, connection: Postgres) -> Result<()> {
         let pool = connection.get_connection().await;
         let transaction = pool.begin().await?;
         let dht11_temperature_id: i32 =
@@ -54,7 +58,7 @@ impl Insert<Postgres> for Dht11 {
 }
 
 impl Insert<Postgres> for GenericMeasurement {
-    async fn create(self, connection: Postgres) -> Result<()> {
+    async fn insert(self, connection: Postgres) -> Result<()> {
         let pool = connection.get_connection().await;
         sqlx::query("INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES (CURRENT_TIMESTAMP, $1, $2, $3)")
             .bind(self.device)
@@ -67,7 +71,7 @@ impl Insert<Postgres> for GenericMeasurement {
 }
 
 impl Insert<Postgres> for Temperature {
-    async fn create(self, connection: Postgres) -> Result<()> {
+    async fn insert(self, connection: Postgres) -> Result<()> {
         let pool = connection.get_connection().await;
         let transaction = pool.begin().await?;
         let sensor_id: i32 =
@@ -112,14 +116,36 @@ impl Read<Postgres> for Vec<Measurement> {
     }
 }
 
+impl Query<Postgres, Measurement> for MeasurementQuery {
+    async fn query(self: Self, connection: Postgres) -> anyhow::Result<Measurement> {
+        let pool = connection.get_connection().await;
+        let sensor_id: i32 = sqlx::query_scalar("SELECT id from sensors where name = ($1)")
+            .bind(self.sensor_name)
+            .fetch_one(&pool)
+            .await?;
+        let device_id: i32 = sqlx::query_scalar("SELECT id from devices where name = ($1)")
+            .bind(self.device_name)
+            .fetch_one(&pool)
+            .await?;
+        let res = sqlx::query_as::<_, Measurement>("SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id where m.device_id = ($1) AND m.sensor_id = ($2) ORDER BY ts")
+            .bind(device_id)
+            .bind(sensor_id)
+            .fetch_one(&pool)
+            .await?;
+        Ok(res)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use sensors::Measurement as GenericMeasurement;
     use sensors::{Dht11, Temperature};
     use sqlx::PgPool;
 
+    use crate::database::insert::Insert;
+    use crate::database::query::Query;
     use crate::{
-        database::{create::Insert, db_connection_pool::Postgres, read::Read},
+        database::{db_connection_pool::Postgres, read::Read},
         devices::Device,
         measurements::Measurement,
     };
@@ -129,9 +155,9 @@ mod tests {
         let postgres = Postgres::new(pool);
 
         let device = Device::new("test".to_string(), "test".to_string());
-        device.create(postgres.clone()).await.unwrap();
+        device.insert(postgres.clone()).await.unwrap();
         let dht11_measurement = Dht11::new("test".to_string(), 10.0, 20.0);
-        dht11_measurement.create(postgres).await.unwrap();
+        dht11_measurement.insert(postgres).await.unwrap();
     }
 
     #[sqlx::test]
@@ -139,9 +165,9 @@ mod tests {
         let postgres = Postgres::new(pool);
 
         let device = Device::new("test".to_string(), "test".to_string());
-        device.create(postgres.clone()).await.unwrap();
+        device.insert(postgres.clone()).await.unwrap();
         let temperature_measurement = Temperature::new("test".to_string(), 10.0);
-        temperature_measurement.create(postgres).await.unwrap();
+        temperature_measurement.insert(postgres).await.unwrap();
     }
 
     #[sqlx::test]
@@ -149,9 +175,9 @@ mod tests {
         let postgres = Postgres::new(pool);
 
         let device = Device::new("test".to_string(), "test".to_string());
-        device.create(postgres.clone()).await.unwrap();
+        device.insert(postgres.clone()).await.unwrap();
         let measurement = GenericMeasurement::new(1, 1, 1.0);
-        measurement.create(postgres).await.unwrap();
+        measurement.insert(postgres).await.unwrap();
     }
 
     #[sqlx::test]
@@ -159,13 +185,33 @@ mod tests {
         let postgres = Postgres::new(pool);
 
         let device = Device::new("test".to_string(), "test".to_string());
-        device.create(postgres.clone()).await.unwrap();
+        device.insert(postgres.clone()).await.unwrap();
         let dht11_measurement = Dht11::new("test".to_string(), 10.0, 20.0);
-        dht11_measurement.create(postgres.clone()).await.unwrap();
+        dht11_measurement.insert(postgres.clone()).await.unwrap();
 
         let measurements = Vec::<Measurement>::read(postgres.clone()).await.unwrap();
         assert!(!measurements.is_empty());
 
         let _measurement = Measurement::read(postgres.clone()).await.unwrap();
+    }
+
+    #[sqlx::test]
+    fn measurements_query(pool: PgPool) {
+        let postgres = Postgres::new(pool);
+
+        let device = Device::new("test".to_string(), "test".to_string());
+        device.insert(postgres.clone()).await.unwrap();
+        let dht11_measurement = Dht11::new("test".to_string(), 10.0, 20.0);
+        dht11_measurement.insert(postgres.clone()).await.unwrap();
+
+        let query = crate::handlers::MeasurementQuery {
+            device_name: "test".to_string(),
+            sensor_name: "dht11_temperature".to_string(),
+        };
+        let measurement = query.query(postgres.clone()).await;
+        assert!(measurement.is_ok());
+        let result = measurement.unwrap();
+        assert_eq!(result.device_name, "test");
+        assert_eq!(result.sensor_name, "dht11_temperature");
     }
 }
