@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 use crate::database::{
-    create::Insert,
     db_connection_pool::{DbConnectionPool, Postgres},
     delete::Delete,
+    insert::Insert,
     read::Read,
     update::Update,
 };
@@ -45,7 +45,7 @@ impl Read<Postgres> for Vec<Devices> {
 }
 
 impl Insert<Postgres> for Device {
-    async fn create(self, connection: Postgres) -> anyhow::Result<()> {
+    async fn insert(self, connection: Postgres) -> anyhow::Result<()> {
         let pool = connection.get_connection().await;
         sqlx::query("INSERT INTO devices (name, location) VALUES ($1, $2)")
             .bind(self.name)
@@ -86,7 +86,7 @@ mod tests {
 
     use crate::{
         database::{
-            create::Insert, db_connection_pool::Postgres, delete::Delete, read::Read,
+            db_connection_pool::Postgres, delete::Delete, insert::Insert, read::Read,
             update::Update,
         },
         devices::{Device, Devices},
@@ -97,7 +97,7 @@ mod tests {
         let postgres = Postgres::new(pool);
 
         let device = Device::new("test".to_string(), "test".to_string());
-        device.create(postgres.clone()).await.unwrap();
+        device.insert(postgres.clone()).await.unwrap();
         let devices = Vec::<Devices>::read(postgres.clone()).await.unwrap();
         assert!(!devices.is_empty());
         assert_eq!(devices[0].name, "test");
@@ -109,7 +109,7 @@ mod tests {
         let postgres = Postgres::new(pool);
 
         let device = Device::new("test".to_string(), "test".to_string());
-        device.clone().create(postgres.clone()).await.unwrap();
+        device.clone().insert(postgres.clone()).await.unwrap();
         let devices = Vec::<Devices>::read(postgres.clone()).await.unwrap();
         let device = devices[0].clone().delete(postgres.clone()).await;
         assert!(device.is_ok());
@@ -123,7 +123,7 @@ mod tests {
         let postgres = Postgres::new(pool);
 
         let device = Device::new("test".to_string(), "test".to_string());
-        device.clone().create(postgres.clone()).await.unwrap();
+        device.clone().insert(postgres.clone()).await.unwrap();
         let devices = Vec::<Devices>::read(postgres.clone()).await.unwrap();
         let device = devices[0].clone();
         let device = Devices::new(device.id, "test2".to_string(), "test2".to_string());

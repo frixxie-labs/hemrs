@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 use crate::database::{
-    create::Insert,
+    insert::Insert,
     db_connection_pool::{DbConnectionPool, Postgres},
     delete::Delete,
     read::Read,
@@ -46,7 +46,7 @@ impl Read<Postgres> for Vec<Sensors> {
 }
 
 impl Insert<Postgres> for Sensor {
-    async fn create(self, connection: Postgres) -> Result<()> {
+    async fn insert(self, connection: Postgres) -> Result<()> {
         let pool = connection.get_connection().await;
         sqlx::query("INSERT INTO sensors (name, unit) VALUES ($1, $2)")
             .bind(self.name)
@@ -87,7 +87,7 @@ mod tests {
 
     use crate::{
         database::{
-            create::Insert, db_connection_pool::Postgres, delete::Delete, read::Read,
+            insert::Insert, db_connection_pool::Postgres, delete::Delete, read::Read,
             update::Update,
         },
         sensors::{Sensor, Sensors},
@@ -98,7 +98,7 @@ mod tests {
         let postgres = Postgres::new(pool);
 
         let sensor = Sensor::new("test".to_string(), "test".to_string());
-        sensor.create(postgres.clone()).await.unwrap();
+        sensor.insert(postgres.clone()).await.unwrap();
         let sensors = Vec::<Sensors>::read(postgres.clone()).await.unwrap();
         assert!(!sensors.is_empty());
         assert_eq!(sensors.last().unwrap().name, "test");
@@ -110,7 +110,7 @@ mod tests {
         let postgres = Postgres::new(pool);
 
         let sensor = Sensor::new("test".to_string(), "test".to_string());
-        sensor.clone().create(postgres.clone()).await.unwrap();
+        sensor.clone().insert(postgres.clone()).await.unwrap();
         let sensors = Vec::<Sensors>::read(postgres.clone()).await.unwrap();
         let sensor = sensors
             .last()
@@ -129,7 +129,7 @@ mod tests {
         let postgres = Postgres::new(pool);
 
         let sensor = Sensor::new("test".to_string(), "test".to_string());
-        sensor.clone().create(postgres.clone()).await.unwrap();
+        sensor.clone().insert(postgres.clone()).await.unwrap();
         let sensors = Vec::<Sensors>::read(postgres.clone()).await.unwrap();
         let sensor = sensors.last().unwrap().clone();
         let sensor = Sensors::new(sensor.id, "test2".to_string(), "test2".to_string());

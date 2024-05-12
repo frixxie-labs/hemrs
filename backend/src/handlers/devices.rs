@@ -3,7 +3,7 @@ use log::{info, warn};
 
 use crate::{
     database::{
-        create::Insert, db_connection_pool::Postgres, delete::Delete, read::Read, update::Update,
+        insert::Insert, db_connection_pool::Postgres, delete::Delete, read::Read, update::Update,
     },
     devices::{Device, Devices},
 };
@@ -26,7 +26,7 @@ pub async fn insert_device(
     Json(device): Json<Device>,
 ) -> Result<String, HandlerError> {
     info!("POST api/devices");
-    device.create(pg_pool).await.map_err(|e| {
+    device.insert(pg_pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
         HandlerError::new(500, format!("Failed to store data in database: {}", e))
     })?;
