@@ -47,19 +47,24 @@ pub async fn store_measurements(
 }
 
 #[derive(Deserialize)]
-pub struct MeasurementQuery {
+pub struct InnerMeasurementQuery {
     pub device_name: String,
     pub sensor_name: String,
 }
 
+#[derive(Deserialize)]
+pub struct MeasurementQuery {
+    query: Option<InnerMeasurementQuery>,
+}
+
 pub async fn fetch_latest_measurement(
     State(pg_pool): State<Postgres>,
-    Query(measurements_query): Query<Option<MeasurementQuery>>,
+    Query(measurements_query): Query<MeasurementQuery>,
 ) -> Result<Json<Measurement>, HandlerError> {
     info!("GET api/measurements/latest");
 
-    let entry = match measurements_query {
-        Some(query) => query.query(pg_pool).await.map_err(|e| {
+    let entry = match measurements_query.query {
+        Some(inner) => inner.query(pg_pool).await.map_err(|e| {
             warn!("Failed with error: {}", e);
             HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
         })?,
