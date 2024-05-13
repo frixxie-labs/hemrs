@@ -11,7 +11,7 @@ use crate::{
         query::Query,
         read::Read,
     },
-    handlers::MeasurementQuery,
+    handlers::InnerMeasurementQuery,
 };
 
 #[derive(Debug, Clone, Serialize, FromRow)]
@@ -116,7 +116,7 @@ impl Read<Postgres> for Vec<Measurement> {
     }
 }
 
-impl Query<Postgres, Measurement> for MeasurementQuery {
+impl Query<Postgres, Measurement> for InnerMeasurementQuery {
     async fn query(self: Self, connection: Postgres) -> anyhow::Result<Measurement> {
         let pool = connection.get_connection().await;
         let sensor_id: i32 = sqlx::query_scalar("SELECT id from sensors where name = ($1)")
@@ -144,6 +144,7 @@ mod tests {
 
     use crate::database::insert::Insert;
     use crate::database::query::Query;
+    use crate::handlers::InnerMeasurementQuery;
     use crate::{
         database::{db_connection_pool::Postgres, read::Read},
         devices::Device,
@@ -204,10 +205,11 @@ mod tests {
         let dht11_measurement = Dht11::new("test".to_string(), 10.0, 20.0);
         dht11_measurement.insert(postgres.clone()).await.unwrap();
 
-        let query = crate::handlers::MeasurementQuery {
+        let query = InnerMeasurementQuery {
             device_name: "test".to_string(),
             sensor_name: "dht11_temperature".to_string(),
         };
+
         let measurement = query.query(postgres.clone()).await;
         assert!(measurement.is_ok());
         let result = measurement.unwrap();

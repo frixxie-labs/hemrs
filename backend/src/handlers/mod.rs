@@ -12,7 +12,7 @@ use self::{
     sensors::{delete_sensor, fetch_sensors, insert_sensor, update_sensor},
 };
 
-pub use measurements::MeasurementQuery;
+pub use measurements::InnerMeasurementQuery;
 
 mod devices;
 mod error;
