@@ -11,15 +11,15 @@ use crate::database::{
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Device {
-    name: String,
-    location: String,
+    pub name: String,
+    pub location: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, FromRow)]
 pub struct Devices {
-    id: i32,
-    name: String,
-    location: String,
+    pub id: i32,
+    pub name: String,
+    pub location: String,
 }
 
 impl Devices {

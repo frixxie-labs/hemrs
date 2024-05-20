@@ -3,7 +3,7 @@ use log::{info, warn};
 
 use crate::{
     database::{
-        insert::Insert, db_connection_pool::Postgres, delete::Delete, read::Read, update::Update,
+        db_connection_pool::Postgres, delete::Delete, insert::Insert, read::Read, update::Update,
     },
     devices::{Device, Devices},
 };
@@ -13,7 +13,6 @@ use super::error::HandlerError;
 pub async fn fetch_devices(
     State(pg_pool): State<Postgres>,
 ) -> Result<Json<Vec<Devices>>, HandlerError> {
-    info!("GET api/devices");
     let devices = Vec::<Devices>::read(pg_pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
         HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
@@ -25,7 +24,9 @@ pub async fn insert_device(
     State(pg_pool): State<Postgres>,
     Json(device): Json<Device>,
 ) -> Result<String, HandlerError> {
-    info!("POST api/devices");
+    if device.name.is_empty() || device.location.is_empty() {
+        return Err(HandlerError::new(400, "Invalid input".to_string()));
+    }
     device.insert(pg_pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
         HandlerError::new(500, format!("Failed to store data in database: {}", e))
@@ -37,7 +38,9 @@ pub async fn delete_device(
     State(pg_pool): State<Postgres>,
     Json(device): Json<Devices>,
 ) -> Result<String, HandlerError> {
-    info!("DELETE api/devices");
+    if device.name.is_empty() || device.location.is_empty() {
+        return Err(HandlerError::new(400, "Invalid input".to_string()));
+    }
     device.delete(pg_pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
         HandlerError::new(500, format!("Failed to store data in database: {}", e))
@@ -49,7 +52,9 @@ pub async fn update_device(
     State(pg_pool): State<Postgres>,
     Json(device): Json<Devices>,
 ) -> Result<String, HandlerError> {
-    info!("DELETE api/devices");
+    if device.name.is_empty() || device.location.is_empty() {
+        return Err(HandlerError::new(400, "Invalid input".to_string()));
+    }
     device.update(pg_pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
         HandlerError::new(500, format!("Failed to store data in database: {}", e))
