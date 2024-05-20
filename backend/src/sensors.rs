@@ -12,15 +12,15 @@ use crate::database::{
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Sensor {
-    name: String,
-    unit: String,
+    pub name: String,
+    pub unit: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, FromRow)]
 pub struct Sensors {
-    id: i32,
-    name: String,
-    unit: String,
+    pub id: i32,
+    pub name: String,
+    pub unit: String,
 }
 
 impl Sensors {

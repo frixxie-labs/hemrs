@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use log::info;
 use simple_logger::SimpleLogger;
 use sqlx::PgPool;
@@ -24,13 +26,16 @@ pub struct Opts {
         default_value = "postgres://postgres:example@server:5432/postgres"
     )]
     db_url: String,
+
+    #[structopt(short, long, default_value = "info")]
+    log_level: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     let opts = Opts::from_args();
     SimpleLogger::new()
-        .with_level(log::LevelFilter::Info)
+        .with_level(log::LevelFilter::from_str(&opts.log_level)?)
         .init()?;
 
     info!("Connecting to DB at {}", opts.db_url);

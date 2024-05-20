@@ -3,12 +3,17 @@ use axum::{
     Router,
 };
 use sqlx::Pool;
+use tower::{load::PeakEwma, ServiceBuilder};
+use tower_http::{metrics::InFlightRequestsLayer, trace::TraceLayer};
 
 use crate::database::db_connection_pool;
 
 use self::{
     devices::{delete_device, fetch_devices, insert_device, update_device},
-    measurements::{fetch_all_measurements, fetch_latest_measurement, store_measurements},
+    measurements::{
+        fetch_all_measurements, fetch_latest_measurement, fetch_measurements_count,
+        store_measurements,
+    },
     sensors::{delete_sensor, fetch_sensors, insert_sensor, update_sensor},
 };
 
@@ -25,6 +30,7 @@ pub fn create_router(connection: Pool<sqlx::Postgres>) -> Router {
     let measurements = Router::new()
         .route("/measurements", get(fetch_all_measurements))
         .route("/measurements/latest", get(fetch_latest_measurement))
+        .route("/measurements/count", get(fetch_measurements_count))
         .route("/measurements", post(store_measurements));
 
     let devices = Router::new()
@@ -45,4 +51,5 @@ pub fn create_router(connection: Pool<sqlx::Postgres>) -> Router {
         .nest("/api", sensors)
         .route("/", post(store_measurements))
         .with_state(pg_pool)
+        .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
 }

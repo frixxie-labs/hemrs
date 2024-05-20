@@ -17,8 +17,6 @@ pub async fn store_measurements(
     State(pg_pool): State<Postgres>,
     Json(measurement): Json<Sensors>,
 ) -> Result<String, HandlerError> {
-    info!("POST /");
-
     match measurement {
         Sensors::Temperature(temperature) => {
             info!("Got temperature {}", temperature);
@@ -61,8 +59,6 @@ pub async fn fetch_latest_measurement(
     State(pg_pool): State<Postgres>,
     Query(measurements_query): Query<MeasurementQuery>,
 ) -> Result<Json<Measurement>, HandlerError> {
-    info!("GET api/measurements/latest");
-
     let entry = match measurements_query.query {
         Some(inner) => inner.query(pg_pool).await.map_err(|e| {
             warn!("Failed with error: {}", e);
@@ -77,10 +73,20 @@ pub async fn fetch_latest_measurement(
     Ok(Json(entry))
 }
 
+pub async fn fetch_measurements_count(
+    State(pool): State<Postgres>,
+) -> Result<Json<usize>, HandlerError> {
+    let entry = Vec::<Measurement>::read(pool).await.map_err(|e| {
+        warn!("Failed with error: {}", e);
+        HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+    })?;
+
+    Ok(Json(entry.len()))
+}
+
 pub async fn fetch_all_measurements(
     State(pool): State<Postgres>,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
-    info!("GET api/measurements");
     let entry = Vec::<Measurement>::read(pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
         HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
