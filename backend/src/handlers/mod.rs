@@ -1,10 +1,15 @@
 use axum::{
+    extract::Request,
+    middleware::{self, Next},
+    response::Response,
     routing::{delete, get, post, put},
     Router,
 };
+use log::info;
 use sqlx::Pool;
-use tower::{load::PeakEwma, ServiceBuilder};
-use tower_http::{metrics::InFlightRequestsLayer, trace::TraceLayer};
+use tokio::time::Instant;
+use tower::ServiceBuilder;
+use tower_http::trace::TraceLayer;
 
 use crate::database::db_connection_pool;
 
@@ -23,6 +28,26 @@ mod devices;
 mod error;
 mod measurements;
 mod sensors;
+
+pub async fn profile_endpoint(request: Request, next: Next) -> Response {
+    let method = request.method().clone().to_string();
+    let uri = request.uri().clone();
+    info!("Handling {} at {}", method, uri);
+
+    let now = Instant::now();
+
+    let response = next.run(request).await;
+
+    let elapsed = now.elapsed();
+
+    info!(
+        "Finished handling {} at {}, used {} ms",
+        method,
+        uri,
+        elapsed.as_millis()
+    );
+    response
+}
 
 pub fn create_router(connection: Pool<sqlx::Postgres>) -> Router {
     let pg_pool = db_connection_pool::Postgres::new(connection);
@@ -51,5 +76,9 @@ pub fn create_router(connection: Pool<sqlx::Postgres>) -> Router {
         .nest("/api", sensors)
         .route("/", post(store_measurements))
         .with_state(pg_pool)
-        .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
+        .layer(
+            ServiceBuilder::new()
+                .layer(TraceLayer::new_for_http())
+                .layer(middleware::from_fn(profile_endpoint)),
+        )
 }
