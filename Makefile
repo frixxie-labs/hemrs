@@ -5,10 +5,11 @@ all: test
 build:
 	cargo check --verbose
 	cargo b --verbose
+	cargo install cargo-nextest
 
 test: build
 	docker compose -f docker-compose-test.yaml up --wait
-	cargo t --verbose
+	cargo nextest run
 	docker compose -f docker-compose-test.yaml down
 
 integration_test: build
