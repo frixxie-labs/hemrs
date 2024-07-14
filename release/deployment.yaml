@@ -8,7 +8,7 @@ metadata:
     io.kompose.service: hemrs
   name: hemrs
 spec:
-  replicas: 2
+  replicas: 4
   selector:
     matchLabels:
       io.kompose.service: hemrs
