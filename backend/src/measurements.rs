@@ -117,7 +117,7 @@ impl Read<Postgres> for Vec<Measurement> {
 }
 
 impl Query<Postgres, Measurement> for InnerMeasurementQuery {
-    async fn query(self: Self, connection: Postgres) -> anyhow::Result<Measurement> {
+    async fn query(self, connection: Postgres) -> anyhow::Result<Measurement> {
         let pool = connection.get_connection().await;
         let sensor_id: i32 = sqlx::query_scalar("SELECT id from sensors where name = ($1)")
             .bind(self.sensor_name)
