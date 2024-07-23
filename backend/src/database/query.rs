@@ -4,5 +4,5 @@ use sqlx::PgPool;
 use super::db_connection_pool::DbConnectionPool;
 
 pub trait Query<TConnection: DbConnectionPool<PgPool>, TResult> {
-    async fn query(self: Self, connection: TConnection) -> Result<TResult>;
+    async fn query(self, connection: TConnection) -> Result<TResult>;
 }
