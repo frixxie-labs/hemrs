@@ -1,0 +1,5 @@
+GET http://thor.lan:65534/api/devices
+
+###
+
+GET http://thor.lan:65534/api/sensors
