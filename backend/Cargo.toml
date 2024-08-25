@@ -17,5 +17,5 @@ sqlx = { version = "0.8.0", features = ["postgres", "runtime-tokio", "time", "ch
 structopt = "0.3.26"
 tokio = { version = "1.38.1", features = ["full"] }
 sensors = { path="../sensors"}
-tower = { version = "0.4.13", features = ["tracing", "load"] }
+tower = { version = "0.5.0", features = ["tracing", "load"] }
 tower-http = { version = "0.5.2", features = ["trace", "full"] }
