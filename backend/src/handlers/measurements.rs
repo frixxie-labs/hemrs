@@ -2,9 +2,9 @@ use axum::{
     extract::{Query, State},
     Json,
 };
-use log::{info, warn};
 use sensors::Sensors;
 use serde::Deserialize;
+use tracing::{info, warn};
 
 use crate::{
     database::{db_connection_pool::Postgres, insert::Insert, query::Query as MQuery, read::Read},

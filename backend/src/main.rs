@@ -1,10 +1,8 @@
-use std::str::FromStr;
-
-use log::info;
-use simple_logger::SimpleLogger;
 use sqlx::PgPool;
 use structopt::StructOpt;
 use tokio::net::TcpListener;
+use tracing::{info, Level};
+use tracing_subscriber::FmtSubscriber;
 
 use crate::handlers::create_router;
 
@@ -34,9 +32,12 @@ pub struct Opts {
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     let opts = Opts::from_args();
-    SimpleLogger::new()
-        .with_level(log::LevelFilter::from_str(&opts.log_level)?)
-        .init()?;
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(Level::INFO)
+        .json()
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber).unwrap();
 
     info!("Connecting to DB at {}", opts.db_url);
     let connection = PgPool::connect(&opts.db_url).await.unwrap();
