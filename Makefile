@@ -2,14 +2,15 @@ PROJECT_NAME=hemrs
 
 all: test
 
-build:
-	cargo check --verbose
-	cargo b --verbose
-	cargo install cargo-nextest
+check:
+	cargo check
+
+build: check
+	cargo build
 
 test: build
 	docker compose -f docker-compose-test.yaml up --wait
-	cargo nextest run
+	cargo test
 	docker compose -f docker-compose-test.yaml down
 
 integration_test: build
@@ -20,13 +21,13 @@ integration_test: build
 	docker compose down
 
 docker_builder:
-	docker buildx create --name builder --platform linux/amd64,linux/arm64
+	docker buildx create --name builder --platform linux/amd64
 
 docker_login:
 	docker login ghcr.io -u Frixxie -p $(GITHUB_TOKEN)
 
 container: docker_builder docker_login
-	docker buildx build -t ghcr.io/frixxie/$(PROJECT_NAME):latest . --platform linux/amd64,linux/arm64 --builder builder --push
+	docker buildx build -t ghcr.io/frixxie/$(PROJECT_NAME):latest . --builder builder --push
 
 container_tagged: docker_builder docker_login
-	docker buildx build -t ghcr.io/frixxie/$(PROJECT_NAME):$(DOCKERTAG) . --platform linux/amd64,linux/arm64 --builder builder --push
+	docker buildx build -t ghcr.io/frixxie/$(PROJECT_NAME):$(DOCKERTAG) . --builder builder --push
