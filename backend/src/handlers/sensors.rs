@@ -1,5 +1,5 @@
 use axum::{extract::State, Json};
-use tracing::warn;
+use tracing::{instrument, warn};
 
 use crate::{
     database::{
@@ -10,6 +10,7 @@ use crate::{
 
 use super::error::HandlerError;
 
+#[instrument]
 pub async fn fetch_sensors(
     State(pg_pool): State<Postgres>,
 ) -> Result<Json<Vec<Sensors>>, HandlerError> {
@@ -20,6 +21,7 @@ pub async fn fetch_sensors(
     Ok(Json(sensors))
 }
 
+#[instrument]
 pub async fn insert_sensor(
     State(pg_pool): State<Postgres>,
     Json(sensor): Json<Sensor>,
@@ -34,6 +36,7 @@ pub async fn insert_sensor(
     Ok("OK".to_string())
 }
 
+#[instrument]
 pub async fn delete_sensor(
     State(pg_pool): State<Postgres>,
     Json(sensor): Json<Sensors>,
@@ -48,6 +51,7 @@ pub async fn delete_sensor(
     Ok("OK".to_string())
 }
 
+#[instrument]
 pub async fn update_sensor(
     State(pg_pool): State<Postgres>,
     Json(sensor): Json<Sensors>,

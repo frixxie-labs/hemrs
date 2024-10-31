@@ -16,6 +16,6 @@ structopt = "0.3.26"
 tokio = { version = "1.41.0", features = ["full"] }
 sensors = { path="../sensors"}
 tower = { version = "0.5.1", features = ["tracing", "load"] }
-tower-http = { version = "0.5.2", features = ["trace", "full"] }
+tower-http = { version = "0.6.1", features = ["trace", "full"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["json", "tracing"] }

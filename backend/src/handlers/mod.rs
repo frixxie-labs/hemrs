@@ -5,11 +5,11 @@ use axum::{
     routing::{delete, get, post, put},
     Router,
 };
-use tracing::{instrument, log::info};
 use sqlx::Pool;
 use tokio::time::Instant;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
+use tracing::{info, instrument};
 
 use crate::database::db_connection_pool;
 

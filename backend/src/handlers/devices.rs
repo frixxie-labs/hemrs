@@ -1,5 +1,5 @@
 use axum::{extract::State, Json};
-use tracing::warn;
+use tracing::{instrument, warn};
 
 use crate::{
     database::{
@@ -10,6 +10,7 @@ use crate::{
 
 use super::error::HandlerError;
 
+#[instrument]
 pub async fn fetch_devices(
     State(pg_pool): State<Postgres>,
 ) -> Result<Json<Vec<Devices>>, HandlerError> {
@@ -20,6 +21,7 @@ pub async fn fetch_devices(
     Ok(Json(devices))
 }
 
+#[instrument]
 pub async fn insert_device(
     State(pg_pool): State<Postgres>,
     Json(device): Json<Device>,
@@ -34,6 +36,7 @@ pub async fn insert_device(
     Ok("OK".to_string())
 }
 
+#[instrument]
 pub async fn delete_device(
     State(pg_pool): State<Postgres>,
     Json(device): Json<Devices>,
@@ -48,6 +51,7 @@ pub async fn delete_device(
     Ok("OK".to_string())
 }
 
+#[instrument]
 pub async fn update_device(
     State(pg_pool): State<Postgres>,
     Json(device): Json<Devices>,

@@ -4,7 +4,7 @@ use axum::{
 };
 use sensors::Sensors;
 use serde::Deserialize;
-use tracing::{info, warn};
+use tracing::{info, instrument, warn};
 
 use crate::{
     database::{db_connection_pool::Postgres, insert::Insert, query::Query as MQuery, read::Read},
@@ -13,6 +13,7 @@ use crate::{
 
 use super::error::HandlerError;
 
+#[instrument]
 pub async fn store_measurements(
     State(pg_pool): State<Postgres>,
     Json(measurement): Json<Sensors>,
@@ -44,17 +45,18 @@ pub async fn store_measurements(
     Ok("OK".to_string())
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct InnerMeasurementQuery {
     pub device_name: String,
     pub sensor_name: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct MeasurementQuery {
     query: Option<InnerMeasurementQuery>,
 }
 
+#[instrument]
 pub async fn fetch_latest_measurement(
     State(pg_pool): State<Postgres>,
     Query(measurements_query): Query<MeasurementQuery>,
@@ -73,6 +75,7 @@ pub async fn fetch_latest_measurement(
     Ok(Json(entry))
 }
 
+#[instrument]
 pub async fn fetch_measurements_count(
     State(pool): State<Postgres>,
 ) -> Result<Json<usize>, HandlerError> {
@@ -84,6 +87,7 @@ pub async fn fetch_measurements_count(
     Ok(Json(entry.len()))
 }
 
+#[instrument]
 pub async fn fetch_all_measurements(
     State(pool): State<Postgres>,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
