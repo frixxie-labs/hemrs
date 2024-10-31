@@ -5,7 +5,7 @@ use axum::{
     routing::{delete, get, post, put},
     Router,
 };
-use tracing::log::info;
+use tracing::{instrument, log::info};
 use sqlx::Pool;
 use tokio::time::Instant;
 use tower::ServiceBuilder;
@@ -29,6 +29,7 @@ mod error;
 mod measurements;
 mod sensors;
 
+#[instrument]
 pub async fn profile_endpoint(request: Request, next: Next) -> Response {
     let method = request.method().clone().to_string();
     let uri = request.uri().clone();
