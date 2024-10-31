@@ -4,7 +4,7 @@ pub trait DbConnectionPool<T> {
     async fn get_connection(&self) -> T;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Postgres {
     pool: PgPool,
 }
