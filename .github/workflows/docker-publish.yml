@@ -1,11 +1,8 @@
 name: Make
 
 on:
-  schedule:
-    - cron: '23 12 * * *'
   push:
     branches: [ "master" ]
-    # Publish semver tags as releases.
 
 env:
   GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
