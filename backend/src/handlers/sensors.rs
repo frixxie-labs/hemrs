@@ -1,5 +1,5 @@
 use axum::{extract::State, Json};
-use log::{warn};
+use tracing::warn;
 
 use crate::{
     database::{

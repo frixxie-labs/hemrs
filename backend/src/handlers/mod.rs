@@ -5,7 +5,7 @@ use axum::{
     routing::{delete, get, post, put},
     Router,
 };
-use log::info;
+use tracing::log::info;
 use sqlx::Pool;
 use tokio::time::Instant;
 use tower::ServiceBuilder;
