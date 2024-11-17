@@ -19,3 +19,5 @@ tower = { version = "0.5.1", features = ["tracing", "load"] }
 tower-http = { version = "0.6.1", features = ["trace", "full"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["json", "tracing"] }
+metrics = "0.24.0"
+metrics-exporter-prometheus = "0.16.0"
