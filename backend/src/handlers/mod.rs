@@ -39,11 +39,13 @@ pub async fn profile_endpoint(request: Request, next: Next) -> Response {
 
     let now = Instant::now();
 
+    let labels = [("method", method.clone()), ("uri", uri.clone())];
+
     let response = next.run(request).await;
 
     let elapsed = now.elapsed();
 
-    histogram!("handler", method.clone() => uri.clone()).record(elapsed);
+    histogram!("handler", &labels).record(elapsed);
 
     info!(
         "Finished handling {} at {}, used {} ms",

@@ -2,6 +2,7 @@ use axum::{
     extract::{Query, State},
     Json,
 };
+use metrics::counter;
 use sensors::Sensors;
 use serde::Deserialize;
 use tracing::{info, instrument, warn};
@@ -41,6 +42,8 @@ pub async fn store_measurements(
             })?;
         }
     };
+
+    counter!("new_measurements").increment(1);
 
     Ok("OK".to_string())
 }
