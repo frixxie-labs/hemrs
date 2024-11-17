@@ -1,10 +1,12 @@
 use axum::{
-    extract::Request,
+    extract::{Request, State},
     middleware::{self, Next},
     response::Response,
     routing::{delete, get, post, put},
     Router,
 };
+use metrics::histogram;
+use metrics_exporter_prometheus::PrometheusHandle;
 use sqlx::Pool;
 use tokio::time::Instant;
 use tower::ServiceBuilder;
@@ -32,7 +34,7 @@ mod sensors;
 #[instrument]
 pub async fn profile_endpoint(request: Request, next: Next) -> Response {
     let method = request.method().clone().to_string();
-    let uri = request.uri().clone();
+    let uri = request.uri().clone().to_string();
     info!("Handling {} at {}", method, uri);
 
     let now = Instant::now();
@@ -40,6 +42,8 @@ pub async fn profile_endpoint(request: Request, next: Next) -> Response {
     let response = next.run(request).await;
 
     let elapsed = now.elapsed();
+
+    histogram!("handler", method.clone() => uri.clone()).record(elapsed);
 
     info!(
         "Finished handling {} at {}, used {} ms",
@@ -50,7 +54,7 @@ pub async fn profile_endpoint(request: Request, next: Next) -> Response {
     response
 }
 
-pub fn create_router(connection: Pool<sqlx::Postgres>) -> Router {
+pub fn create_router(connection: Pool<sqlx::Postgres>, metrics_handler: PrometheusHandle) -> Router {
     let pg_pool = db_connection_pool::Postgres::new(connection);
 
     let measurements = Router::new()
@@ -77,9 +81,16 @@ pub fn create_router(connection: Pool<sqlx::Postgres>) -> Router {
         .nest("/api", sensors)
         .route("/", post(store_measurements))
         .with_state(pg_pool)
+        .route("/metrics", get(metrics))
+        .with_state(metrics_handler)
         .layer(
             ServiceBuilder::new()
                 .layer(TraceLayer::new_for_http())
                 .layer(middleware::from_fn(profile_endpoint)),
         )
+}
+
+#[instrument]
+async fn metrics(State(handle): State<PrometheusHandle>) -> String {
+    handle.render()
 }
