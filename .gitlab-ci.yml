@@ -13,10 +13,10 @@ image: "rust:latest"
 # Optional: Pick zero or more services to be used on all builds.
 # Only needed when using a docker container to run your tests in.
 # Check out: https://docs.gitlab.com/ee/ci/services/index.html
-# services:
+services:
+   - postgres:latest
 #   - mysql:latest
 #   - redis:latest
-#   - postgres:latest
 
 # Optional: Install a C compiler, cmake and git into the container.
 # You will often need this when you (or any of your dependencies) depends on C code.
