@@ -30,6 +30,12 @@ test:cargo:
     - rustc --version && cargo --version  # Print version info for debugging
     - cargo test --workspace --verbose
 
+variables:
+  POSTGRES_DB: postgres
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: admin
+  POSTGRES_HOST_AUTH_METHOD: trust
+
 # Optional: Use a third party library to generate gitlab junit reports
 # test:junit-report:
 #   script:
