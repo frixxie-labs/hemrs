@@ -1,15 +1,13 @@
 # You can copy and paste this template into a new `.gitlab-ci.yml` file.
-test:
-  stage: test
+ci:
+  stage: build
   image: "rust:latest"
 
   services:
      - postgres:latest
-
-  test:cargo:
-    script:
-      - rustc --version && cargo --version  # Print version info for debugging
-      - cargo test --workspace --verbose
+  script:
+    - rustc --version && cargo --version  # Print version info for debugging
+    - cargo test --workspace --verbose
 
   variables:
     POSTGRES_DB: postgres
@@ -20,7 +18,7 @@ test:
 build:
   stage: build
   dependencies:
-    - test
+    - ci
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
