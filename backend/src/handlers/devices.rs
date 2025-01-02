@@ -1,4 +1,11 @@
+<<<<<<< HEAD
 use axum::{extract::State, Json};
+=======
+use axum::{
+    extract::{Path, State},
+    Json,
+};
+>>>>>>> main
 use tracing::{instrument, warn};
 
 use crate::{
@@ -6,6 +13,10 @@ use crate::{
         db_connection_pool::Postgres, delete::Delete, insert::Insert, read::Read, update::Update,
     },
     devices::{Device, Devices},
+<<<<<<< HEAD
+=======
+    measurements::Measurement,
+>>>>>>> main
 };
 
 use super::error::HandlerError;
@@ -64,4 +75,32 @@ pub async fn update_device(
         HandlerError::new(500, format!("Failed to store data in database: {}", e))
     })?;
     Ok("OK".to_string())
+}
+
+#[instrument]
+pub async fn fetch_measurement_by_device_id(
+    State(pg_pool): State<Postgres>,
+    Path(device_id): Path<i32>,
+) -> Result<Json<Vec<Measurement>>, HandlerError> {
+    let measurements = Measurement::read_by_device_id(device_id, pg_pool)
+        .await
+        .map_err(|e| {
+            warn!("Failed with error: {}", e);
+            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+        })?;
+    Ok(Json(measurements))
+}
+
+#[instrument]
+pub async fn fetch_measurement_by_device_id_and_sensor_id(
+    State(pg_pool): State<Postgres>,
+    Path((device_id, sensor_id)): Path<(i32, i32)>,
+) -> Result<Json<Vec<Measurement>>, HandlerError> {
+    let measurements = Measurement::read_by_device_id_and_sensor_id(device_id, sensor_id, pg_pool)
+        .await
+        .map_err(|e| {
+            warn!("Failed with error: {}", e);
+            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+        })?;
+    Ok(Json(measurements))
 }

@@ -24,6 +24,35 @@ pub struct Measurement {
     sensor_name: String,
 }
 
+impl Measurement {
+    pub async fn read_by_device_id_and_sensor_id(
+        device_id: i32,
+        sensor_id: i32,
+        connection: Postgres,
+    ) -> Result<Vec<Self>> {
+        let pool = connection.get_connection().await;
+        let res = sqlx::query_as::<_, Measurement>(
+            "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id where m.device_id = ($1) AND m.sensor_id = ($2) ORDER BY ts",
+        )
+        .bind(device_id)
+        .bind(sensor_id)
+        .fetch_all(&pool)
+        .await?;
+        Ok(res)
+    }
+
+    pub async fn read_by_device_id(device_id: i32, connection: Postgres) -> Result<Vec<Self>> {
+        let pool = connection.get_connection().await;
+        let res = sqlx::query_as::<_, Measurement>(
+            "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id where m.device_id = ($1) ORDER BY ts",
+        )
+        .bind(device_id)
+        .fetch_all(&pool)
+        .await?;
+        Ok(res)
+    }
+}
+
 impl Insert<Postgres> for Dht11 {
     async fn insert(self, connection: Postgres) -> Result<()> {
         let pool = connection.get_connection().await;
