@@ -1,11 +1,7 @@
-<<<<<<< HEAD
-use axum::{extract::State, Json};
-=======
 use axum::{
     extract::{Path, State},
     Json,
 };
->>>>>>> main
 use tracing::{instrument, warn};
 
 use crate::{
