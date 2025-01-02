@@ -13,10 +13,7 @@ use crate::{
         db_connection_pool::Postgres, delete::Delete, insert::Insert, read::Read, update::Update,
     },
     devices::{Device, Devices},
-<<<<<<< HEAD
-=======
     measurements::Measurement,
->>>>>>> main
 };
 
 use super::error::HandlerError;
