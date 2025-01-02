@@ -16,7 +16,10 @@ use tracing::{info, instrument};
 use crate::database::db_connection_pool;
 
 use self::{
-    devices::{delete_device, fetch_devices, insert_device, update_device},
+    devices::{
+        delete_device, fetch_devices, fetch_measurement_by_device_id,
+        fetch_measurement_by_device_id_and_sensor_id, insert_device, update_device,
+    },
     measurements::{
         fetch_all_measurements, fetch_latest_measurement, fetch_measurements_count,
         store_measurements,
@@ -56,7 +59,10 @@ pub async fn profile_endpoint(request: Request, next: Next) -> Response {
     response
 }
 
-pub fn create_router(connection: Pool<sqlx::Postgres>, metrics_handler: PrometheusHandle) -> Router {
+pub fn create_router(
+    connection: Pool<sqlx::Postgres>,
+    metrics_handler: PrometheusHandle,
+) -> Router {
     let pg_pool = db_connection_pool::Postgres::new(connection);
 
     let measurements = Router::new()
@@ -69,7 +75,15 @@ pub fn create_router(connection: Pool<sqlx::Postgres>, metrics_handler: Promethe
         .route("/devices", get(fetch_devices))
         .route("/devices", post(insert_device))
         .route("/devices", delete(delete_device))
-        .route("/devices", put(update_device));
+        .route("/devices", put(update_device))
+        .route(
+            "/devices/:device_id/measurements",
+            get(fetch_measurement_by_device_id),
+        )
+        .route(
+            "/devices/:device_id/sensors/:sensor_id/measurements",
+            get(fetch_measurement_by_device_id_and_sensor_id),
+        );
 
     let sensors = Router::new()
         .route("/sensors", get(fetch_sensors))
