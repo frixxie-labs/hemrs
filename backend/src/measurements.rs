@@ -176,46 +176,46 @@ mod tests {
     use crate::handlers::InnerMeasurementQuery;
     use crate::{
         database::{db_connection_pool::Postgres, read::Read},
-        devices::Device,
+        devices::NewDevice,
         measurements::Measurement,
     };
 
     #[sqlx::test]
     fn dht11_insert(pool: PgPool) {
-        let postgres = Postgres::new(pool);
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+        device.insert(&pool).await.unwrap();
 
-        let device = Device::new("test".to_string(), "test".to_string());
-        device.insert(postgres.clone()).await.unwrap();
+        let postgres = Postgres::new(pool);
         let dht11_measurement = Dht11::new("test".to_string(), 10.0, 20.0);
         dht11_measurement.insert(postgres).await.unwrap();
     }
 
     #[sqlx::test]
     fn tempterture_insert(pool: PgPool) {
-        let postgres = Postgres::new(pool);
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+        device.insert(&pool).await.unwrap();
 
-        let device = Device::new("test".to_string(), "test".to_string());
-        device.insert(postgres.clone()).await.unwrap();
+        let postgres = Postgres::new(pool);
         let temperature_measurement = Temperature::new("test".to_string(), 10.0);
         temperature_measurement.insert(postgres).await.unwrap();
     }
 
     #[sqlx::test]
     fn measurement_insert(pool: PgPool) {
-        let postgres = Postgres::new(pool);
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+        device.insert(&pool).await.unwrap();
 
-        let device = Device::new("test".to_string(), "test".to_string());
-        device.insert(postgres.clone()).await.unwrap();
+        let postgres = Postgres::new(pool);
         let measurement = GenericMeasurement::new(1, 1, 1.0);
         measurement.insert(postgres).await.unwrap();
     }
 
     #[sqlx::test]
     fn measurements_read(pool: PgPool) {
-        let postgres = Postgres::new(pool);
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+        device.insert(&pool).await.unwrap();
 
-        let device = Device::new("test".to_string(), "test".to_string());
-        device.insert(postgres.clone()).await.unwrap();
+        let postgres = Postgres::new(pool);
         let dht11_measurement = Dht11::new("test".to_string(), 10.0, 20.0);
         dht11_measurement.insert(postgres.clone()).await.unwrap();
 
@@ -227,10 +227,10 @@ mod tests {
 
     #[sqlx::test]
     fn measurements_query(pool: PgPool) {
-        let postgres = Postgres::new(pool);
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+        device.insert(&pool).await.unwrap();
 
-        let device = Device::new("test".to_string(), "test".to_string());
-        device.insert(postgres.clone()).await.unwrap();
+        let postgres = Postgres::new(pool);
         let dht11_measurement = Dht11::new("test".to_string(), 10.0, 20.0);
         dht11_measurement.insert(postgres.clone()).await.unwrap();
 
