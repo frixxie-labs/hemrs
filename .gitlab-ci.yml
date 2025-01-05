@@ -1,6 +1,22 @@
 # You can copy and paste this template into a new `.gitlab-ci.yml` file.
-ci:
+build:
   stage: build
+  image: "rust:latest"
+
+  services:
+     - postgres:latest
+  script:
+    - rustc --version && cargo --version  # Print version info for debugging
+    - cargo build --workspace --verbose
+
+  variables:
+    POSTGRES_DB: postgres
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: admin
+    POSTGRES_HOST_AUTH_METHOD: trust
+
+test:
+  stage: test
   image: "rust:latest"
 
   services:
