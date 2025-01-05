@@ -1,5 +1,4 @@
 [workspace]
 resolver = "2"
-members = ["backend", "sensors"]
-exclude = ["collector"]
+members = ["backend"]
 

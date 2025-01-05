@@ -1917,16 +1917,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sensors"
-version = "0.2.0"
-dependencies = [
- "chrono",
- "serde",
- "serde_json",
- "sqlx",
-]
-
-[[package]]
 name = "serde"
 version = "1.0.217"
 source = "registry+https://github.com/rust-lang/crates.io-index"
