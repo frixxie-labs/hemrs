@@ -33,8 +33,6 @@ test:
 
 deploy:
   stage: deploy
-  dependencies:
-    - ci
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
