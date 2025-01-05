@@ -7,11 +7,12 @@ use tracing_subscriber::FmtSubscriber;
 
 use crate::handlers::create_router;
 
-mod database;
 mod devices;
+mod dht11;
 mod handlers;
 mod measurements;
 mod sensors;
+mod temperature;
 
 #[derive(Debug, Clone)]
 enum LogLevel {

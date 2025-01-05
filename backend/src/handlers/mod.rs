@@ -13,8 +13,6 @@ use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing::{info, instrument};
 
-use crate::database::db_connection_pool;
-
 use self::{
     devices::{
         delete_device, fetch_devices, fetch_measurement_by_device_id,
@@ -26,8 +24,6 @@ use self::{
     },
     sensors::{delete_sensor, fetch_sensors, insert_sensor, update_sensor},
 };
-
-pub use measurements::InnerMeasurementQuery;
 
 mod devices;
 mod error;
@@ -63,7 +59,6 @@ pub fn create_router(
     connection: Pool<sqlx::Postgres>,
     metrics_handler: PrometheusHandle,
 ) -> Router {
-    let pg_pool = db_connection_pool::Postgres::new(connection);
 
     let measurements = Router::new()
         .route("/measurements", get(fetch_all_measurements))
@@ -96,7 +91,7 @@ pub fn create_router(
         .nest("/api", devices)
         .nest("/api", sensors)
         .route("/", post(store_measurements))
-        .with_state(pg_pool)
+        .with_state(connection)
         .route("/metrics", get(metrics))
         .with_state(metrics_handler)
         .layer(

@@ -1,18 +1,13 @@
 use axum::{extract::State, Json};
+use sqlx::PgPool;
 use tracing::{instrument, warn};
 
-use crate::{
-    database::db_connection_pool::{DbConnectionPool, Postgres},
-    sensors::{NewSensor, Sensors},
-};
+use crate::sensors::{NewSensor, Sensors};
 
 use super::error::HandlerError;
 
 #[instrument]
-pub async fn fetch_sensors(
-    State(pg_pool): State<Postgres>,
-) -> Result<Json<Vec<Sensors>>, HandlerError> {
-    let pool = pg_pool.get_connection().await;
+pub async fn fetch_sensors(State(pool): State<PgPool>) -> Result<Json<Vec<Sensors>>, HandlerError> {
     let sensors = Sensors::read(&pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
         HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
@@ -22,10 +17,9 @@ pub async fn fetch_sensors(
 
 #[instrument]
 pub async fn insert_sensor(
-    State(pg_pool): State<Postgres>,
+    State(pool): State<PgPool>,
     Json(sensor): Json<NewSensor>,
 ) -> Result<String, HandlerError> {
-    let pool = pg_pool.get_connection().await;
     if sensor.name.is_empty() || sensor.unit.is_empty() {
         return Err(HandlerError::new(400, "Invalid input".to_string()));
     }
@@ -38,10 +32,9 @@ pub async fn insert_sensor(
 
 #[instrument]
 pub async fn delete_sensor(
-    State(pg_pool): State<Postgres>,
+    State(pool): State<PgPool>,
     Json(sensor): Json<Sensors>,
 ) -> Result<String, HandlerError> {
-    let pool = pg_pool.get_connection().await;
     if sensor.name.is_empty() || sensor.unit.is_empty() {
         return Err(HandlerError::new(400, "Invalid input".to_string()));
     }
@@ -54,10 +47,9 @@ pub async fn delete_sensor(
 
 #[instrument]
 pub async fn update_sensor(
-    State(pg_pool): State<Postgres>,
+    State(pool): State<PgPool>,
     Json(sensor): Json<Sensors>,
 ) -> Result<String, HandlerError> {
-    let pool = pg_pool.get_connection().await;
     if sensor.name.is_empty() || sensor.unit.is_empty() {
         return Err(HandlerError::new(400, "Invalid input".to_string()));
     }

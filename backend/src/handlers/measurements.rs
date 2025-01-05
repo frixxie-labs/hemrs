@@ -1,44 +1,34 @@
-use axum::{
-    extract::{Query, State},
-    Json,
-};
+use axum::{extract::State, Json};
 use metrics::counter;
-use sensors::Sensors;
-use serde::Deserialize;
-use tracing::{info, instrument, warn};
+use sqlx::PgPool;
+use tracing::{instrument, warn};
 
-use crate::{
-    database::{db_connection_pool::Postgres, insert::Insert, query::Query as MQuery, read::Read},
-    measurements::Measurement,
-};
+use crate::measurements::{Measurement, NewMeasurements};
 
 use super::error::HandlerError;
 
 #[instrument]
 pub async fn store_measurements(
-    State(pg_pool): State<Postgres>,
-    Json(measurement): Json<Sensors>,
+    State(pool): State<PgPool>,
+    Json(measurement): Json<NewMeasurements>,
 ) -> Result<String, HandlerError> {
     match measurement {
-        Sensors::Temperature(temperature) => {
-            info!("Got temperature {}", temperature);
-            temperature.insert(pg_pool).await.map_err(|e| {
+        NewMeasurements::Temperature(new_temperature) => {
+            new_temperature.insert(&pool).await.map_err(|e| {
                 warn!("Failed with error: {}", e);
-                HandlerError::new(500, format!("Failed to store data in database: {}", e))
+                HandlerError::new(500, format!("Failed to insert data into database: {}", e))
             })?;
         }
-        Sensors::Dht11(dht11) => {
-            info!("Got dht11 {}", dht11);
-            dht11.insert(pg_pool).await.map_err(|e| {
+        NewMeasurements::Dht11(dht11) => {
+            dht11.insert(&pool).await.map_err(|e| {
                 warn!("Failed with error: {}", e);
-                HandlerError::new(500, format!("Failed to store data in database: {}", e))
+                HandlerError::new(500, format!("Failed to insert data into database: {}", e))
             })?;
         }
-        Sensors::Measurement(measurement) => {
-            info!("Got measurement {}", measurement);
-            measurement.insert(pg_pool).await.map_err(|e| {
+        NewMeasurements::Measurement(new_measurement) => {
+            new_measurement.insert(&pool).await.map_err(|e| {
                 warn!("Failed with error: {}", e);
-                HandlerError::new(500, format!("Failed to store data in database: {}", e))
+                HandlerError::new(500, format!("Failed to insert data into database: {}", e))
             })?;
         }
     };
@@ -48,41 +38,22 @@ pub async fn store_measurements(
     Ok("OK".to_string())
 }
 
-#[derive(Deserialize, Debug)]
-pub struct InnerMeasurementQuery {
-    pub device_name: String,
-    pub sensor_name: String,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct MeasurementQuery {
-    query: Option<InnerMeasurementQuery>,
-}
-
 #[instrument]
 pub async fn fetch_latest_measurement(
-    State(pg_pool): State<Postgres>,
-    Query(measurements_query): Query<MeasurementQuery>,
+    State(pool): State<PgPool>,
 ) -> Result<Json<Measurement>, HandlerError> {
-    let entry = match measurements_query.query {
-        Some(inner) => inner.query(pg_pool).await.map_err(|e| {
-            warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
-        })?,
-        None => Measurement::read(pg_pool).await.map_err(|e| {
-            warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
-        })?,
-    };
-
+    let entry = Measurement::read_latest(&pool).await.map_err(|e| {
+        warn!("Failed with error: {}", e);
+        HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+    })?;
     Ok(Json(entry))
 }
 
 #[instrument]
 pub async fn fetch_measurements_count(
-    State(pool): State<Postgres>,
+    State(pool): State<PgPool>,
 ) -> Result<Json<usize>, HandlerError> {
-    let entry = Vec::<Measurement>::read(pool).await.map_err(|e| {
+    let entry = Measurement::read_all(&pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
         HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
     })?;
@@ -92,12 +63,12 @@ pub async fn fetch_measurements_count(
 
 #[instrument]
 pub async fn fetch_all_measurements(
-    State(pool): State<Postgres>,
+    State(pool): State<PgPool>,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
-    let entry = Vec::<Measurement>::read(pool).await.map_err(|e| {
+    let entries = Measurement::read_all(&pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
         HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
     })?;
 
-    Ok(Json(entry))
+    Ok(Json(entries))
 }
