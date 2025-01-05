@@ -15,8 +15,8 @@ ci:
     POSTGRES_PASSWORD: admin
     POSTGRES_HOST_AUTH_METHOD: trust
 
-build:
-  stage: build
+deploy:
+  stage: deploy
   dependencies:
     - ci
   image:
