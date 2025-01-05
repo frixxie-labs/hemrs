@@ -77,11 +77,11 @@ pub fn create_router(
         .route("/devices", delete(delete_device))
         .route("/devices", put(update_device))
         .route(
-            "/devices/:device_id/measurements",
+            "/devices/{device_id}/measurements",
             get(fetch_measurement_by_device_id),
         )
         .route(
-            "/devices/:device_id/sensors/:sensor_id/measurements",
+            "/devices/{device_id}/sensors/{sensor_id}/measurements",
             get(fetch_measurement_by_device_id_and_sensor_id),
         );
 
