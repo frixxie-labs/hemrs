@@ -59,7 +59,7 @@ deploy-frontend:
     - /kaniko/executor
       --context "${CI_PROJECT_DIR}"
       --dockerfile "${CI_PROJECT_DIR}/frontend/Dockerfile"
-      --destination "${CI_REGISTRY_IMAGE}_frontend:${CI_COMMIT_TAG}"
+      --destination "${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}_frontend"
   rules:
     - if: $CI_COMMIT_TAG
 
