@@ -19,7 +19,7 @@ build-frontend:
   stage: build
   image: "node:latest"
   script:
-    - npm i && npm run build
+    - cd frontend && npm i && npm run build
 
 test-backend:
   stage: test
