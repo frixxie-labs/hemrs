@@ -1,18 +1,13 @@
-# hemrs (Home Environment Monitor-rs) 
+# hemrs (Home Environment Monitor-rs)
 
 This project is in need of a better name. Suggestions are welcome!
 
 hemrs is a solution that retrieves and stores sensor data
-It build using rust and docker
 
 ## Components
 
-* Backend 
+* Backend
     - Contains a RESTful api over the database
-* Collector
-    - Firmware code for running Esp32 with a DHT11 sensor
-* Sensor
-    - Common datatypes between the Collector and Backend
 
 ## Requirements
 

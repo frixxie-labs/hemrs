@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -o release/
+    kompose.version: 1.32.0 (HEAD)
+  labels:
+    io.kompose.service: hemrs-frontend
+  name: hemrs-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      io.kompose.service: hemrs-frontend
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -o release/
+        kompose.version: 1.32.0 (HEAD)
+      labels:
+        io.kompose.network/hemrs-frontend-default: "true"
+        io.kompose.service: hemrs-frontend
+    spec:
+      containers:
+        - env:
+            - name: PUBLIC_HEMRS_BASEURL
+              valueFrom:
+                configMapKeyRef:
+                  key: PUBLIC_HEMRS_BASEURL
+                  name: env-hemrs-frontend
+          image: ghcr.io/frixxie/hemrs_frontend:0.1.5 # {"$imagepolicy": "flux-system:hemrs-frontend-policy"}
+          name: hemrs-frontend
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+      restartPolicy: Always
