@@ -1,6 +1,5 @@
 <script lang="ts">
     import { goto } from "$app/navigation";
-    import type { Device } from "$lib/device";
     import {
         Button,
         Table,
@@ -12,12 +11,10 @@
     } from "flowbite-svelte";
 
     let { data } = $props();
-
-    let devices: Promise<Device[]> = data.devices;
 </script>
 
 <Button on:click={(_e) => goto("/devices/new")}>New</Button>
-{#await devices}
+{#await data.devices}
     <p>Fetching devices</p>
 {:then devices}
     <Table>

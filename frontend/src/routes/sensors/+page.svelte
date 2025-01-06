@@ -1,6 +1,5 @@
 <script lang="ts">
     import { goto } from "$app/navigation";
-    import type { Sensor } from "$lib/sensor.js";
     import {
         Button,
         Table,
@@ -12,12 +11,10 @@
     } from "flowbite-svelte";
 
     let { data } = $props();
-
-    let sensors: Promise<Sensor[]> = data.sensors;
 </script>
 
 <Button on:click={(_e) => goto("/sensors/new")}>New</Button>
-{#await sensors then sensors}
+{#await data.sensors then sensors}
     <Table>
         <TableHead>
             <TableHeadCell>id</TableHeadCell>

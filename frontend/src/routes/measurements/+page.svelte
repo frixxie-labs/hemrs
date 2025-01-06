@@ -1,6 +1,5 @@
 <script lang="ts">
     import { goto } from "$app/navigation";
-    import type { Measurement } from "$lib/measurement";
     import {
         Button,
         Table,
@@ -12,11 +11,10 @@
     } from "flowbite-svelte";
 
     let { data } = $props();
-    let measurement: Promise<Measurement> = data.measurement;
 </script>
 
 <Button on:click={(_e) => goto("/measurements/new")}>New</Button>
-{#await measurement}
+{#await data.measurement}
     <p>Fetching measurements</p>
 {:then measurement}
     <Table>
