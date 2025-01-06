@@ -1,5 +1,5 @@
 # You can copy and paste this template into a new `.gitlab-ci.yml` file.
-build:
+build-backend:
   stage: build
   image: "rust:latest"
 
@@ -15,7 +15,13 @@ build:
     POSTGRES_PASSWORD: admin
     POSTGRES_HOST_AUTH_METHOD: trust
 
-test:
+build-frontend:
+  stage: build
+  image: "node:latest"
+  script:
+    - npm i && npm run build
+
+test-backend:
   stage: test
   image: "rust:latest"
 
@@ -31,7 +37,7 @@ test:
     POSTGRES_PASSWORD: admin
     POSTGRES_HOST_AUTH_METHOD: trust
 
-deploy:
+deploy-backend:
   stage: deploy
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
@@ -41,6 +47,19 @@ deploy:
       --context "${CI_PROJECT_DIR}"
       --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
       --destination "${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
+  rules:
+    - if: $CI_COMMIT_TAG
+
+deploy-frontend:
+  stage: deploy
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/frontend/Dockerfile"
+      --destination "${CI_REGISTRY_IMAGE}_frontend:${CI_COMMIT_TAG}"
   rules:
     - if: $CI_COMMIT_TAG
 
