@@ -5,8 +5,13 @@ use axum::{
     routing::{delete, get, post, put},
     Router,
 };
+use measurements::{
+    fetch_latest_measurement_by_device_id_and_sensor_id, fetch_measurement_by_device_id,
+    fetch_measurement_by_device_id_and_sensor_id,
+};
 use metrics::histogram;
 use metrics_exporter_prometheus::PrometheusHandle;
+use sensors::fetch_sensors_by_device_id;
 use sqlx::Pool;
 use tokio::time::Instant;
 use tower::ServiceBuilder;
@@ -14,10 +19,7 @@ use tower_http::trace::TraceLayer;
 use tracing::{info, instrument};
 
 use self::{
-    devices::{
-        delete_device, fetch_devices, fetch_measurement_by_device_id,
-        fetch_measurement_by_device_id_and_sensor_id, insert_device, update_device,
-    },
+    devices::{delete_device, fetch_devices, insert_device, update_device},
     measurements::{
         fetch_all_measurements, fetch_latest_measurement, fetch_measurements_count,
         store_measurements,
@@ -59,7 +61,6 @@ pub fn create_router(
     connection: Pool<sqlx::Postgres>,
     metrics_handler: PrometheusHandle,
 ) -> Router {
-
     let measurements = Router::new()
         .route("/measurements", get(fetch_all_measurements))
         .route("/measurements/latest", get(fetch_latest_measurement))
@@ -76,8 +77,16 @@ pub fn create_router(
             get(fetch_measurement_by_device_id),
         )
         .route(
+            "/devices/{device_id}/sensors",
+            get(fetch_sensors_by_device_id),
+        )
+        .route(
             "/devices/{device_id}/sensors/{sensor_id}/measurements",
             get(fetch_measurement_by_device_id_and_sensor_id),
+        )
+        .route(
+            "/devices/{device_id}/sensors/{sensor_id}/measurements/latest",
+            get(fetch_latest_measurement_by_device_id_and_sensor_id),
         );
 
     let sensors = Router::new()

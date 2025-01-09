@@ -1,4 +1,7 @@
-use axum::{extract::State, Json};
+use axum::{
+    extract::{Path, State},
+    Json,
+};
 use sqlx::PgPool;
 use tracing::{instrument, warn};
 
@@ -58,4 +61,18 @@ pub async fn update_sensor(
         HandlerError::new(500, format!("Failed to store data in database: {}", e))
     })?;
     Ok("OK".to_string())
+}
+
+#[instrument]
+pub async fn fetch_sensors_by_device_id(
+    State(pool): State<PgPool>,
+    Path(device_id): Path<i32>,
+) -> Result<Json<Vec<Sensors>>, HandlerError> {
+    let sensors = Sensors::read_by_device_id(&pool, device_id)
+        .await
+        .map_err(|e| {
+            warn!("Failed with error: {}", e);
+            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+        })?;
+    Ok(Json(sensors))
 }

@@ -67,31 +67,3 @@ pub async fn update_device(
     })?;
     Ok("OK".to_string())
 }
-
-#[instrument]
-pub async fn fetch_measurement_by_device_id(
-    State(pool): State<PgPool>,
-    Path(device_id): Path<i32>,
-) -> Result<Json<Vec<Measurement>>, HandlerError> {
-    let measurements = Measurement::read_by_device_id(device_id, &pool)
-        .await
-        .map_err(|e| {
-            warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
-        })?;
-    Ok(Json(measurements))
-}
-
-#[instrument]
-pub async fn fetch_measurement_by_device_id_and_sensor_id(
-    State(pool): State<PgPool>,
-    Path((device_id, sensor_id)): Path<(i32, i32)>,
-) -> Result<Json<Vec<Measurement>>, HandlerError> {
-    let measurements = Measurement::read_by_device_id_and_sensor_id(device_id, sensor_id, &pool)
-        .await
-        .map_err(|e| {
-            warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
-        })?;
-    Ok(Json(measurements))
-}

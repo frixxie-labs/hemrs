@@ -1,4 +1,7 @@
-use axum::{extract::State, Json};
+use axum::{
+    extract::{Path, State},
+    Json,
+};
 use metrics::counter;
 use sqlx::PgPool;
 use tracing::{instrument, warn};
@@ -71,4 +74,47 @@ pub async fn fetch_all_measurements(
     })?;
 
     Ok(Json(entries))
+}
+
+#[instrument]
+pub async fn fetch_measurement_by_device_id(
+    State(pool): State<PgPool>,
+    Path(device_id): Path<i32>,
+) -> Result<Json<Vec<Measurement>>, HandlerError> {
+    let measurements = Measurement::read_by_device_id(device_id, &pool)
+        .await
+        .map_err(|e| {
+            warn!("Failed with error: {}", e);
+            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+        })?;
+    Ok(Json(measurements))
+}
+
+#[instrument]
+pub async fn fetch_latest_measurement_by_device_id_and_sensor_id(
+    State(pool): State<PgPool>,
+    Path((device_id, sensor_id)): Path<(i32, i32)>,
+) -> Result<Json<Measurement>, HandlerError> {
+    let measurement =
+        Measurement::read_latest_by_device_id_and_sensor_id(device_id, sensor_id, &pool)
+            .await
+            .map_err(|e| {
+                warn!("Failed with error: {}", e);
+                HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+            })?;
+    Ok(Json(measurement))
+}
+
+#[instrument]
+pub async fn fetch_measurement_by_device_id_and_sensor_id(
+    State(pool): State<PgPool>,
+    Path((device_id, sensor_id)): Path<(i32, i32)>,
+) -> Result<Json<Vec<Measurement>>, HandlerError> {
+    let measurements = Measurement::read_by_device_id_and_sensor_id(device_id, sensor_id, &pool)
+        .await
+        .map_err(|e| {
+            warn!("Failed with error: {}", e);
+            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+        })?;
+    Ok(Json(measurements))
 }

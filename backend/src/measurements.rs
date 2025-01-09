@@ -73,6 +73,21 @@ impl Measurement {
         Ok(res)
     }
 
+    pub async fn read_latest_by_device_id_and_sensor_id(
+        device_id: i32,
+        sensor_id: i32,
+        pool: &PgPool,
+    ) -> Result<Self> {
+        let res = sqlx::query_as::<_, Measurement>(
+            "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id where m.device_id = ($1) AND m.sensor_id = ($2) ORDER BY ts desc LIMIT 1",
+        )
+        .bind(device_id)
+        .bind(sensor_id)
+        .fetch_one(pool)
+        .await?;
+        Ok(res)
+    }
+
     pub async fn read_by_device_id(device_id: i32, pool: &PgPool) -> Result<Vec<Self>> {
         let res = sqlx::query_as::<_, Measurement>(
             "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id where m.device_id = ($1) ORDER BY ts",
