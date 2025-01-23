@@ -17,7 +17,7 @@
 {#await data.devices}
     <p>Fetching devices</p>
 {:then devices}
-    <Table>
+    <Table hoverable={true}>
         <TableHead>
             <TableHeadCell>id</TableHeadCell>
             <TableHeadCell>name</TableHeadCell>
@@ -25,7 +25,9 @@
         </TableHead>
         <TableBody>
             {#each devices as device}
-                <TableBodyRow>
+                <TableBodyRow
+                    on:click={(_: MouseEvent) => goto(`/devices/${device.id}`)}
+                >
                     <TableBodyCell>{device.id}</TableBodyCell>
                     <TableBodyCell>{device.name}</TableBodyCell>
                     <TableBodyCell>{device.location}</TableBodyCell>

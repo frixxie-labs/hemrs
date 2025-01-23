@@ -8,7 +8,7 @@
     } from "flowbite-svelte";
     import "../app.css";
     interface Props {
-        children?: import('svelte').Snippet;
+        children?: import("svelte").Snippet;
     }
 
     let { children }: Props = $props();
@@ -16,7 +16,7 @@
 
 <header>
     <Navbar>
-        <NavBrand href="/">
+        <NavBrand href="/" class="hover">
             <span class="self-center whitespace-nowrap text-xl font-semibold"
                 >Hemrs</span
             >
