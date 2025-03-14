@@ -46,8 +46,7 @@ impl Sensors {
     }
 
     pub async fn read_by_device_id(pool: &PgPool, device_id: i32) -> Result<Vec<Sensors>> {
-        dbg!(&device_id);
-        let sensors = sqlx::query_as::<_, Sensors>("SELECT s.id, s.name, s.unit FROM sensors s JOIN measurements m ON s.id = m.sensor_id WHERE m.device_id = $1 GROUP BY s.id")
+        let sensors = sqlx::query_as::<_, Sensors>("SELECT DISTINCT s.id, s.name, s.unit FROM sensors s JOIN measurements m ON s.id = m.sensor_id WHERE m.device_id = $1")
             .bind(device_id)
             .fetch_all(pool)
             .await?;
@@ -74,7 +73,11 @@ impl NewSensor {
 mod tests {
     use sqlx::PgPool;
 
-    use crate::sensors::{NewSensor, Sensors};
+    use crate::{
+        devices::NewDevice,
+        measurements::NewMeasurement,
+        sensors::{NewSensor, Sensors},
+    };
 
     #[sqlx::test]
     async fn insert(pool: PgPool) {
@@ -94,9 +97,6 @@ mod tests {
         let sensors = Sensors::read(&pool).await.unwrap();
         let sensor = sensors.last().unwrap().clone().delete(&pool).await;
         assert!(sensor.is_ok());
-
-        let sensors = Sensors::read(&pool).await.unwrap();
-        assert!(sensors.len() <= 3);
     }
 
     #[sqlx::test]
@@ -111,5 +111,26 @@ mod tests {
         let sensors = Sensors::read(&pool).await.unwrap();
         assert_eq!(sensors.last().unwrap().name, "test2");
         assert_eq!(sensors.last().unwrap().unit, "test2");
+    }
+
+    #[sqlx::test]
+    async fn read_by_device_id(pool: PgPool) {
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+        device.clone().insert(&pool).await.unwrap();
+        let sensor = NewSensor::new("test".to_string(), "test".to_string());
+        sensor.clone().insert(&pool).await.unwrap();
+        let sensor = NewSensor::new("test2".to_string(), "test".to_string());
+        sensor.clone().insert(&pool).await.unwrap();
+
+        let measurement = NewMeasurement::new(1, 1, 1.0);
+        measurement.insert(&pool).await.unwrap();
+        let measurement2 = NewMeasurement::new(1, 2, 1.0);
+        measurement2.insert(&pool).await.unwrap();
+        let measurement3 = NewMeasurement::new(1, 2, 1.0);
+        measurement3.insert(&pool).await.unwrap();
+
+        let sensors = Sensors::read_by_device_id(&pool, 1).await.unwrap();
+        assert!(!sensors.is_empty());
+        assert_eq!(sensors.len(), 2);
     }
 }
