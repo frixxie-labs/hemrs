@@ -1,21 +1,13 @@
-use axum::{
-    extract::{Path, State},
-    Json,
-};
+use axum::{extract::State, Json};
 use sqlx::PgPool;
 use tracing::{instrument, warn};
 
-use crate::{
-    devices::{Devices, NewDevice},
-    measurements::Measurement,
-};
+use crate::devices::{Devices, NewDevice};
 
 use super::error::HandlerError;
 
 #[instrument]
-pub async fn fetch_devices(
-    State(pool): State<PgPool>,
-) -> Result<Json<Vec<Devices>>, HandlerError> {
+pub async fn fetch_devices(State(pool): State<PgPool>) -> Result<Json<Vec<Devices>>, HandlerError> {
     let devices = Devices::read(&pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
         HandlerError::new(500, format!("Failed to fetch data from database: {}", e))

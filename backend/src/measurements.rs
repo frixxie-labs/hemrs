@@ -4,8 +4,6 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
 use std::fmt;
 
-use crate::{dht11::Dht11, temperature::NewTemperature};
-
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct NewMeasurement {
     pub device: i32,
@@ -36,8 +34,6 @@ impl NewMeasurement {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum NewMeasurements {
-    Temperature(NewTemperature),
-    Dht11(Dht11),
     Measurement(NewMeasurement),
 }
 
@@ -120,33 +116,16 @@ impl Measurement {
 mod tests {
     use sqlx::PgPool;
 
-    use crate::dht11::Dht11;
     use crate::measurements::NewMeasurement;
-    use crate::temperature::NewTemperature;
+    use crate::sensors::NewSensor;
     use crate::{devices::NewDevice, measurements::Measurement};
-
-    #[sqlx::test]
-    fn dht11_insert(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
-        device.insert(&pool).await.unwrap();
-
-        let dht11_measurement = Dht11::new("test".to_string(), 10.0, 20.0);
-        dht11_measurement.insert(&pool).await.unwrap();
-    }
-
-    #[sqlx::test]
-    fn tempterture_insert(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
-        device.insert(&pool).await.unwrap();
-
-        let temperature_measurement = NewTemperature::new("test".to_string(), 10.0);
-        temperature_measurement.insert(&pool).await.unwrap();
-    }
 
     #[sqlx::test]
     fn measurement_insert(pool: PgPool) {
         let device = NewDevice::new("test".to_string(), "test".to_string());
         device.insert(&pool).await.unwrap();
+        let sensor = NewSensor::new("test".to_string(), "test".to_string());
+        sensor.insert(&pool).await.unwrap();
 
         let measurement = NewMeasurement::new(1, 1, 1.0);
         measurement.insert(&pool).await.unwrap();
@@ -156,9 +135,11 @@ mod tests {
     fn measurements_read(pool: PgPool) {
         let device = NewDevice::new("test".to_string(), "test".to_string());
         device.insert(&pool).await.unwrap();
+        let sensor = NewSensor::new("test".to_string(), "test".to_string());
+        sensor.insert(&pool).await.unwrap();
 
-        let dht11_measurement = Dht11::new("test".to_string(), 10.0, 20.0);
-        dht11_measurement.insert(&pool).await.unwrap();
+        let measurement = NewMeasurement::new(1, 1, 1.0);
+        measurement.insert(&pool).await.unwrap();
 
         let measurements = Measurement::read_all(&pool).await.unwrap();
         assert!(!measurements.is_empty());

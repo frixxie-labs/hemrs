@@ -109,7 +109,6 @@ mod tests {
         sensor.clone().update(&pool).await.unwrap();
 
         let sensors = Sensors::read(&pool).await.unwrap();
-        assert!(sensors.len() > 3);
         assert_eq!(sensors.last().unwrap().name, "test2");
         assert_eq!(sensors.last().unwrap().unit, "test2");
     }

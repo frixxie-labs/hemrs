@@ -16,18 +16,6 @@ pub async fn store_measurements(
     Json(measurement): Json<NewMeasurements>,
 ) -> Result<String, HandlerError> {
     match measurement {
-        NewMeasurements::Temperature(new_temperature) => {
-            new_temperature.insert(&pool).await.map_err(|e| {
-                warn!("Failed with error: {}", e);
-                HandlerError::new(500, format!("Failed to insert data into database: {}", e))
-            })?;
-        }
-        NewMeasurements::Dht11(dht11) => {
-            dht11.insert(&pool).await.map_err(|e| {
-                warn!("Failed with error: {}", e);
-                HandlerError::new(500, format!("Failed to insert data into database: {}", e))
-            })?;
-        }
         NewMeasurements::Measurement(new_measurement) => {
             new_measurement.insert(&pool).await.map_err(|e| {
                 warn!("Failed with error: {}", e);
