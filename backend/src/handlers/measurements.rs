@@ -106,3 +106,16 @@ pub async fn fetch_measurement_by_device_id_and_sensor_id(
         })?;
     Ok(Json(measurements))
 }
+
+#[instrument]
+pub async fn fetch_all_latest_measurements(
+    State(pool): State<PgPool>,
+) -> Result<Json<Vec<Measurement>>, HandlerError> {
+    let measurements = Measurement::read_all_latest_measurements(&pool)
+        .await
+        .map_err(|e| {
+            warn!("Failed with error: {}", e);
+            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+        })?;
+    Ok(Json(measurements))
+}

@@ -5,27 +5,21 @@ use axum::{
     routing::{delete, get, post, put},
     Router,
 };
+use devices::{delete_device, fetch_devices, insert_device, update_device};
 use measurements::{
+    fetch_all_latest_measurements, fetch_all_measurements, fetch_latest_measurement,
     fetch_latest_measurement_by_device_id_and_sensor_id, fetch_measurement_by_device_id,
-    fetch_measurement_by_device_id_and_sensor_id,
+    fetch_measurement_by_device_id_and_sensor_id, fetch_measurements_count, store_measurements,
 };
 use metrics::histogram;
 use metrics_exporter_prometheus::PrometheusHandle;
 use sensors::fetch_sensors_by_device_id;
+use sensors::{delete_sensor, fetch_sensors, insert_sensor, update_sensor};
 use sqlx::Pool;
 use tokio::time::Instant;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing::{info, instrument};
-
-use self::{
-    devices::{delete_device, fetch_devices, insert_device, update_device},
-    measurements::{
-        fetch_all_measurements, fetch_latest_measurement, fetch_measurements_count,
-        store_measurements,
-    },
-    sensors::{delete_sensor, fetch_sensors, insert_sensor, update_sensor},
-};
 
 mod devices;
 mod error;
@@ -64,6 +58,10 @@ pub fn create_router(
     let measurements = Router::new()
         .route("/measurements", get(fetch_all_measurements))
         .route("/measurements/latest", get(fetch_latest_measurement))
+        .route(
+            "/measurements/latest/all",
+            get(fetch_all_latest_measurements),
+        )
         .route("/measurements/count", get(fetch_measurements_count))
         .route("/measurements", post(store_measurements));
 

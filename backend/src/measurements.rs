@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
 use std::fmt;
 
+use crate::{devices::Devices, sensors::Sensors};
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct NewMeasurement {
     pub device: i32,
@@ -45,15 +47,63 @@ impl fmt::Display for NewMeasurement {
 
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct Measurement {
-    timestamp: DateTime<Utc>,
-    value: f32,
-    unit: String,
-    device_name: String,
-    device_location: String,
-    sensor_name: String,
+    pub timestamp: DateTime<Utc>,
+    pub value: f32,
+    pub unit: String,
+    pub device_name: String,
+    pub device_location: String,
+    pub sensor_name: String,
 }
 
 impl Measurement {
+    pub async fn read_all_latest_measurements(pool: &PgPool) -> Result<Vec<Measurement>> {
+        let devices = Devices::read(pool).await?;
+        let mut devices_and_sensors_handles = Vec::new();
+        for device in devices {
+            let pool = pool.clone();
+            let handle = tokio::spawn(async move {
+                let sensors = Sensors::read_by_device_id(&pool, device.id).await;
+                (device, sensors)
+            });
+            devices_and_sensors_handles.push(handle);
+        }
+
+        let devices_and_sensors: Vec<(Devices, Vec<Sensors>)> =
+            futures::future::join_all(devices_and_sensors_handles)
+                .await
+                .into_iter()
+                .filter_map(|result| result.ok())
+                .filter_map(|result| {
+                    let res = result.1.ok();
+                    if res.is_none() {
+                        return None;
+                    } else {
+                        Some((result.0, res.unwrap()))
+                    }
+                })
+                .collect::<Vec<_>>();
+
+        let mut measurements_handles = Vec::new();
+        for (device, sensors) in devices_and_sensors {
+            for sensor in sensors {
+                let id = device.id;
+                let pool = pool.clone();
+                let measurement = tokio::spawn(async move {
+                    Measurement::read_latest_by_device_id_and_sensor_id(id, sensor.id, &pool).await
+                });
+                measurements_handles.push(measurement);
+            }
+        }
+        let measurements = futures::future::join_all(measurements_handles)
+            .await
+            .into_iter()
+            .filter_map(|result| result.ok())
+            .filter_map(|result| result.ok())
+            .collect::<Vec<_>>();
+
+        Ok(measurements)
+    }
+
     pub async fn read_by_device_id_and_sensor_id(
         device_id: i32,
         sensor_id: i32,
@@ -95,11 +145,11 @@ impl Measurement {
     }
 
     pub async fn read_all(pool: &PgPool) -> Result<Vec<Measurement>> {
-        let dht11_entries =
+        let measurements =
             sqlx::query_as::<_, Measurement>("SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id ORDER BY ts")
                 .fetch_all(pool)
                 .await?;
-        Ok(dht11_entries)
+        Ok(measurements)
     }
 
     pub async fn read_latest(pool: &PgPool) -> Result<Self> {

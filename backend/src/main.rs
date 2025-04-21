@@ -1,8 +1,10 @@
+use measurements::Measurement;
+use metrics::histogram;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use sqlx::PgPool;
 use structopt::StructOpt;
 use tokio::net::TcpListener;
-use tracing::{info, Level};
+use tracing::{debug, info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 use crate::handlers::create_router;
@@ -45,7 +47,7 @@ pub struct Opts {
         short,
         long,
         env = "DATABASE_URL",
-        default_value = "postgres://postgres:example@server:5432/postgres"
+        default_value = "postgres://postgres:example@localhost:5432/postgres"
     )]
     db_url: String,
 
@@ -65,6 +67,26 @@ impl From<LogLevel> for Level {
     }
 }
 
+async fn bg_thread(pool: &PgPool) {
+    loop {
+        debug!("Running background thread");
+        let measurements = Measurement::read_all_latest_measurements(pool)
+            .await
+            .unwrap();
+        for measurement in measurements {
+            let lables = [
+                ("device_name", measurement.device_name),
+                ("device_location", measurement.device_location),
+                ("sensor_name", measurement.sensor_name),
+                ("unit", measurement.unit),
+            ];
+            histogram!("measurements", &lables).record(measurement.value);
+        }
+        debug!("Background thread finished");
+        tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     let opts = Opts::from_args();
@@ -81,6 +103,12 @@ async fn main() -> Result<(), anyhow::Error> {
 
     info!("Connecting to DB at {}", opts.db_url);
     let connection = PgPool::connect(&opts.db_url).await.unwrap();
+
+    let bg_pool = connection.clone();
+
+    tokio::spawn(async move {
+        bg_thread(&bg_pool).await;
+    });
 
     let app = create_router(connection, metrics_handler);
 
