@@ -1,5 +1,5 @@
 use measurements::Measurement;
-use metrics::histogram;
+use metrics::gauge;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use sqlx::PgPool;
 use structopt::StructOpt;
@@ -80,7 +80,7 @@ async fn bg_thread(pool: &PgPool) {
                 ("sensor_name", measurement.sensor_name),
                 ("unit", measurement.unit),
             ];
-            histogram!("measurements", &lables).record(measurement.value);
+            gauge!("measurements", &lables).set(measurement.value);
         }
         debug!("Background thread finished");
         tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
