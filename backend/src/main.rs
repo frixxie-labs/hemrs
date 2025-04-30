@@ -1,5 +1,5 @@
 use measurements::Measurement;
-use metrics::gauge;
+use metrics::{counter, gauge};
 use metrics_exporter_prometheus::PrometheusBuilder;
 use sqlx::PgPool;
 use structopt::StructOpt;
@@ -82,6 +82,7 @@ async fn bg_thread(pool: &PgPool) {
             ];
             gauge!("measurements", &lables).set(measurement.value);
         }
+        counter!("PgPoolSize").absolute(pool.size() as u64);
         debug!("Background thread finished");
         tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
     }
