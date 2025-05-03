@@ -58,48 +58,22 @@ pub struct Measurement {
 impl Measurement {
     pub async fn read_all_latest_measurements(pool: &PgPool) -> Result<Vec<Measurement>> {
         let devices = Devices::read(pool).await?;
-        let mut devices_and_sensors_handles = Vec::new();
+        let mut devices_and_sensors = Vec::new();
         for device in devices {
-            let pool = pool.clone();
-            let handle = tokio::spawn(async move {
-                let sensors = Sensors::read_by_device_id(&pool, device.id).await;
-                (device, sensors)
-            });
-            devices_and_sensors_handles.push(handle);
+            let sensors = Sensors::read_by_device_id(&pool, device.id).await?;
+            devices_and_sensors.push((device, sensors));
         }
 
-        let devices_and_sensors: Vec<(Devices, Vec<Sensors>)> =
-            futures::future::join_all(devices_and_sensors_handles)
-                .await
-                .into_iter()
-                .filter_map(|result| result.ok())
-                .filter_map(|result| {
-                    let res = result.1.ok();
-                    if res.is_none() {
-                        return None;
-                    } else {
-                        Some((result.0, res.unwrap()))
-                    }
-                })
-                .collect::<Vec<_>>();
-
-        let mut measurements_handles = Vec::new();
+        let mut measurements = Vec::new();
         for (device, sensors) in devices_and_sensors {
             for sensor in sensors {
-                let id = device.id;
-                let pool = pool.clone();
-                let measurement = tokio::spawn(async move {
-                    Measurement::read_latest_by_device_id_and_sensor_id(id, sensor.id, &pool).await
-                });
-                measurements_handles.push(measurement);
+                let measurement = Measurement::read_latest_by_device_id_and_sensor_id(
+                    device.id, sensor.id, &pool,
+                )
+                .await?;
+                measurements.push(measurement);
             }
         }
-        let measurements = futures::future::join_all(measurements_handles)
-            .await
-            .into_iter()
-            .filter_map(|result| result.ok())
-            .filter_map(|result| result.ok())
-            .collect::<Vec<_>>();
 
         Ok(measurements)
     }
