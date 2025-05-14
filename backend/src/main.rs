@@ -1,7 +1,7 @@
 use measurements::Measurement;
 use metrics::{counter, gauge};
 use metrics_exporter_prometheus::PrometheusBuilder;
-use sqlx::PgPool;
+use sqlx::{postgres::PgPoolOptions, PgPool};
 use structopt::StructOpt;
 use tokio::net::TcpListener;
 use tracing::{debug, info, Level};
@@ -107,7 +107,13 @@ async fn main() -> Result<(), anyhow::Error> {
         .expect("failed to install recorder/exporter");
 
     info!("Connecting to DB at {}", opts.db_url);
-    let connection = PgPool::connect(&opts.db_url).await.unwrap();
+    let connection = PgPoolOptions::new()
+        .max_connections(100)
+        .min_connections(8)
+        .idle_timeout(std::time::Duration::from_secs(30))
+        .connect(&opts.db_url)
+        .await
+        .unwrap();
 
     let bg_pool = connection.clone();
 
