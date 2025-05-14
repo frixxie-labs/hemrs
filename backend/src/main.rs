@@ -70,10 +70,14 @@ impl From<LogLevel> for Level {
 async fn bg_thread(pool: &PgPool) {
     loop {
         debug!("Running background thread");
+        let now = chrono::Utc::now();
         let measurements = Measurement::read_all_latest_measurements(pool)
             .await
             .unwrap();
         for measurement in measurements {
+            if measurement.timestamp < now - chrono::Duration::seconds(300) {
+                continue;
+            }
             let lables = [
                 ("device_name", measurement.device_name),
                 ("device_location", measurement.device_location),
