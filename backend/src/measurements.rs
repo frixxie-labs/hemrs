@@ -162,7 +162,7 @@ mod tests {
     use crate::{devices::NewDevice, measurements::Measurement};
 
     #[sqlx::test]
-    fn should_measurement_insert_without_ts(pool: PgPool) {
+    async fn should_insert_measurements_without_ts(pool: PgPool) {
         let device = NewDevice::new("test".to_string(), "test".to_string());
         device.insert(&pool).await.unwrap();
         let sensor = NewSensor::new("test".to_string(), "test".to_string());
@@ -173,7 +173,7 @@ mod tests {
     }
 
     #[sqlx::test]
-    fn should_measurement_insert_with_ts(pool: PgPool) {
+    async fn should_insert_measurements_with_ts(pool: PgPool) {
         let device = NewDevice::new("test".to_string(), "test".to_string());
         device.insert(&pool).await.unwrap();
         let sensor = NewSensor::new("test".to_string(), "test".to_string());
@@ -186,7 +186,7 @@ mod tests {
     }
 
     #[sqlx::test]
-    fn measurements_read(pool: PgPool) {
+    async fn should_read_measurements(pool: PgPool) {
         let device = NewDevice::new("test".to_string(), "test".to_string());
         device.insert(&pool).await.unwrap();
         let sensor = NewSensor::new("test".to_string(), "test".to_string());
@@ -197,5 +197,65 @@ mod tests {
 
         let measurements = Measurement::read_all(&pool).await.unwrap();
         assert!(!measurements.is_empty());
+    }
+
+    #[sqlx::test]
+    async fn should_read_latest_measurements(pool: PgPool) {
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+        device.insert(&pool).await.unwrap();
+        let sensor = NewSensor::new("test".to_string(), "test".to_string());
+        sensor.insert(&pool).await.unwrap();
+
+        let measurement = NewMeasurement::new(None, 1, 1, 1.0);
+        measurement.insert(&pool).await.unwrap();
+
+        let measurement = Measurement::read_latest(&pool).await.unwrap();
+        assert_eq!(measurement.value, 1.0);
+    }
+
+    #[sqlx::test]
+    async fn should_read_measurements_by_device_id(pool: PgPool) {
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+        device.insert(&pool).await.unwrap();
+        let sensor = NewSensor::new("test".to_string(), "test".to_string());
+        sensor.insert(&pool).await.unwrap();
+
+        let measurement = NewMeasurement::new(None, 1, 1, 1.0);
+        measurement.insert(&pool).await.unwrap();
+
+        let measurements = Measurement::read_by_device_id(1, &pool).await.unwrap();
+        assert!(!measurements.is_empty());
+    }
+
+    #[sqlx::test]
+    async fn should_read_measurements_by_device_id_and_sensor_id(pool: PgPool) {
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+        device.insert(&pool).await.unwrap();
+        let sensor = NewSensor::new("test".to_string(), "test".to_string());
+        sensor.insert(&pool).await.unwrap();
+
+        let measurement = NewMeasurement::new(None, 1, 1, 1.0);
+        measurement.insert(&pool).await.unwrap();
+
+        let measurements = Measurement::read_by_device_id_and_sensor_id(1, 1, &pool)
+            .await
+            .unwrap();
+        assert!(!measurements.is_empty());
+    }
+
+    #[sqlx::test]
+    async fn should_read_latest_measurements_by_device_id_and_sensor_id(pool: PgPool) {
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+        device.insert(&pool).await.unwrap();
+        let sensor = NewSensor::new("test".to_string(), "test".to_string());
+        sensor.insert(&pool).await.unwrap();
+
+        let measurement = NewMeasurement::new(None, 1, 1, 1.0);
+        measurement.insert(&pool).await.unwrap();
+
+        let measurement = Measurement::read_latest_by_device_id_and_sensor_id(1, 1, &pool)
+            .await
+            .unwrap();
+        assert_eq!(measurement.value, 1.0);
     }
 }

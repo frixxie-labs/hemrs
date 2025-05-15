@@ -155,3 +155,81 @@ pub async fn fetch_all_latest_measurements(
         })?;
     Ok(Json(measurements))
 }
+
+#[cfg(test)]
+
+mod tests {
+    use crate::{devices::NewDevice, measurements::NewMeasurement, sensors::NewSensor};
+
+    use super::*;
+
+    #[sqlx::test]
+    async fn should_store_single_measurement_without_ts(db: PgPool) {
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+        device.insert(&db).await.unwrap();
+        let sensor = NewSensor::new("test".to_string(), "test".to_string());
+        sensor.insert(&db).await.unwrap();
+        let new_measurement = NewMeasurement::new(None, 1, 1, 1.0);
+        let result = store_measurements(
+            State(db),
+            Json(NewMeasurements::Measurement(new_measurement)),
+        )
+        .await
+        .unwrap();
+        assert_eq!(result.status(), 201);
+    }
+
+    #[sqlx::test]
+    async fn should_store_single_measurement_with_ts(db: PgPool) {
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+        device.insert(&db).await.unwrap();
+        let sensor = NewSensor::new("test".to_string(), "test".to_string());
+        sensor.insert(&db).await.unwrap();
+        let new_measurement = NewMeasurement::new(Some(chrono::Utc::now()), 1, 1, 1.0);
+        let result = store_measurements(
+            State(db),
+            Json(NewMeasurements::Measurement(new_measurement)),
+        )
+        .await
+        .unwrap();
+        assert_eq!(result.status(), 201);
+    }
+
+    #[sqlx::test]
+    async fn should_store_multiple_measurements(db: PgPool) {
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+        device.insert(&db).await.unwrap();
+        let sensor = NewSensor::new("test".to_string(), "test".to_string());
+        sensor.insert(&db).await.unwrap();
+        let new_measurements = vec![
+            NewMeasurement::new(None, 1, 1, 1.0),
+            NewMeasurement::new(None, 1, 1, 2.0),
+        ];
+        let result = store_measurements(
+            State(db),
+            Json(NewMeasurements::Measurements(new_measurements)),
+        )
+        .await
+        .unwrap();
+        assert_eq!(result.status(), 201);
+    }
+
+    #[sqlx::test]
+    async fn should_store_multiple_measurements_with_and_without_ts(db: PgPool) {
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+        device.insert(&db).await.unwrap();
+        let sensor = NewSensor::new("test".to_string(), "test".to_string());
+        sensor.insert(&db).await.unwrap();
+        let new_measurements = vec![
+            NewMeasurement::new(None, 1, 1, 1.0),
+            NewMeasurement::new(Some(chrono::Utc::now()), 1, 1, 2.0),
+        ];
+        let result = store_measurements(
+            State(db),
+            Json(NewMeasurements::Measurements(new_measurements)),
+        )
+        .await
+        .unwrap();
+        assert_eq!(result.status(), 201);
+    }
+}

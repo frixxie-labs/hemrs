@@ -51,7 +51,7 @@ pub struct Opts {
     )]
     db_url: String,
 
-    #[structopt(short, long, default_value = "warn")]
+    #[structopt(short, long, default_value = "info")]
     log_level: LogLevel,
 }
 
@@ -88,7 +88,7 @@ async fn bg_thread(pool: &PgPool) {
         }
         counter!("PgPoolSize").absolute(pool.size() as u64);
         debug!("Background thread finished");
-        tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
+        tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
     }
 }
 
