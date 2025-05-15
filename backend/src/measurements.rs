@@ -8,14 +8,16 @@ use crate::{devices::Devices, sensors::Sensors};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct NewMeasurement {
+    pub timestamp: Option<DateTime<Utc>>,
     pub device: i32,
     pub sensor: i32,
     pub measurement: f32,
 }
 
 impl NewMeasurement {
-    pub fn new(device: i32, sensor: i32, measurement: f32) -> Self {
+    pub fn new(ts: Option<DateTime<Utc>>, device: i32, sensor: i32, measurement: f32) -> Self {
         Self {
+            timestamp: ts,
             device,
             sensor,
             measurement,
@@ -23,13 +25,27 @@ impl NewMeasurement {
     }
 
     pub async fn insert(self, pool: &PgPool) -> Result<()> {
-        sqlx::query("INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES (CURRENT_TIMESTAMP, $1, $2, $3)")
+        match self.timestamp {
+            Some(t) => {
+                sqlx::query("INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES ($1, $2, $3, $4)")
+            .bind(t)
             .bind(self.device)
             .bind(self.sensor)
             .bind(self.measurement)
             .execute(pool)
             .await?;
-        Ok(())
+                Ok(())
+            }
+            None => {
+                sqlx::query("INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES (CURRENT_TIMESTAMP, $1, $2, $3)")
+            .bind(self.device)
+            .bind(self.sensor)
+            .bind(self.measurement)
+            .execute(pool)
+            .await?;
+                Ok(())
+            }
+        }
     }
 }
 
@@ -37,6 +53,7 @@ impl NewMeasurement {
 #[serde(untagged)]
 pub enum NewMeasurements {
     Measurement(NewMeasurement),
+    Measurements(Vec<NewMeasurement>),
 }
 
 impl fmt::Display for NewMeasurement {
@@ -145,13 +162,26 @@ mod tests {
     use crate::{devices::NewDevice, measurements::Measurement};
 
     #[sqlx::test]
-    fn measurement_insert(pool: PgPool) {
+    fn should_measurement_insert_without_ts(pool: PgPool) {
         let device = NewDevice::new("test".to_string(), "test".to_string());
         device.insert(&pool).await.unwrap();
         let sensor = NewSensor::new("test".to_string(), "test".to_string());
         sensor.insert(&pool).await.unwrap();
 
-        let measurement = NewMeasurement::new(1, 1, 1.0);
+        let measurement = NewMeasurement::new(None, 1, 1, 1.0);
+        measurement.insert(&pool).await.unwrap();
+    }
+
+    #[sqlx::test]
+    fn should_measurement_insert_with_ts(pool: PgPool) {
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+        device.insert(&pool).await.unwrap();
+        let sensor = NewSensor::new("test".to_string(), "test".to_string());
+        sensor.insert(&pool).await.unwrap();
+
+        let ts = chrono::Utc::now();
+
+        let measurement = NewMeasurement::new(Some(ts), 1, 1, 1.0);
         measurement.insert(&pool).await.unwrap();
     }
 
@@ -162,7 +192,7 @@ mod tests {
         let sensor = NewSensor::new("test".to_string(), "test".to_string());
         sensor.insert(&pool).await.unwrap();
 
-        let measurement = NewMeasurement::new(1, 1, 1.0);
+        let measurement = NewMeasurement::new(None, 1, 1, 1.0);
         measurement.insert(&pool).await.unwrap();
 
         let measurements = Measurement::read_all(&pool).await.unwrap();

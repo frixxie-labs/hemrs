@@ -122,11 +122,11 @@ mod tests {
         let sensor = NewSensor::new("test2".to_string(), "test".to_string());
         sensor.clone().insert(&pool).await.unwrap();
 
-        let measurement = NewMeasurement::new(1, 1, 1.0);
+        let measurement = NewMeasurement::new(None, 1, 1, 1.0);
         measurement.insert(&pool).await.unwrap();
-        let measurement2 = NewMeasurement::new(1, 2, 1.0);
+        let measurement2 = NewMeasurement::new(None, 1, 2, 1.0);
         measurement2.insert(&pool).await.unwrap();
-        let measurement3 = NewMeasurement::new(1, 2, 1.0);
+        let measurement3 = NewMeasurement::new(None, 1, 2, 1.0);
         measurement3.insert(&pool).await.unwrap();
 
         let sensors = Sensors::read_by_device_id(&pool, 1).await.unwrap();

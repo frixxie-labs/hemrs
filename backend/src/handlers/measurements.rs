@@ -1,7 +1,9 @@
 use axum::{
     extract::{Path, State},
+    response::{IntoResponse, Response},
     Json,
 };
+use futures::future::join_all;
 use metrics::counter;
 use sqlx::PgPool;
 use tracing::{instrument, warn};
@@ -14,19 +16,53 @@ use super::error::HandlerError;
 pub async fn store_measurements(
     State(pool): State<PgPool>,
     Json(measurement): Json<NewMeasurements>,
-) -> Result<String, HandlerError> {
+) -> Result<Response, HandlerError>
+where
+    Response: IntoResponse,
+{
     match measurement {
         NewMeasurements::Measurement(new_measurement) => {
             new_measurement.insert(&pool).await.map_err(|e| {
                 warn!("Failed with error: {}", e);
                 HandlerError::new(500, format!("Failed to insert data into database: {}", e))
             })?;
+            counter!("new_measurements").increment(1);
+        }
+        NewMeasurements::Measurements(new_measurements) => {
+            let handles = new_measurements
+                .into_iter()
+                .map(async |m| {
+                    m.insert(&pool).await.map_err(|e| {
+                        warn!("Failed with error: {}", e);
+                        HandlerError::new(
+                            500,
+                            format!("Failed to insert data into database: {}", e),
+                        )
+                    })
+                })
+                .collect::<Vec<_>>();
+            let res = join_all(handles).await;
+            for r in res {
+                if let Err(e) = r {
+                    warn!("Failed with error: {}", e);
+                    return Err(HandlerError::new(
+                        500,
+                        format!("Failed to insert data into database: {}", e),
+                    ));
+                } else {
+                    counter!("new_measurements").increment(1);
+                }
+            }
         }
     };
-
-    counter!("new_measurements").increment(1);
-
-    Ok("OK".to_string())
+    let resp = Response::builder()
+        .status(201)
+        .body("Measurement(s) inserted successfully".into())
+        .map_err(|e| {
+            warn!("Failed with error: {}", e);
+            HandlerError::new(500, format!("Failed to build response: {}", e))
+        })?;
+    Ok(resp)
 }
 
 #[instrument]

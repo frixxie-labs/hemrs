@@ -51,7 +51,7 @@ pub struct Opts {
     )]
     db_url: String,
 
-    #[structopt(short, long, default_value = "info")]
+    #[structopt(short, long, default_value = "warn")]
     log_level: LogLevel,
 }
 
