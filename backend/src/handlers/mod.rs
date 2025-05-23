@@ -9,7 +9,8 @@ use devices::{delete_device, fetch_devices, insert_device, update_device};
 use measurements::{
     fetch_all_latest_measurements, fetch_all_measurements, fetch_latest_measurement,
     fetch_latest_measurement_by_device_id_and_sensor_id, fetch_measurement_by_device_id,
-    fetch_measurement_by_device_id_and_sensor_id, fetch_measurements_count, store_measurements,
+    fetch_measurement_by_device_id_and_sensor_id, fetch_measurements_count,
+    fetch_stats_by_device_id_and_sensor_id, store_measurements,
 };
 use metrics::histogram;
 use metrics_exporter_prometheus::PrometheusHandle;
@@ -85,6 +86,10 @@ pub fn create_router(
         .route(
             "/devices/{device_id}/sensors/{sensor_id}/measurements/latest",
             get(fetch_latest_measurement_by_device_id_and_sensor_id),
+        )
+        .route(
+            "/devices/{device_id}/sensors/{sensor_id}/measurements/stats",
+            get(fetch_stats_by_device_id_and_sensor_id),
         );
 
     let sensors = Router::new()

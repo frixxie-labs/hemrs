@@ -4,8 +4,6 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
 use std::fmt;
 
-use crate::{devices::Devices, sensors::Sensors};
-
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct NewMeasurement {
     pub timestamp: Option<DateTime<Utc>>,
@@ -72,6 +70,16 @@ pub struct Measurement {
     pub sensor_name: String,
 }
 
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct MeasurementStats {
+    min: f32,
+    max: f32,
+    count: i64,
+    avg: f64,
+    stddev: f64,
+    variance: f64,
+}
+
 impl Measurement {
     pub async fn read_all_latest_measurements(pool: &PgPool) -> Result<Vec<Measurement>> {
         let res = sqlx::query_as::<_, Measurement>(
@@ -82,6 +90,21 @@ impl Measurement {
                 ORDER BY m.device_id, m.sensor_id, ts DESC",
         )
         .fetch_all(pool)
+        .await?;
+        Ok(res)
+    }
+
+    pub async fn read_stats_by_device_id_and_sensor_id(
+        pool: &PgPool,
+        device_id: i32,
+        sensor_id: i32,
+    ) -> Result<MeasurementStats> {
+        let res = sqlx::query_as::<_, MeasurementStats>(
+            "SELECT min(value) as min, max(value) as max, count(value) as count, avg(value) as avg, stddev(value) as stddev, variance(value) as variance FROM measurements WHERE device_id = ($1) AND sensor_id = ($2)",
+        )
+        .bind(device_id)
+        .bind(sensor_id)
+        .fetch_one(pool)
         .await?;
         Ok(res)
     }

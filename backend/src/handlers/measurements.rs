@@ -8,7 +8,7 @@ use metrics::counter;
 use sqlx::PgPool;
 use tracing::{instrument, warn};
 
-use crate::measurements::{Measurement, NewMeasurements};
+use crate::measurements::{Measurement, MeasurementStats, NewMeasurements};
 
 use super::error::HandlerError;
 
@@ -154,6 +154,20 @@ pub async fn fetch_all_latest_measurements(
             HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
         })?;
     Ok(Json(measurements))
+}
+
+#[instrument]
+pub async fn fetch_stats_by_device_id_and_sensor_id(
+    State(pool): State<PgPool>,
+    Path((device_id, sensor_id)): Path<(i32, i32)>,
+) -> Result<Json<MeasurementStats>, HandlerError> {
+    let stats = Measurement::read_stats_by_device_id_and_sensor_id(&pool, device_id, sensor_id)
+        .await
+        .map_err(|e| {
+            warn!("Failed with error: {}", e);
+            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+        })?;
+    Ok(Json(stats))
 }
 
 #[cfg(test)]
