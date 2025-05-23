@@ -46,7 +46,7 @@ impl Sensors {
     }
 
     pub async fn read_by_device_id(pool: &PgPool, device_id: i32) -> Result<Vec<Sensors>> {
-        let sensors = sqlx::query_as::<_, Sensors>("SELECT DISTINCT s.id, s.name, s.unit FROM sensors s JOIN measurements m ON s.id = m.sensor_id WHERE m.device_id = $1")
+        let sensors = sqlx::query_as::<_, Sensors>("SELECT ds.sensor_id as id, ds.name, ds.unit from device_sensors ds WHERE ds.device_id = $1 order by ds.sensor_id")
             .bind(device_id)
             .fetch_all(pool)
             .await?;
