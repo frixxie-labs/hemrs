@@ -74,25 +74,16 @@ pub struct Measurement {
 
 impl Measurement {
     pub async fn read_all_latest_measurements(pool: &PgPool) -> Result<Vec<Measurement>> {
-        let devices = Devices::read(pool).await?;
-        let mut devices_and_sensors = Vec::new();
-        for device in devices {
-            let sensors = Sensors::read_by_device_id(&pool, device.id).await?;
-            devices_and_sensors.push((device, sensors));
-        }
-
-        let mut measurements = Vec::new();
-        for (device, sensors) in devices_and_sensors {
-            for sensor in sensors {
-                let measurement = Measurement::read_latest_by_device_id_and_sensor_id(
-                    device.id, sensor.id, &pool,
-                )
-                .await?;
-                measurements.push(measurement);
-            }
-        }
-
-        Ok(measurements)
+        let res = sqlx::query_as::<_, Measurement>(
+               "SELECT DISTINCT ON (m.device_id, m.sensor_id) m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name
+                FROM measurements m
+                JOIN devices d ON m.device_id = d.id
+                JOIN sensors s ON m.sensor_id = s.id
+                ORDER BY m.device_id, m.sensor_id, ts DESC",
+        )
+        .fetch_all(pool)
+        .await?;
+        Ok(res)
     }
 
     pub async fn read_by_device_id_and_sensor_id(
