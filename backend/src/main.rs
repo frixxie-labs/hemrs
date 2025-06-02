@@ -119,7 +119,8 @@ async fn bg_thread(pool: &PgPool, cache: &Cache<(i32, i32), Measurement>) {
                 }
             }
         }
-        counter!("PgPoolSize").absolute(pool.size() as u64);
+        counter!("hemrs_pg_pool_size").absolute(pool.size() as u64);
+        counter!("hemrs_cache_size").absolute(cache.entry_count() as u64);
         debug!("Background thread finished");
         tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
     }
@@ -149,7 +150,7 @@ async fn main() -> Result<(), anyhow::Error> {
         .unwrap();
 
     let measurement_cache: Cache<(i32, i32), Measurement> = Cache::builder()
-        .max_capacity(1024)
+        .max_capacity(128)
         .time_to_live(std::time::Duration::from_secs(60))
         .build();
 
