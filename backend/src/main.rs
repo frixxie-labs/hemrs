@@ -1,6 +1,9 @@
+use devices::Devices;
 use measurements::Measurement;
 use metrics::{counter, gauge};
 use metrics_exporter_prometheus::PrometheusBuilder;
+use moka::future::Cache;
+use sensors::Sensors;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use structopt::StructOpt;
 use tokio::net::TcpListener;
@@ -67,24 +70,54 @@ impl From<LogLevel> for Level {
     }
 }
 
-async fn bg_thread(pool: &PgPool) {
+async fn bg_thread(pool: &PgPool, cache: &Cache<(i32, i32), Measurement>) {
     loop {
         debug!("Running background thread");
-        let now = chrono::Utc::now();
-        let measurements = Measurement::read_all_latest_measurements(pool)
-            .await
-            .unwrap();
-        for measurement in measurements {
-            if measurement.timestamp < now - chrono::Duration::seconds(300) {
-                continue;
+        let devices = Devices::read(&pool).await.unwrap();
+        let mut device_sensors: Vec<(Devices, Sensors)> = Vec::new();
+        for device in devices {
+            let sensors = Sensors::read_by_device_id(&pool, device.id).await.unwrap();
+            for sensor in sensors {
+                device_sensors.push((device.clone(), sensor));
             }
-            let lables = [
-                ("device_name", measurement.device_name),
-                ("device_location", measurement.device_location),
-                ("sensor_name", measurement.sensor_name),
-                ("unit", measurement.unit),
-            ];
-            gauge!("measurements", &lables).set(measurement.value);
+        }
+
+        let now = chrono::Utc::now();
+        for (device, sensor) in device_sensors {
+            //check cache first
+            if let Some(measurement) = cache.get(&(device.id, sensor.id)).await {
+                if measurement.timestamp >= now - chrono::Duration::seconds(300) {
+                    if measurement.timestamp < now - chrono::Duration::seconds(300) {
+                        continue;
+                    }
+                    let lables = [
+                        ("device_name", measurement.device_name),
+                        ("device_location", measurement.device_location),
+                        ("sensor_name", measurement.sensor_name),
+                        ("unit", measurement.unit),
+                    ];
+                    gauge!("measurements", &lables).set(measurement.value);
+                }
+            } else {
+                // If not in cache, read from DB
+                let measurement =
+                    Measurement::read_latest_by_device_id_and_sensor_id(device.id, sensor.id, pool)
+                        .await
+                        .unwrap();
+                if measurement.timestamp >= now - chrono::Duration::seconds(300) {
+                    let lables = [
+                        ("device_name", measurement.device_name.clone()),
+                        ("device_location", measurement.device_location.clone()),
+                        ("sensor_name", measurement.sensor_name.clone()),
+                        ("unit", measurement.unit.clone()),
+                    ];
+                    gauge!("measurements", &lables).set(measurement.value);
+                    // Store in cache
+                    cache
+                        .insert((device.id, sensor.id), measurement.clone())
+                        .await;
+                }
+            }
         }
         counter!("PgPoolSize").absolute(pool.size() as u64);
         debug!("Background thread finished");
@@ -115,13 +148,19 @@ async fn main() -> Result<(), anyhow::Error> {
         .await
         .unwrap();
 
+    let measurement_cache: Cache<(i32, i32), Measurement> = Cache::builder()
+        .max_capacity(1024)
+        .time_to_live(std::time::Duration::from_secs(60))
+        .build();
+
     let bg_pool = connection.clone();
+    let measurement_cache_bg = measurement_cache.clone();
 
     tokio::spawn(async move {
-        bg_thread(&bg_pool).await;
+        bg_thread(&bg_pool, &measurement_cache_bg).await;
     });
 
-    let app = create_router(connection, metrics_handler);
+    let app = create_router(connection, metrics_handler, measurement_cache);
 
     let listener = TcpListener::bind(&opts.host).await.unwrap();
     axum::serve(listener, app).await.unwrap();

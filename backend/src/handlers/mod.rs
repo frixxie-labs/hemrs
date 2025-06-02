@@ -14,6 +14,7 @@ use measurements::{
 };
 use metrics::histogram;
 use metrics_exporter_prometheus::PrometheusHandle;
+use moka::future::Cache;
 use sensors::fetch_sensors_by_device_id;
 use sensors::{delete_sensor, fetch_sensors, insert_sensor, update_sensor};
 use sqlx::Pool;
@@ -21,6 +22,8 @@ use tokio::time::Instant;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing::{info, instrument};
+
+use crate::measurements::Measurement;
 
 mod devices;
 mod error;
@@ -55,6 +58,7 @@ pub async fn profile_endpoint(request: Request, next: Next) -> Response {
 pub fn create_router(
     connection: Pool<sqlx::Postgres>,
     metrics_handler: PrometheusHandle,
+    cache: Cache<(i32, i32), Measurement>,
 ) -> Router {
     let measurements = Router::new()
         .route("/measurements", get(fetch_all_measurements))
@@ -64,7 +68,8 @@ pub fn create_router(
             get(fetch_all_latest_measurements),
         )
         .route("/measurements/count", get(fetch_measurements_count))
-        .route("/measurements", post(store_measurements));
+        .route("/measurements", post(store_measurements))
+        .with_state((connection.clone(), cache.clone()));
 
     let devices = Router::new()
         .route("/devices", get(fetch_devices))
@@ -72,12 +77,13 @@ pub fn create_router(
         .route("/devices", delete(delete_device))
         .route("/devices", put(update_device))
         .route(
-            "/devices/{device_id}/measurements",
-            get(fetch_measurement_by_device_id),
-        )
-        .route(
             "/devices/{device_id}/sensors",
             get(fetch_sensors_by_device_id),
+        )
+        .with_state(connection.clone())
+        .route(
+            "/devices/{device_id}/measurements",
+            get(fetch_measurement_by_device_id),
         )
         .route(
             "/devices/{device_id}/sensors/{sensor_id}/measurements",
@@ -90,7 +96,8 @@ pub fn create_router(
         .route(
             "/devices/{device_id}/sensors/{sensor_id}/measurements/stats",
             get(fetch_stats_by_device_id_and_sensor_id),
-        );
+        )
+        .with_state((connection.clone(), cache.clone()));
 
     let sensors = Router::new()
         .route("/sensors", get(fetch_sensors))
@@ -102,8 +109,9 @@ pub fn create_router(
         .nest("/api", measurements)
         .nest("/api", devices)
         .nest("/api", sensors)
+        .with_state(connection.clone())
         .route("/", post(store_measurements))
-        .with_state(connection)
+        .with_state((connection.clone(), cache.clone()))
         .route("/metrics", get(metrics))
         .with_state(metrics_handler)
         .layer(

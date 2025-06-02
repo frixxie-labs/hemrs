@@ -21,3 +21,4 @@ tracing-subscriber = { version = "0.3.19", features = ["json", "tracing"] }
 metrics = "0.24.2"
 metrics-exporter-prometheus = "0.17.0"
 futures = "0.3.31"
+moka = { version = "0.12.10", features = ["future"] }

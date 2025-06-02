@@ -27,6 +27,14 @@ impl Devices {
         Ok(devices)
     }
 
+    pub async fn read_by_id(pool: &PgPool, device_id: i32) -> Result<Devices> {
+        let device = sqlx::query_as::<_, Devices>("SELECT id, name, location FROM devices WHERE id = $1")
+            .bind(device_id)
+            .fetch_one(pool)
+            .await?;
+        Ok(device)
+    }
+
     pub async fn delete(self, pool: &PgPool) -> Result<()> {
         sqlx::query("DELETE FROM devices WHERE id = $1")
             .bind(self.id)

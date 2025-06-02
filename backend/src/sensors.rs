@@ -21,10 +21,19 @@ impl Sensors {
     }
 
     pub async fn read(pool: &PgPool) -> Result<Vec<Sensors>> {
-        let devices = sqlx::query_as::<_, Sensors>("SELECT id, name, unit FROM sensors")
+        let sensors = sqlx::query_as::<_, Sensors>("SELECT id, name, unit FROM sensors")
             .fetch_all(pool)
             .await?;
-        Ok(devices)
+        Ok(sensors)
+    }
+
+    pub async fn read_by_id(pool: &PgPool, sensor_id: i32) -> Result<Sensors> {
+        let sensors =
+            sqlx::query_as::<_, Sensors>("SELECT id, name, unit FROM sensors WHERE id = $1")
+                .bind(sensor_id)
+                .fetch_one(pool)
+                .await?;
+        Ok(sensors)
     }
 
     pub async fn delete(self, pool: &PgPool) -> Result<()> {
