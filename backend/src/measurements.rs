@@ -165,6 +165,13 @@ impl Measurement {
         .await?;
         Ok(measurement)
     }
+
+    pub async fn read_total_measurements(pool: &PgPool) -> Result<i64> {
+        let count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM measurements")
+            .fetch_one(pool)
+            .await?;
+        Ok(count)
+    }
 }
 
 #[cfg(test)]

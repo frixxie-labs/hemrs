@@ -98,12 +98,13 @@ pub async fn fetch_measurements_count(
     State(app_state): State<(PgPool, Cache<(i32, i32), Measurement>)>,
 ) -> Result<Json<usize>, HandlerError> {
     let (pool, _cache) = app_state;
-    let entry = Measurement::read_all(&pool).await.map_err(|e| {
-        warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
-    })?;
-
-    Ok(Json(entry.len()))
+    let count = Measurement::read_total_measurements(&pool)
+        .await
+        .map_err(|e| {
+            warn!("Failed with error: {}", e);
+            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+        })?;
+    Ok(Json(count as usize))
 }
 
 #[instrument]
