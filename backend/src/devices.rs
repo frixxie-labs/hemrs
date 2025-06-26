@@ -9,26 +9,26 @@ pub struct NewDevice {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, FromRow)]
-pub struct Devices {
+pub struct Device {
     pub id: i32,
     pub name: String,
     pub location: String,
 }
 
-impl Devices {
+impl Device {
     pub fn new(id: i32, name: String, location: String) -> Self {
         Self { id, name, location }
     }
 
-    pub async fn read(pool: &PgPool) -> Result<Vec<Devices>> {
-        let devices = sqlx::query_as::<_, Devices>("SELECT id, name, location FROM devices")
+    pub async fn read(pool: &PgPool) -> Result<Vec<Device>> {
+        let devices = sqlx::query_as::<_, Device>("SELECT id, name, location FROM devices")
             .fetch_all(pool)
             .await?;
         Ok(devices)
     }
 
-    pub async fn read_by_id(pool: &PgPool, device_id: i32) -> Result<Devices> {
-        let device = sqlx::query_as::<_, Devices>("SELECT id, name, location FROM devices WHERE id = $1")
+    pub async fn read_by_id(pool: &PgPool, device_id: i32) -> Result<Device> {
+        let device = sqlx::query_as::<_, Device>("SELECT id, name, location FROM devices WHERE id = $1")
             .bind(device_id)
             .fetch_one(pool)
             .await?;
@@ -73,13 +73,13 @@ impl NewDevice {
 mod tests {
     use sqlx::PgPool;
 
-    use crate::devices::{Devices, NewDevice};
+    use crate::devices::{Device, NewDevice};
 
     #[sqlx::test]
     async fn insert(pool: PgPool) {
         let device = NewDevice::new("test".to_string(), "test".to_string());
         device.insert(&pool).await.unwrap();
-        let devices = Devices::read(&pool).await.unwrap();
+        let devices = Device::read(&pool).await.unwrap();
         assert!(!devices.is_empty());
         assert_eq!(devices[0].name, "test");
         assert_eq!(devices[0].location, "test");
@@ -89,11 +89,11 @@ mod tests {
     async fn delete(pool: PgPool) {
         let device = NewDevice::new("test".to_string(), "test".to_string());
         device.clone().insert(&pool).await.unwrap();
-        let devices = Devices::read(&pool).await.unwrap();
+        let devices = Device::read(&pool).await.unwrap();
         let device = devices[0].clone().delete(&pool).await;
         assert!(device.is_ok());
 
-        let devices = Devices::read(&pool).await.unwrap();
+        let devices = Device::read(&pool).await.unwrap();
         assert_eq!(devices.len(), 0);
     }
 
@@ -101,12 +101,12 @@ mod tests {
     async fn update(pool: PgPool) {
         let device = NewDevice::new("test".to_string(), "test".to_string());
         device.clone().insert(&pool).await.unwrap();
-        let devices = Devices::read(&pool).await.unwrap();
+        let devices = Device::read(&pool).await.unwrap();
         let device = devices[0].clone();
-        let device = Devices::new(device.id, "test2".to_string(), "test2".to_string());
+        let device = Device::new(device.id, "test2".to_string(), "test2".to_string());
         device.clone().update(&pool).await.unwrap();
 
-        let devices = Devices::read(&pool).await.unwrap();
+        let devices = Device::read(&pool).await.unwrap();
         assert_eq!(devices.len(), 1);
         assert_eq!(devices[0].name, "test2");
         assert_eq!(devices[0].location, "test2");

@@ -1,9 +1,9 @@
-use devices::Devices;
+use devices::Device;
 use measurements::Measurement;
 use metrics::{counter, gauge};
 use metrics_exporter_prometheus::PrometheusBuilder;
 use moka::future::Cache;
-use sensors::Sensors;
+use sensors::Sensor;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use structopt::StructOpt;
 use tokio::net::TcpListener;
@@ -73,10 +73,10 @@ impl From<LogLevel> for Level {
 async fn bg_thread(pool: &PgPool, cache: &Cache<(i32, i32), Measurement>) {
     loop {
         debug!("Running background thread");
-        let devices = Devices::read(&pool).await.unwrap();
-        let mut device_sensors: Vec<(Devices, Sensors)> = Vec::new();
+        let devices = Device::read(&pool).await.unwrap();
+        let mut device_sensors: Vec<(Device, Sensor)> = Vec::new();
         for device in devices {
-            let sensors = Sensors::read_by_device_id(&pool, device.id).await.unwrap();
+            let sensors = Sensor::read_by_device_id(&pool, device.id).await.unwrap();
             for sensor in sensors {
                 device_sensors.push((device.clone(), sensor));
             }

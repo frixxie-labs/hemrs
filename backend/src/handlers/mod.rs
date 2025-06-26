@@ -23,7 +23,10 @@ use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing::{info, instrument};
 
-use crate::measurements::Measurement;
+use crate::{
+    handlers::{devices::fetch_devices_by_id, sensors::fetch_sensor_by_sensor_id},
+    measurements::Measurement,
+};
 
 mod devices;
 mod error;
@@ -76,6 +79,7 @@ pub fn create_router(
         .route("/devices", post(insert_device))
         .route("/devices", delete(delete_device))
         .route("/devices", put(update_device))
+        .route("/devices/{device_id}", get(fetch_devices_by_id))
         .route(
             "/devices/{device_id}/sensors",
             get(fetch_sensors_by_device_id),
@@ -103,7 +107,8 @@ pub fn create_router(
         .route("/sensors", get(fetch_sensors))
         .route("/sensors", post(insert_sensor))
         .route("/sensors", delete(delete_sensor))
-        .route("/sensors", put(update_sensor));
+        .route("/sensors", put(update_sensor))
+        .route("/sensors/{sensor_id}", get(fetch_sensor_by_sensor_id));
 
     Router::new()
         .nest("/api", measurements)

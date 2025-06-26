@@ -9,27 +9,27 @@ pub struct NewSensor {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, FromRow)]
-pub struct Sensors {
+pub struct Sensor {
     pub id: i32,
     pub name: String,
     pub unit: String,
 }
 
-impl Sensors {
+impl Sensor {
     pub fn new(id: i32, name: String, unit: String) -> Self {
         Self { id, name, unit }
     }
 
-    pub async fn read(pool: &PgPool) -> Result<Vec<Sensors>> {
-        let sensors = sqlx::query_as::<_, Sensors>("SELECT id, name, unit FROM sensors")
+    pub async fn read(pool: &PgPool) -> Result<Vec<Sensor>> {
+        let sensors = sqlx::query_as::<_, Sensor>("SELECT id, name, unit FROM sensors")
             .fetch_all(pool)
             .await?;
         Ok(sensors)
     }
 
-    pub async fn read_by_id(pool: &PgPool, sensor_id: i32) -> Result<Sensors> {
+    pub async fn read_by_id(pool: &PgPool, sensor_id: i32) -> Result<Sensor> {
         let sensors =
-            sqlx::query_as::<_, Sensors>("SELECT id, name, unit FROM sensors WHERE id = $1")
+            sqlx::query_as::<_, Sensor>("SELECT id, name, unit FROM sensors WHERE id = $1")
                 .bind(sensor_id)
                 .fetch_one(pool)
                 .await?;
@@ -54,8 +54,8 @@ impl Sensors {
         Ok(())
     }
 
-    pub async fn read_by_device_id(pool: &PgPool, device_id: i32) -> Result<Vec<Sensors>> {
-        let sensors = sqlx::query_as::<_, Sensors>("SELECT ds.sensor_id as id, ds.name, ds.unit from device_sensors ds WHERE ds.device_id = $1 order by ds.sensor_id")
+    pub async fn read_by_device_id(pool: &PgPool, device_id: i32) -> Result<Vec<Sensor>> {
+        let sensors = sqlx::query_as::<_, Sensor>("SELECT ds.sensor_id as id, ds.name, ds.unit from device_sensors ds WHERE ds.device_id = $1 order by ds.sensor_id")
             .bind(device_id)
             .fetch_all(pool)
             .await?;
@@ -85,14 +85,14 @@ mod tests {
     use crate::{
         devices::NewDevice,
         measurements::NewMeasurement,
-        sensors::{NewSensor, Sensors},
+        sensors::{NewSensor, Sensor},
     };
 
     #[sqlx::test]
     async fn insert(pool: PgPool) {
         let sensor = NewSensor::new("test".to_string(), "test".to_string());
         sensor.insert(&pool).await.unwrap();
-        let sensors = Sensors::read(&pool).await.unwrap();
+        let sensors = Sensor::read(&pool).await.unwrap();
 
         assert!(!sensors.is_empty());
         assert_eq!(sensors.last().unwrap().name, "test");
@@ -103,7 +103,7 @@ mod tests {
     async fn delete(pool: PgPool) {
         let sensor = NewSensor::new("test".to_string(), "test".to_string());
         sensor.clone().insert(&pool).await.unwrap();
-        let sensors = Sensors::read(&pool).await.unwrap();
+        let sensors = Sensor::read(&pool).await.unwrap();
         let sensor = sensors.last().unwrap().clone().delete(&pool).await;
         assert!(sensor.is_ok());
     }
@@ -112,12 +112,12 @@ mod tests {
     async fn update(pool: PgPool) {
         let sensor = NewSensor::new("test".to_string(), "test".to_string());
         sensor.clone().insert(&pool).await.unwrap();
-        let sensors = Sensors::read(&pool).await.unwrap();
+        let sensors = Sensor::read(&pool).await.unwrap();
         let sensor = sensors.last().unwrap().clone();
-        let sensor = Sensors::new(sensor.id, "test2".to_string(), "test2".to_string());
+        let sensor = Sensor::new(sensor.id, "test2".to_string(), "test2".to_string());
         sensor.clone().update(&pool).await.unwrap();
 
-        let sensors = Sensors::read(&pool).await.unwrap();
+        let sensors = Sensor::read(&pool).await.unwrap();
         assert_eq!(sensors.last().unwrap().name, "test2");
         assert_eq!(sensors.last().unwrap().unit, "test2");
     }
@@ -138,7 +138,7 @@ mod tests {
         let measurement3 = NewMeasurement::new(None, 1, 2, 1.0);
         measurement3.insert(&pool).await.unwrap();
 
-        let sensors = Sensors::read_by_device_id(&pool, 1).await.unwrap();
+        let sensors = Sensor::read_by_device_id(&pool, 1).await.unwrap();
         assert!(!sensors.is_empty());
         assert_eq!(sensors.len(), 2);
     }

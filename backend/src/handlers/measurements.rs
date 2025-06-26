@@ -9,9 +9,9 @@ use sqlx::PgPool;
 use tracing::{instrument, warn};
 
 use crate::{
-    devices::Devices,
+    devices::Device,
     measurements::{Measurement, MeasurementStats, NewMeasurement, NewMeasurements},
-    sensors::Sensors,
+    sensors::Sensor,
 };
 
 use super::error::HandlerError;
@@ -21,13 +21,13 @@ async fn insert_measurement(
     pool: &PgPool,
     cache: &Cache<(i32, i32), Measurement>,
 ) -> Result<(), HandlerError> {
-    let device = Devices::read_by_id(pool, measurement.device)
+    let device = Device::read_by_id(pool, measurement.device)
         .await
         .map_err(|e| {
             warn!("Failed with error: {}", e);
             HandlerError::new(500, format!("Failed to fetch device from database: {}", e))
         })?;
-    let sensor = Sensors::read_by_id(pool, measurement.sensor)
+    let sensor = Sensor::read_by_id(pool, measurement.sensor)
         .await
         .map_err(|e| {
             warn!("Failed with error: {}", e);
