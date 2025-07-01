@@ -129,7 +129,7 @@ mod tests {
         };
         sensor.insert(&pool).await.unwrap();
 
-        let sensors = Sensors::read(&pool).await.unwrap();
+        let sensors = Sensor::read(&pool).await.unwrap();
         assert!(!sensors.is_empty());
 
         let result = delete_sensor(State(pool), Json(sensors[0].clone())).await;
@@ -145,10 +145,10 @@ mod tests {
         };
         sensor.insert(&pool).await.unwrap();
 
-        let sensors = Sensors::read(&pool).await.unwrap();
+        let sensors = Sensor::read(&pool).await.unwrap();
         assert!(!sensors.is_empty());
 
-        let updated_sensor = Sensors::new(
+        let updated_sensor = Sensor::new(
             sensors[0].id,
             "Updated Light".to_string(),
             "Updated Lux".to_string(),
@@ -157,7 +157,7 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "OK".to_string());
 
-        let sensors_after_update = Sensors::read(&pool).await.unwrap();
+        let sensors_after_update = Sensor::read(&pool).await.unwrap();
         assert_eq!(sensors_after_update[0].name, "Updated Light");
     }
 }

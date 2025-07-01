@@ -106,11 +106,11 @@ mod tests {
         let device = NewDevice::new("test".to_string(), "test".to_string());
         device.insert(&pool).await.unwrap();
 
-        let devices = Devices::read(&pool).await.unwrap();
+        let devices = Device::read(&pool).await.unwrap();
         let result = delete_device(State(pool.clone()), Json(devices[0].clone())).await;
         assert!(result.is_ok());
 
-        let devices_after_delete = Devices::read(&pool).await.unwrap();
+        let devices_after_delete = Device::read(&pool).await.unwrap();
         assert!(devices_after_delete.is_empty());
     }
 
@@ -119,13 +119,13 @@ mod tests {
         let device = NewDevice::new("test".to_string(), "test".to_string());
         device.insert(&pool).await.unwrap();
 
-        let devices = Devices::read(&pool).await.unwrap();
+        let devices = Device::read(&pool).await.unwrap();
         let updated_device =
-            Devices::new(devices[0].id, "updated".to_string(), "updated".to_string());
+            Device::new(devices[0].id, "updated".to_string(), "updated".to_string());
         let result = update_device(State(pool.clone()), Json(updated_device)).await;
         assert!(result.is_ok());
 
-        let devices_after_update = Devices::read(&pool).await.unwrap();
+        let devices_after_update = Device::read(&pool).await.unwrap();
         assert_eq!(devices_after_update[0].name, "updated");
         assert_eq!(devices_after_update[0].location, "updated");
     }
