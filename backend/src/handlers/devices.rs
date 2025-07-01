@@ -74,3 +74,59 @@ pub async fn update_device(
     })?;
     Ok("OK".to_string())
 }
+
+#[cfg(test)]
+
+mod tests {
+    use super::*;
+
+    #[sqlx::test]
+    async fn should_insert_device(pool: PgPool) {
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+
+        let result = insert_device(State(pool), Json(device)).await;
+        assert!(result.is_ok());
+    }
+
+    #[sqlx::test]
+    async fn should_fetch_devices(pool: PgPool) {
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+        device.insert(&pool).await.unwrap();
+
+        let result = fetch_devices(State(pool)).await;
+        assert!(result.is_ok());
+        let devices = result.unwrap().0;
+        assert!(!devices.is_empty());
+        assert_eq!(devices[0].name, "test");
+        assert_eq!(devices[0].location, "test");
+    }
+
+    #[sqlx::test]
+    async fn should_delete_device(pool: PgPool) {
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+        device.insert(&pool).await.unwrap();
+
+        let devices = Devices::read(&pool).await.unwrap();
+        let result = delete_device(State(pool.clone()), Json(devices[0].clone())).await;
+        assert!(result.is_ok());
+
+        let devices_after_delete = Devices::read(&pool).await.unwrap();
+        assert!(devices_after_delete.is_empty());
+    }
+
+    #[sqlx::test]
+    async fn should_update_device(pool: PgPool) {
+        let device = NewDevice::new("test".to_string(), "test".to_string());
+        device.insert(&pool).await.unwrap();
+
+        let devices = Devices::read(&pool).await.unwrap();
+        let updated_device =
+            Devices::new(devices[0].id, "updated".to_string(), "updated".to_string());
+        let result = update_device(State(pool.clone()), Json(updated_device)).await;
+        assert!(result.is_ok());
+
+        let devices_after_update = Devices::read(&pool).await.unwrap();
+        assert_eq!(devices_after_update[0].name, "updated");
+        assert_eq!(devices_after_update[0].location, "updated");
+    }
+}

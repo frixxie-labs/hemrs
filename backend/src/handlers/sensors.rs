@@ -88,3 +88,76 @@ pub async fn fetch_sensors_by_device_id(
         })?;
     Ok(Json(sensors))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[sqlx::test]
+    async fn should_insert_sensor(pool: PgPool) {
+        let sensor = NewSensor {
+            name: "Temperature".to_string(),
+            unit: "Celsius".to_string(),
+        };
+
+        let result = insert_sensor(State(pool), Json(sensor)).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "OK".to_string());
+    }
+
+    #[sqlx::test]
+    async fn should_fetch_sensors(pool: PgPool) {
+        let sensor = NewSensor {
+            name: "Humidity".to_string(),
+            unit: "Percent".to_string(),
+        };
+        sensor.insert(&pool).await.unwrap();
+
+        let result = fetch_sensors(State(pool)).await;
+        assert!(result.is_ok());
+        let sensors = result.unwrap().0;
+        assert!(!sensors.is_empty());
+        assert_eq!(sensors[0].name, "Humidity");
+        assert_eq!(sensors[0].unit, "Percent");
+    }
+
+    #[sqlx::test]
+    async fn should_delete_sensor(pool: PgPool) {
+        let sensor = NewSensor {
+            name: "Pressure".to_string(),
+            unit: "Pascal".to_string(),
+        };
+        sensor.insert(&pool).await.unwrap();
+
+        let sensors = Sensors::read(&pool).await.unwrap();
+        assert!(!sensors.is_empty());
+
+        let result = delete_sensor(State(pool), Json(sensors[0].clone())).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "OK".to_string());
+    }
+
+    #[sqlx::test]
+    async fn should_update_sensor(pool: PgPool) {
+        let sensor = NewSensor {
+            name: "Light".to_string(),
+            unit: "Lux".to_string(),
+        };
+        sensor.insert(&pool).await.unwrap();
+
+        let sensors = Sensors::read(&pool).await.unwrap();
+        assert!(!sensors.is_empty());
+
+        let updated_sensor = Sensors::new(
+            sensors[0].id,
+            "Updated Light".to_string(),
+            "Updated Lux".to_string(),
+        );
+        let result = update_sensor(State(pool.clone()), Json(updated_sensor)).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "OK".to_string());
+
+        let sensors_after_update = Sensors::read(&pool).await.unwrap();
+        assert_eq!(sensors_after_update[0].name, "Updated Light");
+    }
+}
