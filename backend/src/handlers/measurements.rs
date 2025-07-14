@@ -33,10 +33,9 @@ async fn insert_measurement(
             warn!("Failed with error: {}", e);
             HandlerError::new(500, format!("Failed to fetch sensor from database: {}", e))
         })?;
-    let ts = measurement.timestamp.unwrap_or_else(|| chrono::Utc::now());
     let entry = Measurement {
         value: measurement.measurement.clone(),
-        timestamp: ts,
+        timestamp: measurement.timestamp.unwrap_or_else(|| chrono::Utc::now()),
         device_name: device.name,
         device_location: device.location,
         sensor_name: sensor.name,
@@ -59,6 +58,7 @@ where
     Response: IntoResponse,
 {
     let (pool, cache) = app_state;
+
     match measurement {
         NewMeasurements::Measurement(new_measurement) => {
             insert_measurement(new_measurement, &pool, &cache).await?;
@@ -71,6 +71,7 @@ where
             }
         }
     };
+
     let resp = Response::builder()
         .status(201)
         .body("Measurement(s) inserted successfully".into())
@@ -78,6 +79,7 @@ where
             warn!("Failed with error: {}", e);
             HandlerError::new(500, format!("Failed to build response: {}", e))
         })?;
+
     Ok(resp)
 }
 
@@ -86,10 +88,12 @@ pub async fn fetch_latest_measurement(
     State(app_state): State<(PgPool, Cache<(i32, i32), Measurement>)>,
 ) -> Result<Json<Measurement>, HandlerError> {
     let (pool, _cache) = app_state;
+
     let entry = Measurement::read_latest(&pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
         HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
     })?;
+
     Ok(Json(entry))
 }
 
