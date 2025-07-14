@@ -73,10 +73,10 @@ impl From<LogLevel> for Level {
 async fn bg_thread(pool: &PgPool, cache: &Cache<(i32, i32), Measurement>) {
     loop {
         debug!("Running background thread");
-        let devices = Device::read(&pool).await.unwrap();
+        let devices = Device::read(pool).await.unwrap();
         let mut device_sensors: Vec<(Device, Sensor)> = Vec::new();
         for device in devices {
-            let sensors = Sensor::read_by_device_id(&pool, device.id).await.unwrap();
+            let sensors = Sensor::read_by_device_id(pool, device.id).await.unwrap();
             for sensor in sensors {
                 device_sensors.push((device.clone(), sensor));
             }
@@ -120,7 +120,7 @@ async fn bg_thread(pool: &PgPool, cache: &Cache<(i32, i32), Measurement>) {
             }
         }
         counter!("hemrs_pg_pool_size").absolute(pool.size() as u64);
-        counter!("hemrs_cache_size").absolute(cache.entry_count() as u64);
+        counter!("hemrs_cache_size").absolute(cache.entry_count());
         debug!("Background thread finished");
         tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
     }

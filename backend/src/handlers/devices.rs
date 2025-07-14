@@ -13,7 +13,7 @@ use super::error::HandlerError;
 pub async fn fetch_devices(State(pool): State<PgPool>) -> Result<Json<Vec<Device>>, HandlerError> {
     let devices = Device::read(&pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+        HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
     })?;
     Ok(Json(devices))
 }
@@ -25,7 +25,7 @@ pub async fn fetch_devices_by_id(
 ) -> Result<Json<Device>, HandlerError> {
     let device = Device::read_by_id(&pool, device_id).await.map_err(|e| {
         warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+        HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
     })?;
     Ok(Json(device))
 }
@@ -40,7 +40,7 @@ pub async fn insert_device(
     }
     device.insert(&pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to store data in database: {}", e))
+        HandlerError::new(500, format!("Failed to store data in database: {e}"))
     })?;
     Ok("OK".to_string())
 }
@@ -55,7 +55,7 @@ pub async fn delete_device(
     }
     device.delete(&pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to store data in database: {}", e))
+        HandlerError::new(500, format!("Failed to store data in database: {e}"))
     })?;
     Ok("OK".to_string())
 }
@@ -70,7 +70,7 @@ pub async fn update_device(
     }
     device.update(&pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to store data in database: {}", e))
+        HandlerError::new(500, format!("Failed to store data in database: {e}"))
     })?;
     Ok("OK".to_string())
 }

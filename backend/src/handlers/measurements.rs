@@ -16,6 +16,8 @@ use crate::{
 
 use super::error::HandlerError;
 
+type ApplicationState = State<(PgPool, Cache<(i32, i32), Measurement>)>;
+
 async fn insert_measurement(
     measurement: NewMeasurement,
     pool: &PgPool,
@@ -25,17 +27,17 @@ async fn insert_measurement(
         .await
         .map_err(|e| {
             warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch device from database: {}", e))
+            HandlerError::new(500, format!("Failed to fetch device from database: {e}"))
         })?;
     let sensor = Sensor::read_by_id(pool, measurement.sensor)
         .await
         .map_err(|e| {
             warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch sensor from database: {}", e))
+            HandlerError::new(500, format!("Failed to fetch sensor from database: {e}"))
         })?;
     let entry = Measurement {
-        value: measurement.measurement.clone(),
-        timestamp: measurement.timestamp.unwrap_or_else(|| chrono::Utc::now()),
+        value: measurement.measurement,
+        timestamp: measurement.timestamp.unwrap_or_else(chrono::Utc::now),
         device_name: device.name,
         device_location: device.location,
         sensor_name: sensor.name,
@@ -44,14 +46,14 @@ async fn insert_measurement(
     cache.insert((device.id, sensor.id), entry.clone()).await;
     measurement.insert(pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to insert data into database: {}", e))
+        HandlerError::new(500, format!("Failed to insert data into database: {e}"))
     })?;
     Ok(())
 }
 
 #[instrument]
 pub async fn store_measurements(
-    State(app_state): State<(PgPool, Cache<(i32, i32), Measurement>)>,
+    State(app_state): ApplicationState,
     Json(measurement): Json<NewMeasurements>,
 ) -> Result<Response, HandlerError>
 where
@@ -77,7 +79,7 @@ where
         .body("Measurement(s) inserted successfully".into())
         .map_err(|e| {
             warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to build response: {}", e))
+            HandlerError::new(500, format!("Failed to build response: {e}"))
         })?;
 
     Ok(resp)
@@ -85,13 +87,13 @@ where
 
 #[instrument]
 pub async fn fetch_latest_measurement(
-    State(app_state): State<(PgPool, Cache<(i32, i32), Measurement>)>,
+    State(app_state): ApplicationState,
 ) -> Result<Json<Measurement>, HandlerError> {
     let (pool, _cache) = app_state;
 
     let entry = Measurement::read_latest(&pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+        HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
     })?;
 
     Ok(Json(entry))
@@ -99,26 +101,26 @@ pub async fn fetch_latest_measurement(
 
 #[instrument]
 pub async fn fetch_measurements_count(
-    State(app_state): State<(PgPool, Cache<(i32, i32), Measurement>)>,
+    State(app_state): ApplicationState,
 ) -> Result<Json<usize>, HandlerError> {
     let (pool, _cache) = app_state;
     let count = Measurement::read_total_measurements(&pool)
         .await
         .map_err(|e| {
             warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+            HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
         })?;
     Ok(Json(count as usize))
 }
 
 #[instrument]
 pub async fn fetch_all_measurements(
-    State(app_state): State<(PgPool, Cache<(i32, i32), Measurement>)>,
+    State(app_state): ApplicationState,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
     let (pool, _cache) = app_state;
     let entries = Measurement::read_all(&pool).await.map_err(|e| {
         warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+        HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
     })?;
 
     Ok(Json(entries))
@@ -126,7 +128,7 @@ pub async fn fetch_all_measurements(
 
 #[instrument]
 pub async fn fetch_measurement_by_device_id(
-    State(app_state): State<(PgPool, Cache<(i32, i32), Measurement>)>,
+    State(app_state): ApplicationState,
     Path(device_id): Path<i32>,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
     let (pool, _cache) = app_state;
@@ -134,14 +136,14 @@ pub async fn fetch_measurement_by_device_id(
         .await
         .map_err(|e| {
             warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+            HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
         })?;
     Ok(Json(measurements))
 }
 
 #[instrument]
 pub async fn fetch_latest_measurement_by_device_id_and_sensor_id(
-    State(app_state): State<(PgPool, Cache<(i32, i32), Measurement>)>,
+    State(app_state): ApplicationState,
     Path((device_id, sensor_id)): Path<(i32, i32)>,
 ) -> Result<Json<Measurement>, HandlerError> {
     let (pool, cache) = app_state;
@@ -154,7 +156,7 @@ pub async fn fetch_latest_measurement_by_device_id_and_sensor_id(
             .await
             .map_err(|e| {
                 warn!("Failed with error: {}", e);
-                HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+                HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
             })?;
     // Insert into cache
     cache
@@ -165,7 +167,7 @@ pub async fn fetch_latest_measurement_by_device_id_and_sensor_id(
 
 #[instrument]
 pub async fn fetch_measurement_by_device_id_and_sensor_id(
-    State(app_state): State<(PgPool, Cache<(i32, i32), Measurement>)>,
+    State(app_state): ApplicationState,
     Path((device_id, sensor_id)): Path<(i32, i32)>,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
     let (pool, _cache) = app_state;
@@ -173,21 +175,21 @@ pub async fn fetch_measurement_by_device_id_and_sensor_id(
         .await
         .map_err(|e| {
             warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+            HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
         })?;
     Ok(Json(measurements))
 }
 
 #[instrument]
 pub async fn fetch_all_latest_measurements(
-    State(app_state): State<(PgPool, Cache<(i32, i32), Measurement>)>,
+    State(app_state): ApplicationState,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
     let (pool, _cache) = app_state;
     let measurements = Measurement::read_all_latest_measurements(&pool)
         .await
         .map_err(|e| {
             warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+            HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
         })?;
     // Insert all latest measurements into cache
     Ok(Json(measurements))
@@ -195,7 +197,7 @@ pub async fn fetch_all_latest_measurements(
 
 #[instrument]
 pub async fn fetch_stats_by_device_id_and_sensor_id(
-    State(app_state): State<(PgPool, Cache<(i32, i32), Measurement>)>,
+    State(app_state): ApplicationState,
     Path((device_id, sensor_id)): Path<(i32, i32)>,
 ) -> Result<Json<MeasurementStats>, HandlerError> {
     let (pool, _cache) = app_state;
@@ -203,13 +205,12 @@ pub async fn fetch_stats_by_device_id_and_sensor_id(
         .await
         .map_err(|e| {
             warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch data from database: {}", e))
+            HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
         })?;
     Ok(Json(stats))
 }
 
 #[cfg(test)]
-
 mod tests {
     use crate::{devices::NewDevice, measurements::NewMeasurement, sensors::NewSensor};
 
