@@ -18,20 +18,22 @@ use moka::future::Cache;
 use sensors::fetch_sensors_by_device_id;
 use sensors::{delete_sensor, fetch_sensors, insert_sensor, update_sensor};
 use sqlx::Pool;
-use tokio::time::Instant;
+use tokio::{sync::mpsc::Sender, time::Instant};
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing::{info, instrument};
 
 use crate::{
     handlers::{devices::fetch_devices_by_id, sensors::fetch_sensor_by_sensor_id},
-    measurements::Measurement,
+    measurements::{Measurement, NewMeasurement},
 };
 
 mod devices;
 mod error;
 mod measurements;
 mod sensors;
+
+pub use measurements::handle_insert_measurement_bg_thread;
 
 #[instrument]
 pub async fn profile_endpoint(request: Request, next: Next) -> Response {
@@ -62,6 +64,7 @@ pub fn create_router(
     connection: Pool<sqlx::Postgres>,
     metrics_handler: PrometheusHandle,
     cache: Cache<(i32, i32), Measurement>,
+    tx: Sender<NewMeasurement>,
 ) -> Router {
     let measurements = Router::new()
         .route("/measurements", get(fetch_all_measurements))
@@ -71,8 +74,9 @@ pub fn create_router(
             get(fetch_all_latest_measurements),
         )
         .route("/measurements/count", get(fetch_measurements_count))
+        .with_state((connection.clone(), cache.clone()))
         .route("/measurements", post(store_measurements))
-        .with_state((connection.clone(), cache.clone()));
+        .with_state(tx.clone());
 
     let devices = Router::new()
         .route("/devices", get(fetch_devices))
@@ -116,7 +120,7 @@ pub fn create_router(
         .nest("/api", sensors)
         .with_state(connection.clone())
         .route("/", post(store_measurements))
-        .with_state((connection.clone(), cache.clone()))
+        .with_state(tx)
         .route("/metrics", get(metrics))
         .with_state(metrics_handler)
         .layer(

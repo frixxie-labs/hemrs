@@ -6,7 +6,8 @@ use axum::{
 use metrics::counter;
 use moka::future::Cache;
 use sqlx::PgPool;
-use tracing::{instrument, warn};
+use tokio::sync::mpsc::{Receiver, Sender};
+use tracing::{info, instrument, warn};
 
 use crate::{
     devices::Device,
@@ -17,6 +18,22 @@ use crate::{
 use super::error::HandlerError;
 
 type ApplicationState = State<(PgPool, Cache<(i32, i32), Measurement>)>;
+
+pub async fn handle_insert_measurement_bg_thread(
+    mut rx: Receiver<NewMeasurement>,
+    pool: PgPool,
+    cache: Cache<(i32, i32), Measurement>,
+) {
+    while let Some(measurement) = rx.recv().await {
+        info!("Received new measurement: {:?}", measurement);
+        info!("Current queue size: {}", rx.len());
+        if let Err(e) = insert_measurement(measurement, &pool, &cache).await {
+            warn!("Failed to insert measurement: {}", e);
+        } else {
+            counter!("new_measurements").increment(1);
+        }
+    }
+}
 
 async fn insert_measurement(
     measurement: NewMeasurement,
@@ -53,23 +70,31 @@ async fn insert_measurement(
 
 #[instrument]
 pub async fn store_measurements(
-    State(app_state): ApplicationState,
+    State(tx): State<Sender<NewMeasurement>>,
     Json(measurement): Json<NewMeasurements>,
 ) -> Result<Response, HandlerError>
 where
     Response: IntoResponse,
 {
-    let (pool, cache) = app_state;
-
     match measurement {
         NewMeasurements::Measurement(new_measurement) => {
-            insert_measurement(new_measurement, &pool, &cache).await?;
-            counter!("new_measurements").increment(1);
+            tx.send(new_measurement).await.map_err(|e| {
+                warn!("Failed with error: {}", e);
+                HandlerError::new(
+                    500,
+                    format!("Failed to send measurement to background thread: {e}"),
+                )
+            })?;
         }
         NewMeasurements::Measurements(new_measurements) => {
             for measurement in new_measurements {
-                insert_measurement(measurement, &pool, &cache).await?;
-                counter!("new_measurements").increment(1);
+                tx.send(measurement).await.map_err(|e| {
+                    warn!("Failed with error: {}", e);
+                    HandlerError::new(
+                        500,
+                        format!("Failed to send measurement to background thread: {e}"),
+                    )
+                })?;
             }
         }
     };
@@ -218,50 +243,53 @@ mod tests {
 
     #[sqlx::test]
     async fn should_store_single_measurement_without_ts(db: PgPool) {
-        let cache = Cache::builder()
-            .max_capacity(100)
-            .time_to_live(std::time::Duration::from_secs(60))
-            .build();
         let device = NewDevice::new("test".to_string(), "test".to_string());
         device.insert(&db).await.unwrap();
         let sensor = NewSensor::new("test".to_string(), "test".to_string());
         sensor.insert(&db).await.unwrap();
         let new_measurement = NewMeasurement::new(None, 1, 1, 1.0);
+        let (tx, mut rx): (Sender<NewMeasurement>, Receiver<NewMeasurement>) =
+            tokio::sync::mpsc::channel(100);
+
         let result = store_measurements(
-            State((db, cache)),
+            State(tx),
             Json(NewMeasurements::Measurement(new_measurement)),
         )
         .await
         .unwrap();
         assert_eq!(result.status(), 201);
+
+        assert!(
+            rx.recv().await.is_some(),
+            "Measurement should be sent to background thread"
+        );
     }
 
     #[sqlx::test]
     async fn should_store_single_measurement_with_ts(db: PgPool) {
-        let cache = Cache::builder()
-            .max_capacity(100)
-            .time_to_live(std::time::Duration::from_secs(60))
-            .build();
         let device = NewDevice::new("test".to_string(), "test".to_string());
         device.insert(&db).await.unwrap();
         let sensor = NewSensor::new("test".to_string(), "test".to_string());
         sensor.insert(&db).await.unwrap();
+        let (tx, mut rx): (Sender<NewMeasurement>, Receiver<NewMeasurement>) =
+            tokio::sync::mpsc::channel(100);
         let new_measurement = NewMeasurement::new(Some(chrono::Utc::now()), 1, 1, 1.0);
         let result = store_measurements(
-            State((db, cache)),
+            State(tx),
             Json(NewMeasurements::Measurement(new_measurement)),
         )
         .await
         .unwrap();
         assert_eq!(result.status(), 201);
+
+        assert!(
+            rx.recv().await.is_some(),
+            "Measurement should be sent to background thread"
+        );
     }
 
     #[sqlx::test]
     async fn should_store_multiple_measurements(db: PgPool) {
-        let cache = Cache::builder()
-            .max_capacity(100)
-            .time_to_live(std::time::Duration::from_secs(60))
-            .build();
         let device = NewDevice::new("test".to_string(), "test".to_string());
         device.insert(&db).await.unwrap();
         let sensor = NewSensor::new("test".to_string(), "test".to_string());
@@ -270,35 +298,53 @@ mod tests {
             NewMeasurement::new(None, 1, 1, 1.0),
             NewMeasurement::new(None, 1, 1, 2.0),
         ];
+
+        // Create a channel to send measurements to the background thread
+        let (tx, mut rx): (Sender<NewMeasurement>, Receiver<NewMeasurement>) =
+            tokio::sync::mpsc::channel(100);
+
         let result = store_measurements(
-            State((db, cache)),
+            State(tx),
             Json(NewMeasurements::Measurements(new_measurements)),
         )
         .await
         .unwrap();
         assert_eq!(result.status(), 201);
+
+        // Check that both measurements were sent to the background thread
+        assert!(
+            rx.recv().await.is_some(),
+            "First measurement should be sent to background thread"
+        );
     }
 
     #[sqlx::test]
     async fn should_store_multiple_measurements_with_and_without_ts(db: PgPool) {
-        let cache = Cache::builder()
-            .max_capacity(100)
-            .time_to_live(std::time::Duration::from_secs(60))
-            .build();
         let device = NewDevice::new("test".to_string(), "test".to_string());
         device.insert(&db).await.unwrap();
         let sensor = NewSensor::new("test".to_string(), "test".to_string());
         sensor.insert(&db).await.unwrap();
+        let (tx, mut rx): (Sender<NewMeasurement>, Receiver<NewMeasurement>) =
+            tokio::sync::mpsc::channel(100);
         let new_measurements = vec![
             NewMeasurement::new(None, 1, 1, 1.0),
             NewMeasurement::new(Some(chrono::Utc::now()), 1, 1, 2.0),
         ];
         let result = store_measurements(
-            State((db, cache)),
+            State(tx),
             Json(NewMeasurements::Measurements(new_measurements)),
         )
         .await
         .unwrap();
         assert_eq!(result.status(), 201);
+        // Check that both measurements were sent to the background thread
+        assert!(
+            rx.recv().await.is_some(),
+            "First measurement should be sent to background thread"
+        );
+        assert!(
+            rx.recv().await.is_some(),
+            "Second measurement should be sent to background thread"
+        );
     }
 }

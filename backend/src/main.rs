@@ -6,11 +6,11 @@ use moka::future::Cache;
 use sensors::Sensor;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use structopt::StructOpt;
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, sync::mpsc::channel};
 use tracing::{debug, info, Level};
 use tracing_subscriber::FmtSubscriber;
 
-use crate::handlers::create_router;
+use crate::{handlers::create_router, measurements::NewMeasurement};
 
 mod devices;
 mod handlers;
@@ -161,7 +161,16 @@ async fn main() -> Result<(), anyhow::Error> {
         bg_thread(&bg_pool, &measurement_cache_bg).await;
     });
 
-    let app = create_router(connection, metrics_handler, measurement_cache);
+    let (tx, rx) = channel::<NewMeasurement>(1000);
+
+    let insert_pool = connection.clone();
+    let insert_cache = measurement_cache.clone();
+
+    tokio::spawn(async move {
+        handlers::handle_insert_measurement_bg_thread(rx, insert_pool, insert_cache).await;
+    });
+
+    let app = create_router(connection, metrics_handler, measurement_cache, tx);
 
     let listener = TcpListener::bind(&opts.host).await.unwrap();
     axum::serve(listener, app).await.unwrap();
