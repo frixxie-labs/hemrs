@@ -183,6 +183,8 @@ pub async fn fetch_stats_by_device_id_and_sensor_id(
 
 #[cfg(test)]
 mod tests {
+    use tokio::sync::mpsc::Receiver;
+
     use crate::{devices::NewDevice, measurements::NewMeasurement, sensors::NewSensor};
 
     use super::*;
