@@ -2,6 +2,8 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
 
+use crate::devices::Device;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NewSensor {
     pub name: String,
@@ -51,6 +53,7 @@ impl Sensor {
             .bind(self.id)
             .execute(pool)
             .await?;
+        Device::refresh_device_sensors_view(pool).await?;
         Ok(())
     }
 
@@ -74,6 +77,7 @@ impl NewSensor {
             .bind(self.unit)
             .execute(pool)
             .await?;
+        Device::refresh_device_sensors_view(pool).await?;
         Ok(())
     }
 }
@@ -83,7 +87,7 @@ mod tests {
     use sqlx::PgPool;
 
     use crate::{
-        devices::NewDevice,
+        devices::{Device, NewDevice},
         measurements::NewMeasurement,
         sensors::{NewSensor, Sensor},
     };
@@ -137,6 +141,8 @@ mod tests {
         measurement2.insert(&pool).await.unwrap();
         let measurement3 = NewMeasurement::new(None, 1, 2, 1.0);
         measurement3.insert(&pool).await.unwrap();
+
+        Device::refresh_device_sensors_view(&pool).await.unwrap();
 
         let sensors = Sensor::read_by_device_id(&pool, 1).await.unwrap();
         assert!(!sensors.is_empty());

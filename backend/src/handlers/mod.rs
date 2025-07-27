@@ -33,8 +33,6 @@ mod error;
 mod measurements;
 mod sensors;
 
-pub use measurements::handle_insert_measurement_bg_thread;
-
 #[instrument]
 pub async fn profile_endpoint(request: Request, next: Next) -> Response {
     let method = request.method().clone().to_string();

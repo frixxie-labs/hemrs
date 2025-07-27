@@ -19,55 +19,6 @@ use super::error::HandlerError;
 
 type ApplicationState = State<(PgPool, Cache<(i32, i32), Measurement>)>;
 
-pub async fn handle_insert_measurement_bg_thread(
-    mut rx: Receiver<NewMeasurement>,
-    pool: PgPool,
-    cache: Cache<(i32, i32), Measurement>,
-) {
-    while let Some(measurement) = rx.recv().await {
-        info!("Received new measurement: {:?}", measurement);
-        info!("Current queue size: {}", rx.len());
-        if let Err(e) = insert_measurement(measurement, &pool, &cache).await {
-            warn!("Failed to insert measurement: {}", e);
-        } else {
-            counter!("new_measurements").increment(1);
-        }
-    }
-}
-
-async fn insert_measurement(
-    measurement: NewMeasurement,
-    pool: &PgPool,
-    cache: &Cache<(i32, i32), Measurement>,
-) -> Result<(), HandlerError> {
-    let device = Device::read_by_id(pool, measurement.device)
-        .await
-        .map_err(|e| {
-            warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch device from database: {e}"))
-        })?;
-    let sensor = Sensor::read_by_id(pool, measurement.sensor)
-        .await
-        .map_err(|e| {
-            warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch sensor from database: {e}"))
-        })?;
-    let entry = Measurement {
-        value: measurement.measurement,
-        timestamp: measurement.timestamp.unwrap_or_else(chrono::Utc::now),
-        device_name: device.name,
-        device_location: device.location,
-        sensor_name: sensor.name,
-        unit: sensor.unit,
-    };
-    cache.insert((device.id, sensor.id), entry.clone()).await;
-    measurement.insert(pool).await.map_err(|e| {
-        warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to insert data into database: {e}"))
-    })?;
-    Ok(())
-}
-
 #[instrument]
 pub async fn store_measurements(
     State(tx): State<Sender<NewMeasurement>>,

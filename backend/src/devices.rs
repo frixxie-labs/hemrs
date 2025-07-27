@@ -20,6 +20,13 @@ impl Device {
         Self { id, name, location }
     }
 
+    pub async fn refresh_device_sensors_view(pool: &PgPool) -> Result<()> {
+        sqlx::query("REFRESH MATERIALIZED VIEW device_sensors")
+            .execute(pool)
+            .await?;
+        Ok(())
+    }
+
     pub async fn read(pool: &PgPool) -> Result<Vec<Device>> {
         let devices = sqlx::query_as::<_, Device>("SELECT id, name, location FROM devices")
             .fetch_all(pool)
@@ -28,10 +35,11 @@ impl Device {
     }
 
     pub async fn read_by_id(pool: &PgPool, device_id: i32) -> Result<Device> {
-        let device = sqlx::query_as::<_, Device>("SELECT id, name, location FROM devices WHERE id = $1")
-            .bind(device_id)
-            .fetch_one(pool)
-            .await?;
+        let device =
+            sqlx::query_as::<_, Device>("SELECT id, name, location FROM devices WHERE id = $1")
+                .bind(device_id)
+                .fetch_one(pool)
+                .await?;
         Ok(device)
     }
 
@@ -50,6 +58,7 @@ impl Device {
             .bind(self.id)
             .execute(pool)
             .await?;
+        Self::refresh_device_sensors_view(pool).await?;
         Ok(())
     }
 }
@@ -65,6 +74,7 @@ impl NewDevice {
             .bind(self.location)
             .execute(pool)
             .await?;
+        Device::refresh_device_sensors_view(pool).await?;
         Ok(())
     }
 }
