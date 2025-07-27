@@ -3,17 +3,12 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use metrics::counter;
 use moka::future::Cache;
 use sqlx::PgPool;
-use tokio::sync::mpsc::{Receiver, Sender};
-use tracing::{info, instrument, warn};
+use tokio::sync::mpsc::Sender;
+use tracing::{instrument, warn};
 
-use crate::{
-    devices::Device,
-    measurements::{Measurement, MeasurementStats, NewMeasurement, NewMeasurements},
-    sensors::Sensor,
-};
+use crate::measurements::{Measurement, MeasurementStats, NewMeasurement, NewMeasurements};
 
 use super::error::HandlerError;
 
