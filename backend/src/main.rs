@@ -101,7 +101,7 @@ async fn main() -> Result<(), anyhow::Error> {
         update_metrics(&bg_pool, &measurement_cache_bg).await;
     });
 
-    let (tx, rx) = channel::<NewMeasurement>(1000);
+    let (tx, rx) = channel::<NewMeasurement>(1 << 13);
 
     let insert_pool = connection.clone();
     let insert_cache = measurement_cache.clone();
