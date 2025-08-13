@@ -43,11 +43,22 @@ impl std::str::FromStr for LogLevel {
     }
 }
 
+/// Command line options for the IoT sensor monitoring backend server.
+///
+/// This struct defines configuration options that can be provided via command line
+/// arguments or environment variables to customize the server's behavior.
 #[derive(Debug, Clone, StructOpt)]
 pub struct Opts {
+    /// Host address and port to bind the HTTP server to.
+    /// 
+    /// Defaults to "0.0.0.0:65534" to listen on all interfaces on port 65534.
     #[structopt(short, long, default_value = "0.0.0.0:65534")]
     host: String,
 
+    /// PostgreSQL database connection URL.
+    /// 
+    /// Can be provided via the DATABASE_URL environment variable or the -d flag.
+    /// Defaults to a local PostgreSQL instance.
     #[structopt(
         short,
         long,
@@ -56,6 +67,10 @@ pub struct Opts {
     )]
     db_url: String,
 
+    /// Logging level for the application.
+    /// 
+    /// Valid values are: trace, debug, info, warn, error.
+    /// Defaults to "info" level.
     #[structopt(short, long, default_value = "info")]
     log_level: LogLevel,
 }
