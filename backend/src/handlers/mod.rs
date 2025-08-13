@@ -130,6 +130,7 @@ pub fn create_router(
     cache: Cache<(i32, i32), Measurement>,
     tx: Sender<NewMeasurement>,
 ) -> Router {
+    // Measurements router - needs connection+cache for GET routes, tx for POST routes
     let measurements = Router::new()
         .route("/measurements", get(fetch_all_measurements))
         .route("/measurements/latest", get(fetch_latest_measurement))
@@ -142,6 +143,7 @@ pub fn create_router(
         .route("/measurements", post(store_measurements))
         .with_state(tx.clone());
 
+    // Devices router - needs connection for CRUD, connection+cache for measurement routes
     let devices = Router::new()
         .route("/devices", get(fetch_devices))
         .route("/devices", post(insert_device))
@@ -171,18 +173,20 @@ pub fn create_router(
         )
         .with_state((connection.clone(), cache.clone()));
 
+    // Sensors router - only needs connection for CRUD operations
     let sensors = Router::new()
         .route("/sensors", get(fetch_sensors))
         .route("/sensors", post(insert_sensor))
         .route("/sensors", delete(delete_sensor))
         .route("/sensors", put(update_sensor))
-        .route("/sensors/{sensor_id}", get(fetch_sensor_by_sensor_id));
+        .route("/sensors/{sensor_id}", get(fetch_sensor_by_sensor_id))
+        .with_state(connection.clone());
 
+    // Main router - each nested router already has its required state
     Router::new()
         .nest("/api", measurements)
         .nest("/api", devices)
         .nest("/api", sensors)
-        .with_state(connection.clone())
         .route("/", post(store_measurements))
         .with_state(tx)
         .route("/metrics", get(metrics))
