@@ -13,6 +13,7 @@ use measurements::{
     fetch_stats_by_device_id_and_sensor_id, store_measurements,
 };
 use metrics::histogram;
+use ping::ping;
 use metrics_exporter_prometheus::PrometheusHandle;
 use moka::future::Cache;
 use sensors::fetch_sensors_by_device_id;
@@ -31,6 +32,7 @@ use crate::{
 mod devices;
 mod error;
 mod measurements;
+mod ping;
 mod sensors;
 
 /// Middleware function that profiles HTTP request handling performance.
@@ -123,6 +125,7 @@ pub async fn profile_endpoint(request: Request, next: Next) -> Response {
 ///
 /// ## System
 /// - `POST /` - Direct measurement ingestion endpoint
+/// - `GET /status/ping` - Health check endpoint
 /// - `GET /metrics` - Prometheus metrics endpoint
 pub fn create_router(
     connection: Pool<sqlx::Postgres>,
@@ -189,6 +192,7 @@ pub fn create_router(
         .nest("/api", sensors)
         .route("/", post(store_measurements))
         .with_state(tx)
+        .route("/status/ping", get(ping))
         .route("/metrics", get(metrics))
         .with_state(metrics_handler)
         .layer(
