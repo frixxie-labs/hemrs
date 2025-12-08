@@ -15,10 +15,10 @@ sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio", "time", "ch
 structopt = "0.3.26"
 tokio = { version = "1.48.0", features = ["full"] }
 tower = { version = "0.5.2", features = ["tracing", "load"] }
-tower-http = { version = "0.6.6", features = ["trace", "full"] }
-tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.20", features = ["json", "tracing"] }
-metrics = "0.24.2"
-metrics-exporter-prometheus = "0.17.2"
+tower-http = { version = "0.6.8", features = ["trace", "full"] }
+tracing = "0.1.43"
+tracing-subscriber = { version = "0.3.22", features = ["json", "tracing"] }
+metrics = "0.24.3"
+metrics-exporter-prometheus = "0.18.1"
 futures = "0.3.31"
 moka = { version = "0.12.11", features = ["future"] }
