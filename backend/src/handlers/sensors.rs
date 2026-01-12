@@ -9,23 +9,14 @@ use crate::sensors::{NewSensor, Sensor};
 
 use super::error::HandlerError;
 
-/// HTTP handler to retrieve all sensors.
-///
-/// This endpoint fetches all registered sensors from the database and returns them
-/// as JSON. Used by management interfaces to display sensor type listings.
-///
-/// # Arguments
-///
-/// * `pool` - Database connection pool from Axum state
-///
-/// # Returns
-///
-/// JSON array of all sensors, or a 500 error if database query fails.
-///
-/// # HTTP Response
-///
-/// - `200 OK` - Returns JSON array of sensors
-/// - `500 Internal Server Error` - Database error occurred
+#[utoipa::path(
+    get,
+    path = "api/sensors",
+    responses(
+        (status = 200, description = "List of sensors", body = [Sensor]),
+        (status = 500, description = "Internal server error"),
+    )
+)]
 #[instrument]
 pub async fn fetch_sensors(State(pool): State<PgPool>) -> Result<Json<Vec<Sensor>>, HandlerError> {
     let sensors = Sensor::read(&pool).await.map_err(|e| {
@@ -35,24 +26,17 @@ pub async fn fetch_sensors(State(pool): State<PgPool>) -> Result<Json<Vec<Sensor
     Ok(Json(sensors))
 }
 
-/// HTTP handler to retrieve a specific sensor by ID.
-///
-/// This endpoint fetches a single sensor by its unique identifier.
-/// Used when detailed sensor information is needed.
-///
-/// # Arguments
-///
-/// * `pool` - Database connection pool from Axum state
-/// * `sensor_id` - Sensor ID extracted from URL path parameter
-///
-/// # Returns
-///
-/// JSON representation of the sensor, or error if not found or database fails.
-///
-/// # HTTP Response
-///
-/// - `200 OK` - Returns JSON representation of the sensor
-/// - `500 Internal Server Error` - Database error or sensor not found
+#[utoipa::path(
+    get,
+    path = "api/sensors/{sensor_id}",
+    params(
+        ("sensor_id" = i32, Path, description = "Sensor ID")
+    ),
+    responses(
+        (status = 200, description = "Sensor found", body = Sensor),
+        (status = 500, description = "Internal server error"),
+    )
+)]
 #[instrument]
 pub async fn fetch_sensor_by_sensor_id(
     State(pool): State<PgPool>,
@@ -65,31 +49,16 @@ pub async fn fetch_sensor_by_sensor_id(
     Ok(Json(sensor))
 }
 
-/// HTTP handler to create a new sensor.
-///
-/// This endpoint accepts sensor information and creates a new sensor record
-/// in the database. Validates that name and unit are not empty before insertion.
-/// Also refreshes the device_sensors materialized view after insertion.
-///
-/// # Arguments
-///
-/// * `pool` - Database connection pool from Axum state
-/// * `sensor` - New sensor data from JSON request body
-///
-/// # Returns
-///
-/// Success message or error if validation fails or database insertion fails.
-///
-/// # HTTP Response
-///
-/// - `200 OK` - Sensor created successfully, returns "OK"
-/// - `400 Bad Request` - Invalid input (empty name or unit)
-/// - `500 Internal Server Error` - Database error occurred
-///
-/// # Validation
-///
-/// - Sensor name must not be empty
-/// - Sensor unit must not be empty
+#[utoipa::path(
+    post,
+    path = "api/sensors",
+    request_body = NewSensor,
+    responses(
+        (status = 200, description = "Sensor created successfully", body = String),
+        (status = 400, description = "Invalid input"),
+        (status = 500, description = "Internal server error"),
+    )
+)]
 #[instrument]
 pub async fn insert_sensor(
     State(pool): State<PgPool>,
@@ -105,31 +74,16 @@ pub async fn insert_sensor(
     Ok("OK".to_string())
 }
 
-/// HTTP handler to delete a sensor.
-///
-/// This endpoint removes a sensor from the database. The sensor data is provided
-/// in the request body and must pass validation before deletion. This operation
-/// may cascade to related measurements depending on database constraints.
-///
-/// # Arguments
-///
-/// * `pool` - Database connection pool from Axum state
-/// * `sensor` - Sensor data from JSON request body (must include ID)
-///
-/// # Returns
-///
-/// Success message or error if validation fails or database deletion fails.
-///
-/// # HTTP Response
-///
-/// - `200 OK` - Sensor deleted successfully, returns "OK"
-/// - `400 Bad Request` - Invalid input (empty name or unit)
-/// - `500 Internal Server Error` - Database error or foreign key constraint violation
-///
-/// # Validation
-///
-/// - Sensor name must not be empty
-/// - Sensor unit must not be empty
+#[utoipa::path(
+    delete,
+    path = "api/sensors",
+    request_body = Sensor,
+    responses(
+        (status = 200, description = "Sensor deleted successfully", body = String),
+        (status = 400, description = "Invalid input"),
+        (status = 500, description = "Internal server error"),
+    )
+)]
 #[instrument]
 pub async fn delete_sensor(
     State(pool): State<PgPool>,
@@ -145,31 +99,16 @@ pub async fn delete_sensor(
     Ok("OK".to_string())
 }
 
-/// HTTP handler to update an existing sensor.
-///
-/// This endpoint updates sensor information in the database. The sensor data
-/// (including ID) is provided in the request body and must pass validation.
-/// After updating, refreshes the device_sensors materialized view to maintain consistency.
-///
-/// # Arguments
-///
-/// * `pool` - Database connection pool from Axum state
-/// * `sensor` - Complete sensor data from JSON request body (must include ID)
-///
-/// # Returns
-///
-/// Success message or error if validation fails or database update fails.
-///
-/// # HTTP Response
-///
-/// - `200 OK` - Sensor updated successfully, returns "OK"
-/// - `400 Bad Request` - Invalid input (empty name or unit)
-/// - `500 Internal Server Error` - Database error or sensor not found
-///
-/// # Validation
-///
-/// - Sensor name must not be empty
-/// - Sensor unit must not be empty
+#[utoipa::path(
+    put,
+    path = "api/sensors",
+    request_body = Sensor,
+    responses(
+        (status = 200, description = "Sensor updated successfully", body = String),
+        (status = 400, description = "Invalid input"),
+        (status = 500, description = "Internal server error"),
+    )
+)]
 #[instrument]
 pub async fn update_sensor(
     State(pool): State<PgPool>,
@@ -185,29 +124,17 @@ pub async fn update_sensor(
     Ok("OK".to_string())
 }
 
-/// HTTP handler to retrieve all sensors associated with a specific device.
-///
-/// This endpoint fetches sensors that have reported measurements from the specified device.
-/// Uses the device_sensors materialized view for efficient querying. Results are ordered by sensor ID.
-///
-/// # Arguments
-///
-/// * `pool` - Database connection pool from Axum state
-/// * `device_id` - Device ID extracted from URL path parameter
-///
-/// # Returns
-///
-/// JSON array of sensors associated with the device, or error if database query fails.
-///
-/// # HTTP Response
-///
-/// - `200 OK` - Returns JSON array of sensors for the device
-/// - `500 Internal Server Error` - Database error or device not found
-///
-/// # Note
-///
-/// This method relies on the device_sensors materialized view being up-to-date.
-/// If recent sensors are not appearing, the materialized view may need refreshing.
+#[utoipa::path(
+    get,
+    path = "api/sensors/device/{device_id}",
+    params(
+        ("device_id" = i32, Path, description = "Device ID")
+    ),
+    responses(
+        (status = 200, description = "List of sensors for device", body = [Sensor]),
+        (status = 500, description = "Internal server error"),
+    )
+)]
 #[instrument]
 pub async fn fetch_sensors_by_device_id(
     State(pool): State<PgPool>,

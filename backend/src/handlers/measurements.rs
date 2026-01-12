@@ -14,45 +14,15 @@ use super::error::HandlerError;
 
 type ApplicationState = State<(PgPool, Cache<(i32, i32), Measurement>)>;
 
-/// HTTP handler to store new measurements asynchronously.
-///
-/// This endpoint accepts either single measurements or batches of measurements
-/// and queues them for asynchronous insertion via a background thread. This
-/// approach prevents blocking the HTTP response while ensuring data persistence.
-///
-/// # Arguments
-///
-/// * `tx` - Channel sender for asynchronous measurement processing
-/// * `measurement` - Single measurement or batch of measurements from JSON body
-///
-/// # Returns
-///
-/// HTTP 201 response on success, or error if channel communication fails.
-///
-/// # HTTP Response
-///
-/// - `201 Created` - Measurements queued successfully for insertion
-/// - `500 Internal Server Error` - Channel communication error
-///
-/// # JSON Format
-///
-/// Single measurement:
-/// ```json
-/// {
-///   "timestamp": "2023-01-01T12:00:00Z", // optional
-///   "device": 1,
-///   "sensor": 2,
-///   "measurement": 23.5
-/// }
-/// ```
-///
-/// Multiple measurements:
-/// ```json
-/// [
-///   {"device": 1, "sensor": 2, "measurement": 23.5},
-///   {"device": 1, "sensor": 3, "measurement": 45.2}
-/// ]
-/// ```
+#[utoipa::path(
+    post,
+    path = "api/measurements",
+    request_body = NewMeasurements,
+    responses(
+        (status = 201, description = "Measurement(s) inserted successfully"),
+        (status = 500, description = "Internal server error"),
+    )
+)]
 #[instrument]
 pub async fn store_measurements(
     State(tx): State<Sender<NewMeasurement>>,
@@ -95,23 +65,14 @@ where
     Ok(resp)
 }
 
-/// HTTP handler to retrieve the most recent measurement from any device.
-///
-/// This endpoint returns the latest single measurement across the entire system,
-/// useful for system health monitoring or "last activity" displays.
-///
-/// # Arguments
-///
-/// * `app_state` - Application state containing database pool and cache
-///
-/// # Returns
-///
-/// JSON representation of the latest measurement, or error if none exist or database fails.
-///
-/// # HTTP Response
-///
-/// - `200 OK` - Returns JSON representation of the latest measurement
-/// - `500 Internal Server Error` - No measurements exist or database error
+#[utoipa::path(
+    get,
+    path = "api/measurements/latest",
+    responses(
+        (status = 200, description = "Latest measurement", body = Measurement),
+        (status = 500, description = "Internal server error"),
+    )
+)]
 #[instrument]
 pub async fn fetch_latest_measurement(
     State(app_state): ApplicationState,
@@ -126,23 +87,14 @@ pub async fn fetch_latest_measurement(
     Ok(Json(entry))
 }
 
-/// HTTP handler to get the total count of measurements in the system.
-///
-/// This endpoint returns the total number of measurement records across
-/// all devices and sensors. Useful for system statistics and monitoring dashboards.
-///
-/// # Arguments
-///
-/// * `app_state` - Application state containing database pool and cache
-///
-/// # Returns
-///
-/// JSON number representing the total measurement count, or error if database query fails.
-///
-/// # HTTP Response
-///
-/// - `200 OK` - Returns JSON number with total count
-/// - `500 Internal Server Error` - Database error occurred
+#[utoipa::path(
+    get,
+    path = "api/measurements/count",
+    responses(
+        (status = 200, description = "Total count of measurements", body = usize),
+        (status = 500, description = "Internal server error"),
+    )
+)]
 #[instrument]
 pub async fn fetch_measurements_count(
     State(app_state): ApplicationState,
@@ -157,29 +109,14 @@ pub async fn fetch_measurements_count(
     Ok(Json(count as usize))
 }
 
-/// HTTP handler to retrieve all measurements in the system.
-///
-/// This endpoint fetches every measurement record from all devices and sensors,
-/// ordered chronologically. This can return large amounts of data and should be
-/// used with caution in production environments.
-///
-/// # Arguments
-///
-/// * `app_state` - Application state containing database pool and cache
-///
-/// # Returns
-///
-/// JSON array of all measurements, or error if database query fails.
-///
-/// # HTTP Response
-///
-/// - `200 OK` - Returns JSON array of all measurements
-/// - `500 Internal Server Error` - Database error occurred
-///
-/// # Performance Warning
-///
-/// This endpoint can return large datasets. Consider using more specific
-/// endpoints for better performance in production environments.
+#[utoipa::path(
+    get,
+    path = "api/measurements",
+    responses(
+        (status = 200, description = "List of all measurements", body = [Measurement]),
+        (status = 500, description = "Internal server error"),
+    )
+)]
 #[instrument]
 pub async fn fetch_all_measurements(
     State(app_state): ApplicationState,
@@ -193,25 +130,17 @@ pub async fn fetch_all_measurements(
     Ok(Json(entries))
 }
 
-/// HTTP handler to retrieve all measurements from a specific device.
-///
-/// This endpoint fetches all measurements reported by the specified device
-/// across all its sensors, ordered chronologically. Useful for device-level
-/// monitoring and analysis.
-///
-/// # Arguments
-///
-/// * `app_state` - Application state containing database pool and cache
-/// * `device_id` - Device ID extracted from URL path parameter
-///
-/// # Returns
-///
-/// JSON array of measurements from the device, or error if database query fails.
-///
-/// # HTTP Response
-///
-/// - `200 OK` - Returns JSON array of measurements from the device
-/// - `500 Internal Server Error` - Database error or device not found
+#[utoipa::path(
+    get,
+    path = "api/measurements/device/{device_id}",
+    params(
+        ("device_id" = i32, Path, description = "Device ID")
+    ),
+    responses(
+        (status = 200, description = "List of measurements for device", body = [Measurement]),
+        (status = 500, description = "Internal server error"),
+    )
+)]
 #[instrument]
 pub async fn fetch_measurement_by_device_id(
     State(app_state): ApplicationState,
@@ -227,30 +156,18 @@ pub async fn fetch_measurement_by_device_id(
     Ok(Json(measurements))
 }
 
-/// HTTP handler to retrieve the latest measurement for a specific device-sensor pair.
-///
-/// This endpoint returns the most recent measurement from the specified device-sensor
-/// combination. Uses caching with 60s TTL to improve performance for frequently
-/// accessed measurements. Cache misses will query the database and update the cache.
-///
-/// # Arguments
-///
-/// * `app_state` - Application state containing database pool and cache
-/// * `device_id` - Device ID extracted from URL path parameter
-/// * `sensor_id` - Sensor ID extracted from URL path parameter
-///
-/// # Returns
-///
-/// JSON representation of the latest measurement, or error if none exist or database fails.
-///
-/// # HTTP Response
-///
-/// - `200 OK` - Returns JSON representation of the latest measurement
-/// - `500 Internal Server Error` - No measurements exist for this combination or database error
-///
-/// # Caching
-///
-/// Results are cached for 60 seconds to improve performance. Cache key is (device_id, sensor_id).
+#[utoipa::path(
+    get,
+    path = "api/measurements/device/{device_id}/sensor/{sensor_id}/latest",
+    params(
+        ("device_id" = i32, Path, description = "Device ID"),
+        ("sensor_id" = i32, Path, description = "Sensor ID")
+    ),
+    responses(
+        (status = 200, description = "Latest measurement for device and sensor", body = Measurement),
+        (status = 500, description = "Internal server error"),
+    )
+)]
 #[instrument]
 pub async fn fetch_latest_measurement_by_device_id_and_sensor_id(
     State(app_state): ApplicationState,
@@ -275,26 +192,18 @@ pub async fn fetch_latest_measurement_by_device_id_and_sensor_id(
     Ok(Json(measurement))
 }
 
-/// HTTP handler to retrieve all measurements for a specific device-sensor pair.
-///
-/// This endpoint fetches the complete time series of measurements for the
-/// specified device-sensor combination, ordered chronologically. Useful for
-/// creating detailed charts and historical analysis.
-///
-/// # Arguments
-///
-/// * `app_state` - Application state containing database pool and cache
-/// * `device_id` - Device ID extracted from URL path parameter
-/// * `sensor_id` - Sensor ID extracted from URL path parameter
-///
-/// # Returns
-///
-/// JSON array of measurements for the device-sensor pair, or error if database query fails.
-///
-/// # HTTP Response
-///
-/// - `200 OK` - Returns JSON array of measurements ordered chronologically
-/// - `500 Internal Server Error` - Database error or device/sensor not found
+#[utoipa::path(
+    get,
+    path = "api/measurements/device/{device_id}/sensor/{sensor_id}",
+    params(
+        ("device_id" = i32, Path, description = "Device ID"),
+        ("sensor_id" = i32, Path, description = "Sensor ID")
+    ),
+    responses(
+        (status = 200, description = "List of measurements for device and sensor", body = [Measurement]),
+        (status = 500, description = "Internal server error"),
+    )
+)]
 #[instrument]
 pub async fn fetch_measurement_by_device_id_and_sensor_id(
     State(app_state): ApplicationState,
@@ -310,29 +219,14 @@ pub async fn fetch_measurement_by_device_id_and_sensor_id(
     Ok(Json(measurements))
 }
 
-/// HTTP handler to retrieve the latest measurement for each device-sensor combination.
-///
-/// This endpoint uses DISTINCT ON to get only the most recent measurement
-/// for each unique device-sensor pair across the entire system. Perfect for
-/// dashboard views showing current status of all sensors.
-///
-/// # Arguments
-///
-/// * `app_state` - Application state containing database pool and cache
-///
-/// # Returns
-///
-/// JSON array of the latest measurements for each device-sensor pair.
-///
-/// # HTTP Response
-///
-/// - `200 OK` - Returns JSON array of latest measurements for all device-sensor pairs
-/// - `500 Internal Server Error` - Database error occurred
-///
-/// # Note
-///
-/// This endpoint is optimized for dashboard displays where you need to see
-/// the current value for every sensor in the system.
+#[utoipa::path(
+    get,
+    path = "api/measurements/latest/all",
+    responses(
+        (status = 200, description = "List of all latest measurements", body = [Measurement]),
+        (status = 500, description = "Internal server error"),
+    )
+)]
 #[instrument]
 pub async fn fetch_all_latest_measurements(
     State(app_state): ApplicationState,
@@ -348,39 +242,18 @@ pub async fn fetch_all_latest_measurements(
     Ok(Json(measurements))
 }
 
-/// HTTP handler to get statistical summary for a specific device-sensor combination.
-///
-/// This endpoint calculates and returns aggregate statistics (min, max, count, average,
-/// standard deviation, variance) for all measurements from the specified device-sensor pair.
-/// Useful for monitoring data quality and detecting anomalies.
-///
-/// # Arguments
-///
-/// * `app_state` - Application state containing database pool and cache
-/// * `device_id` - Device ID extracted from URL path parameter
-/// * `sensor_id` - Sensor ID extracted from URL path parameter
-///
-/// # Returns
-///
-/// JSON object containing statistical summary, or error if no data exists or database fails.
-///
-/// # HTTP Response
-///
-/// - `200 OK` - Returns JSON object with statistical summary
-/// - `500 Internal Server Error` - No measurements exist for this combination or database error
-///
-/// # JSON Response Format
-///
-/// ```json
-/// {
-///   "min": 10.5,
-///   "max": 35.2,
-///   "count": 1000,
-///   "avg": 22.8,
-///   "stddev": 5.4,
-///   "variance": 29.2
-/// }
-/// ```
+#[utoipa::path(
+    get,
+    path = "api/measurements/device/{device_id}/sensor/{sensor_id}/stats",
+    params(
+        ("device_id" = i32, Path, description = "Device ID"),
+        ("sensor_id" = i32, Path, description = "Sensor ID")
+    ),
+    responses(
+        (status = 200, description = "Statistics for measurements by device and sensor", body = MeasurementStats),
+        (status = 500, description = "Internal server error"),
+    )
+)]
 #[instrument]
 pub async fn fetch_stats_by_device_id_and_sensor_id(
     State(app_state): ApplicationState,
