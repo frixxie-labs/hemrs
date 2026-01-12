@@ -1,6 +1,7 @@
 use axum::Json;
 use serde::Serialize;
 use tracing::instrument;
+use utoipa::ToSchema;
 
 use super::error::HandlerError;
 
@@ -23,25 +24,19 @@ mod tests {
     }
 }
 
-/// Response structure for the ping endpoint.
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct PingResponse {
     pub status: String,
     pub timestamp: String,
 }
 
-/// HTTP handler for the ping/status endpoint.
-///
-/// This endpoint provides a simple health check for the service.
-/// It returns a JSON response indicating the service is running and includes a timestamp.
-///
-/// # Returns
-///
-/// JSON response with status "ok" and current timestamp.
-///
-/// # HTTP Response
-///
-/// - `200 OK` - Returns JSON with status and timestamp
+#[utoipa::path(
+    get,
+    path = "/status/ping",
+    responses(
+        (status = 200, description = "Health check successful", body = PingResponse),
+    )
+)]
 #[instrument]
 pub async fn ping() -> Result<Json<PingResponse>, HandlerError> {
     let timestamp = chrono::Utc::now().to_rfc3339();

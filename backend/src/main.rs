@@ -50,13 +50,13 @@ impl std::str::FromStr for LogLevel {
 #[derive(Debug, Clone, StructOpt)]
 pub struct Opts {
     /// Host address and port to bind the HTTP server to.
-    /// 
+    ///
     /// Defaults to "0.0.0.0:65534" to listen on all interfaces on port 65534.
     #[structopt(short, long, default_value = "0.0.0.0:65534")]
     host: String,
 
     /// PostgreSQL database connection URL.
-    /// 
+    ///
     /// Can be provided via the DATABASE_URL environment variable or the -d flag.
     /// Defaults to a local PostgreSQL instance.
     #[structopt(
@@ -68,7 +68,7 @@ pub struct Opts {
     db_url: String,
 
     /// Logging level for the application.
-    /// 
+    ///
     /// Valid values are: trace, debug, info, warn, error.
     /// Defaults to "info" level.
     #[structopt(short, long, default_value = "info")]
@@ -91,9 +91,7 @@ impl From<LogLevel> for Level {
 async fn main() -> Result<(), anyhow::Error> {
     let opts = Opts::from_args();
     let level: Level = opts.log_level.into();
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(level)
-        .finish();
+    let subscriber = FmtSubscriber::builder().with_max_level(level).finish();
 
     tracing::subscriber::set_global_default(subscriber).unwrap();
     let metrics_handler = PrometheusBuilder::new()

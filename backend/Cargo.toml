@@ -22,3 +22,4 @@ metrics = "0.24.3"
 metrics-exporter-prometheus = "0.18.1"
 futures = "0.3.31"
 moka = { version = "0.12.12", features = ["future"] }
+utoipa = { version = "5.4.0", features = ["chrono"] }
