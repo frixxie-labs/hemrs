@@ -34,7 +34,7 @@ test-backend:
 deploy-backend:
   stage: deploy
   tags:
-    - privileged
+    - k8s-privileged
   image:
     name: quay.io/buildah/stable:latest
     entrypoint: [""]
