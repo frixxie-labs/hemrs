@@ -38,6 +38,10 @@ deploy-backend:
   image:
     name: quay.io/buildah/stable:latest
     entrypoint: [""]
+  variables:
+    BUILDAH_ISOLATION: chroot
+    STORAGE_DRIVER: vfs
+    BUILDAH_FORMAT: docker
   script:
     - buildah login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
     - buildah build
