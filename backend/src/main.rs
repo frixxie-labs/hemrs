@@ -1,8 +1,8 @@
+use clap::Parser;
 use measurements::Measurement;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use moka::future::Cache;
 use sqlx::postgres::PgPoolOptions;
-use structopt::StructOpt;
 use tokio::{net::TcpListener, sync::mpsc::channel};
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
@@ -47,19 +47,19 @@ impl std::str::FromStr for LogLevel {
 ///
 /// This struct defines configuration options that can be provided via command line
 /// arguments or environment variables to customize the server's behavior.
-#[derive(Debug, Clone, StructOpt)]
+#[derive(Debug, Clone, Parser)]
 pub struct Opts {
     /// Host address and port to bind the HTTP server to.
     ///
     /// Defaults to "0.0.0.0:65534" to listen on all interfaces on port 65534.
-    #[structopt(short, long, default_value = "0.0.0.0:65534")]
+    #[arg(short, long, default_value = "0.0.0.0:65534")]
     host: String,
 
     /// PostgreSQL database connection URL.
     ///
     /// Can be provided via the DATABASE_URL environment variable or the -d flag.
     /// Defaults to a local PostgreSQL instance.
-    #[structopt(
+    #[arg(
         short,
         long,
         env = "DATABASE_URL",
@@ -71,7 +71,7 @@ pub struct Opts {
     ///
     /// Valid values are: trace, debug, info, warn, error.
     /// Defaults to "info" level.
-    #[structopt(short, long, default_value = "info")]
+    #[arg(short, long, default_value = "info")]
     log_level: LogLevel,
 }
 
@@ -89,7 +89,7 @@ impl From<LogLevel> for Level {
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    let opts = Opts::from_args();
+    let opts = Opts::parse();
     let level: Level = opts.log_level.into();
     let subscriber = FmtSubscriber::builder().with_max_level(level).finish();
 
