@@ -3,13 +3,6 @@ stages:
   - test
   - deploy
 
-variables:
-  POSTGRES_DB: postgres
-  POSTGRES_USER: postgres
-  POSTGRES_PASSWORD: admin
-  POSTGRES_HOST_AUTH_METHOD: trust
-  DATABASE_URL: postgresql://postgres:admin@postgres:5432/postgres
-
 build-backend:
   stage: build
   image: "rust:latest"
@@ -29,6 +22,12 @@ test-backend:
   script:
     - rustc --version && cargo --version
     - cargo test --workspace --verbose
+  variables:
+    POSTGRES_DB: postgres
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: admin
+    POSTGRES_HOST_AUTH_METHOD: trust
+    DATABASE_URL: postgresql://postgres:admin@postgres:5432/postgres
 
 deploy-backend:
   stage: deploy
