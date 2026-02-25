@@ -1,11 +1,10 @@
 services:
   postgres:
-    image: postgres:latest
+    image: postgres:18
     restart: always
     ports:
       - 5432:5432
     environment:
       POSTGRES_PASSWORD: admin
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
-
+      - ./data/postgres:/var/lib/postgresql

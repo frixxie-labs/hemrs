@@ -1,35 +1,34 @@
-# You can copy and paste this template into a new `.gitlab-ci.yml` file.
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  POSTGRES_DB: postgres
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: admin
+  POSTGRES_HOST_AUTH_METHOD: trust
+  DATABASE_URL: postgresql://postgres:admin@postgres:5432/postgres
+
 build-backend:
   stage: build
   image: "rust:latest"
 
-  services:
-     - postgres:latest
   script:
-    - rustc --version && cargo --version  # Print version info for debugging
+    - rustc --version && cargo --version
     - cargo build --workspace --verbose
-
   variables:
-    POSTGRES_DB: postgres
-    POSTGRES_USER: postgres
-    POSTGRES_PASSWORD: admin
-    POSTGRES_HOST_AUTH_METHOD: trust
+    SQLX_OFFLINE=1
 
 test-backend:
   stage: test
   image: "rust:latest"
 
   services:
-     - postgres:latest
+    - postgres:latest
   script:
-    - rustc --version && cargo --version  # Print version info for debugging
+    - rustc --version && cargo --version
     - cargo test --workspace --verbose
-
-  variables:
-    POSTGRES_DB: postgres
-    POSTGRES_USER: postgres
-    POSTGRES_PASSWORD: admin
-    POSTGRES_HOST_AUTH_METHOD: trust
 
 deploy-backend:
   stage: deploy

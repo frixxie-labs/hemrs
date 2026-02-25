@@ -24,45 +24,51 @@ impl Sensor {
     }
 
     pub async fn read(pool: &PgPool) -> Result<Vec<Sensor>> {
-        let sensors = sqlx::query_as::<_, Sensor>("SELECT id, name, unit FROM sensors")
+        let sensors = sqlx::query_as!(Sensor, "SELECT id, name, unit FROM sensors")
             .fetch_all(pool)
             .await?;
         Ok(sensors)
     }
 
     pub async fn read_by_id(pool: &PgPool, sensor_id: i32) -> Result<Sensor> {
-        let sensors =
-            sqlx::query_as::<_, Sensor>("SELECT id, name, unit FROM sensors WHERE id = $1")
-                .bind(sensor_id)
-                .fetch_one(pool)
-                .await?;
+        let sensors = sqlx::query_as!(
+            Sensor,
+            "SELECT id, name, unit FROM sensors WHERE id = $1",
+            sensor_id
+        )
+        .fetch_one(pool)
+        .await?;
         Ok(sensors)
     }
 
     pub async fn delete(self, pool: &PgPool) -> Result<()> {
-        sqlx::query("DELETE FROM sensors WHERE id = $1")
-            .bind(self.id)
+        sqlx::query!("DELETE FROM sensors WHERE id = $1", self.id)
             .execute(pool)
             .await?;
         Ok(())
     }
 
     pub async fn update(self, pool: &PgPool) -> anyhow::Result<()> {
-        sqlx::query("UPDATE sensors SET name = $1,unit = $2 WHERE id = $3")
-            .bind(self.name)
-            .bind(self.unit)
-            .bind(self.id)
-            .execute(pool)
-            .await?;
+        sqlx::query!(
+            "UPDATE sensors SET name = $1,unit = $2 WHERE id = $3",
+            self.name,
+            self.unit,
+            self.id
+        )
+        .execute(pool)
+        .await?;
         Device::refresh_device_sensors_view(pool).await?;
         Ok(())
     }
 
     pub async fn read_by_device_id(pool: &PgPool, device_id: i32) -> Result<Vec<Sensor>> {
-        let sensors = sqlx::query_as::<_, Sensor>("SELECT ds.sensor_id as id, ds.name, ds.unit from device_sensors ds WHERE ds.device_id = $1 order by ds.sensor_id")
-            .bind(device_id)
-            .fetch_all(pool)
-            .await?;
+        let sensors = sqlx::query_as!(
+            Sensor,
+            "SELECT ds.sensor_id as \"id!\", ds.name as \"name!\", ds.unit as \"unit!\" from device_sensors ds WHERE ds.device_id = $1 order by ds.sensor_id",
+            device_id
+        )
+        .fetch_all(pool)
+        .await?;
         Ok(sensors)
     }
 }
@@ -73,11 +79,13 @@ impl NewSensor {
     }
 
     pub async fn insert(self, pool: &PgPool) -> Result<()> {
-        sqlx::query("INSERT INTO sensors (name, unit) VALUES ($1, $2)")
-            .bind(self.name)
-            .bind(self.unit)
-            .execute(pool)
-            .await?;
+        sqlx::query!(
+            "INSERT INTO sensors (name, unit) VALUES ($1, $2)",
+            self.name,
+            self.unit
+        )
+        .execute(pool)
+        .await?;
         Device::refresh_device_sensors_view(pool).await?;
         Ok(())
     }
