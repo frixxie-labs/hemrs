@@ -18,7 +18,7 @@ build-backend:
     - rustc --version && cargo --version
     - cargo build --workspace --verbose
   variables:
-    SQLX_OFFLINE=1
+    SQLX_OFFLINE: 1
 
 test-backend:
   stage: test
