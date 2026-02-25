@@ -23,6 +23,7 @@ test-backend:
     - rustc --version && cargo --version
     - cargo test --workspace --verbose
   variables:
+    SQLX_OFFLINE: 1
     POSTGRES_DB: postgres
     POSTGRES_USER: postgres
     POSTGRES_PASSWORD: admin
