@@ -166,7 +166,7 @@ ORDER BY m.device_id;
 
 - Rust 1.70+
 - PostgreSQL 12+
-- Make (for build automation)
+- just (for task automation)
 
 ## Development Setup
 

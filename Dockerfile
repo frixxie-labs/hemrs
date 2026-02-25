@@ -1,6 +1,9 @@
-FROM rust:latest as build-stage
+FROM rust:latest AS build-stage
 WORKDIR /usr/src/app
-COPY . .
+ENV SQLX_OFFLINE=1
+COPY Cargo.toml Cargo.lock ./
+COPY backend ./backend
+COPY .sqlx ./.sqlx
 RUN cargo install --path backend
 
 FROM rust:slim

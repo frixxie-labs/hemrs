@@ -26,22 +26,26 @@ impl NewMeasurement {
     pub async fn insert(self, pool: &PgPool) -> Result<()> {
         match self.timestamp {
             Some(t) => {
-                sqlx::query("INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES ($1, $2, $3, $4)")
-            .bind(t)
-            .bind(self.device)
-            .bind(self.sensor)
-            .bind(self.measurement)
-            .execute(pool)
-            .await?;
+                sqlx::query!(
+                    "INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES ($1, $2, $3, $4)",
+                    t,
+                    self.device,
+                    self.sensor,
+                    self.measurement
+                )
+                .execute(pool)
+                .await?;
                 Ok(())
             }
             None => {
-                sqlx::query("INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES (CURRENT_TIMESTAMP, $1, $2, $3)")
-            .bind(self.device)
-            .bind(self.sensor)
-            .bind(self.measurement)
-            .execute(pool)
-            .await?;
+                sqlx::query!(
+                    "INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES (CURRENT_TIMESTAMP, $1, $2, $3)",
+                    self.device,
+                    self.sensor,
+                    self.measurement
+                )
+                .execute(pool)
+                .await?;
                 Ok(())
             }
         }
@@ -83,12 +87,13 @@ pub struct MeasurementStats {
 
 impl Measurement {
     pub async fn read_all_latest_measurements(pool: &PgPool) -> Result<Vec<Measurement>> {
-        let res = sqlx::query_as::<_, Measurement>(
-               "SELECT DISTINCT ON (m.device_id, m.sensor_id) m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name
-                FROM measurements m
-                JOIN devices d ON m.device_id = d.id
-                JOIN sensors s ON m.sensor_id = s.id
-                ORDER BY m.device_id, m.sensor_id, ts DESC",
+        let res = sqlx::query_as!(
+            Measurement,
+            "SELECT DISTINCT ON (m.device_id, m.sensor_id) m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name
+             FROM measurements m
+             JOIN devices d ON m.device_id = d.id
+             JOIN sensors s ON m.sensor_id = s.id
+             ORDER BY m.device_id, m.sensor_id, ts DESC",
         )
         .fetch_all(pool)
         .await?;
@@ -100,11 +105,12 @@ impl Measurement {
         device_id: i32,
         sensor_id: i32,
     ) -> Result<MeasurementStats> {
-        let res = sqlx::query_as::<_, MeasurementStats>(
-            "SELECT min(value) as min, max(value) as max, count(value) as count, avg(value) as avg, stddev(value) as stddev, variance(value) as variance FROM measurements WHERE device_id = ($1) AND sensor_id = ($2)",
+        let res = sqlx::query_as!(
+            MeasurementStats,
+            "SELECT min(value) as \"min!\", max(value) as \"max!\", count(value) as \"count!\", avg(value) as \"avg!\", stddev(value) as \"stddev!\", variance(value) as \"variance!\" FROM measurements WHERE device_id = ($1) AND sensor_id = ($2)",
+            device_id,
+            sensor_id
         )
-        .bind(device_id)
-        .bind(sensor_id)
         .fetch_one(pool)
         .await?;
         Ok(res)
@@ -115,11 +121,12 @@ impl Measurement {
         sensor_id: i32,
         pool: &PgPool,
     ) -> Result<Vec<Self>> {
-        let res = sqlx::query_as::<_, Measurement>(
+        let res = sqlx::query_as!(
+            Measurement,
             "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id where m.device_id = ($1) AND m.sensor_id = ($2) ORDER BY ts",
+            device_id,
+            sensor_id
         )
-        .bind(device_id)
-        .bind(sensor_id)
         .fetch_all(pool)
         .await?;
         Ok(res)
@@ -130,36 +137,41 @@ impl Measurement {
         sensor_id: i32,
         pool: &PgPool,
     ) -> Result<Self> {
-        let res = sqlx::query_as::<_, Measurement>(
+        let res = sqlx::query_as!(
+            Measurement,
             "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id where m.device_id = ($1) AND m.sensor_id = ($2) ORDER BY ts desc LIMIT 1",
+            device_id,
+            sensor_id
         )
-        .bind(device_id)
-        .bind(sensor_id)
         .fetch_one(pool)
         .await?;
         Ok(res)
     }
 
     pub async fn read_by_device_id(device_id: i32, pool: &PgPool) -> Result<Vec<Self>> {
-        let res = sqlx::query_as::<_, Measurement>(
+        let res = sqlx::query_as!(
+            Measurement,
             "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id where m.device_id = ($1) ORDER BY ts",
+            device_id
         )
-        .bind(device_id)
         .fetch_all(pool)
         .await?;
         Ok(res)
     }
 
     pub async fn read_all(pool: &PgPool) -> Result<Vec<Self>> {
-        let measurements =
-            sqlx::query_as::<_, Measurement>("SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id ORDER BY ts")
-                .fetch_all(pool)
-                .await?;
+        let measurements = sqlx::query_as!(
+            Measurement,
+            "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id ORDER BY ts"
+        )
+        .fetch_all(pool)
+        .await?;
         Ok(measurements)
     }
 
     pub async fn read_latest(pool: &PgPool) -> Result<Self> {
-        let measurement = sqlx::query_as::<_, Measurement>(
+        let measurement = sqlx::query_as!(
+            Measurement,
             "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id ORDER BY ts DESC LIMIT 1",
         )
         .fetch_one(pool)

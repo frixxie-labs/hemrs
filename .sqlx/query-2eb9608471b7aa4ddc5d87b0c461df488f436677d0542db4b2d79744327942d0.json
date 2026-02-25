@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES (CURRENT_TIMESTAMP, $1, $2, $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Float4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2eb9608471b7aa4ddc5d87b0c461df488f436677d0542db4b2d79744327942d0"
+}
