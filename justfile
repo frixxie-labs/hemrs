@@ -1,8 +1,11 @@
 project_name := "hemrs"
+set export
+
+SQLX_OFFLINE := "1"
 
 default: test
 
-check:
+check: sqlx_prepare
     cargo check
 
 build: check
@@ -26,20 +29,3 @@ sqlx_prepare:
     cargo sqlx prepare --workspace
     docker compose -f docker-compose-test.yaml down
 
-sqlx_prepare_check:
-    docker compose -f docker-compose-test.yaml up --wait
-    cargo sqlx migrate run --source backend/migrations
-    cargo sqlx prepare --workspace --check
-    docker compose -f docker-compose-test.yaml down
-
-docker_builder:
-    docker buildx create --name builder --platform linux/amd64
-
-docker_login:
-    docker login ghcr.io -u Frixxie -p "$GITHUB_TOKEN"
-
-container: docker_builder docker_login
-    docker buildx build -t ghcr.io/frixxie/{{ project_name }}:latest . --builder builder --push
-
-container_tagged dockertag: docker_builder docker_login
-    docker buildx build -t ghcr.io/frixxie/{{ project_name }}:{{ dockertag }} . --builder builder --push
