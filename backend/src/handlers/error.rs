@@ -22,6 +22,15 @@ impl fmt::Display for HandlerError {
 
 impl Error for HandlerError {}
 
+impl From<anyhow::Error> for HandlerError {
+    fn from(err: anyhow::Error) -> Self {
+        Self {
+            status: 500,
+            message: format!("{err:#}"),
+        }
+    }
+}
+
 impl IntoResponse for HandlerError {
     fn into_response(self) -> axum::response::Response {
         (StatusCode::from_u16(self.status).unwrap(), self.message).into_response()

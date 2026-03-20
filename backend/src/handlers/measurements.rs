@@ -1,3 +1,4 @@
+use anyhow::Context;
 use axum::{
     extract::{Path, State},
     response::{IntoResponse, Response},
@@ -6,7 +7,7 @@ use axum::{
 use moka::future::Cache;
 use sqlx::PgPool;
 use tokio::sync::mpsc::Sender;
-use tracing::{instrument, warn};
+use tracing::instrument;
 
 use crate::measurements::{Measurement, MeasurementStats, NewMeasurement, NewMeasurements};
 
@@ -33,23 +34,15 @@ where
 {
     match measurement {
         NewMeasurements::Measurement(new_measurement) => {
-            tx.send(new_measurement).await.map_err(|e| {
-                warn!("Failed with error: {}", e);
-                HandlerError::new(
-                    500,
-                    format!("Failed to send measurement to background thread: {e}"),
-                )
-            })?;
+            tx.send(new_measurement)
+                .await
+                .context("Failed to send measurement to background thread")?;
         }
         NewMeasurements::Measurements(new_measurements) => {
             for measurement in new_measurements {
-                tx.send(measurement).await.map_err(|e| {
-                    warn!("Failed with error: {}", e);
-                    HandlerError::new(
-                        500,
-                        format!("Failed to send measurement to background thread: {e}"),
-                    )
-                })?;
+                tx.send(measurement)
+                    .await
+                    .context("Failed to send measurement to background thread")?;
             }
         }
     };
@@ -57,10 +50,7 @@ where
     let resp = Response::builder()
         .status(201)
         .body("Measurement(s) inserted successfully".into())
-        .map_err(|e| {
-            warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to build response: {e}"))
-        })?;
+        .context("Failed to build response")?;
 
     Ok(resp)
 }
@@ -79,10 +69,9 @@ pub async fn fetch_latest_measurement(
 ) -> Result<Json<Measurement>, HandlerError> {
     let (pool, _cache) = app_state;
 
-    let entry = Measurement::read_latest(&pool).await.map_err(|e| {
-        warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
-    })?;
+    let entry = Measurement::read_latest(&pool)
+        .await
+        .context("Failed to fetch data from database")?;
 
     Ok(Json(entry))
 }
@@ -102,10 +91,7 @@ pub async fn fetch_measurements_count(
     let (pool, _cache) = app_state;
     let count = Measurement::read_total_measurements(&pool)
         .await
-        .map_err(|e| {
-            warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
-        })?;
+        .context("Failed to fetch data from database")?;
     Ok(Json(count as usize))
 }
 
@@ -122,10 +108,9 @@ pub async fn fetch_all_measurements(
     State(app_state): ApplicationState,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
     let (pool, _cache) = app_state;
-    let entries = Measurement::read_all(&pool).await.map_err(|e| {
-        warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
-    })?;
+    let entries = Measurement::read_all(&pool)
+        .await
+        .context("Failed to fetch data from database")?;
 
     Ok(Json(entries))
 }
@@ -149,10 +134,7 @@ pub async fn fetch_measurement_by_device_id(
     let (pool, _cache) = app_state;
     let measurements = Measurement::read_by_device_id(device_id, &pool)
         .await
-        .map_err(|e| {
-            warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
-        })?;
+        .context("Failed to fetch data from database")?;
     Ok(Json(measurements))
 }
 
@@ -181,10 +163,7 @@ pub async fn fetch_latest_measurement_by_device_id_and_sensor_id(
     let measurement =
         Measurement::read_latest_by_device_id_and_sensor_id(device_id, sensor_id, &pool)
             .await
-            .map_err(|e| {
-                warn!("Failed with error: {}", e);
-                HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
-            })?;
+            .context("Failed to fetch data from database")?;
     // Insert into cache
     cache
         .insert((device_id, sensor_id), measurement.clone())
@@ -212,10 +191,7 @@ pub async fn fetch_measurement_by_device_id_and_sensor_id(
     let (pool, _cache) = app_state;
     let measurements = Measurement::read_by_device_id_and_sensor_id(device_id, sensor_id, &pool)
         .await
-        .map_err(|e| {
-            warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
-        })?;
+        .context("Failed to fetch data from database")?;
     Ok(Json(measurements))
 }
 
@@ -234,10 +210,7 @@ pub async fn fetch_all_latest_measurements(
     let (pool, _cache) = app_state;
     let measurements = Measurement::read_all_latest_measurements(&pool)
         .await
-        .map_err(|e| {
-            warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
-        })?;
+        .context("Failed to fetch data from database")?;
     // Insert all latest measurements into cache
     Ok(Json(measurements))
 }
@@ -262,10 +235,7 @@ pub async fn fetch_stats_by_device_id_and_sensor_id(
     let (pool, _cache) = app_state;
     let stats = Measurement::read_stats_by_device_id_and_sensor_id(&pool, device_id, sensor_id)
         .await
-        .map_err(|e| {
-            warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
-        })?;
+        .context("Failed to fetch data from database")?;
     Ok(Json(stats))
 }
 
