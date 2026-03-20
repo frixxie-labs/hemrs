@@ -1,9 +1,10 @@
+use anyhow::Context;
 use axum::{
     extract::{Path, State},
     Json,
 };
 use sqlx::PgPool;
-use tracing::{instrument, warn};
+use tracing::instrument;
 
 use crate::devices::{Device, NewDevice};
 
@@ -19,10 +20,9 @@ use super::error::HandlerError;
 )]
 #[instrument]
 pub async fn fetch_devices(State(pool): State<PgPool>) -> Result<Json<Vec<Device>>, HandlerError> {
-    let devices = Device::read(&pool).await.map_err(|e| {
-        warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
-    })?;
+    let devices = Device::read(&pool)
+        .await
+        .context("Failed to fetch data from database")?;
     Ok(Json(devices))
 }
 
@@ -42,10 +42,9 @@ pub async fn fetch_devices_by_id(
     State(pool): State<PgPool>,
     Path(device_id): Path<i32>,
 ) -> Result<Json<Device>, HandlerError> {
-    let device = Device::read_by_id(&pool, device_id).await.map_err(|e| {
-        warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
-    })?;
+    let device = Device::read_by_id(&pool, device_id)
+        .await
+        .context("Failed to fetch data from database")?;
     Ok(Json(device))
 }
 
@@ -67,10 +66,10 @@ pub async fn insert_device(
     if device.name.is_empty() || device.location.is_empty() {
         return Err(HandlerError::new(400, "Invalid input".to_string()));
     }
-    device.insert(&pool).await.map_err(|e| {
-        warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to store data in database: {e}"))
-    })?;
+    device
+        .insert(&pool)
+        .await
+        .context("Failed to store data in database")?;
     Ok("OK".to_string())
 }
 
@@ -92,10 +91,10 @@ pub async fn delete_device(
     if device.name.is_empty() || device.location.is_empty() {
         return Err(HandlerError::new(400, "Invalid input".to_string()));
     }
-    device.delete(&pool).await.map_err(|e| {
-        warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to store data in database: {e}"))
-    })?;
+    device
+        .delete(&pool)
+        .await
+        .context("Failed to store data in database")?;
     Ok("OK".to_string())
 }
 
@@ -117,10 +116,10 @@ pub async fn update_device(
     if device.name.is_empty() || device.location.is_empty() {
         return Err(HandlerError::new(400, "Invalid input".to_string()));
     }
-    device.update(&pool).await.map_err(|e| {
-        warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to store data in database: {e}"))
-    })?;
+    device
+        .update(&pool)
+        .await
+        .context("Failed to store data in database")?;
     Ok("OK".to_string())
 }
 

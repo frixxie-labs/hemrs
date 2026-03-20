@@ -1,9 +1,10 @@
+use anyhow::Context;
 use axum::{
     extract::{Path, State},
     Json,
 };
 use sqlx::PgPool;
-use tracing::{instrument, warn};
+use tracing::instrument;
 
 use crate::sensors::{NewSensor, Sensor};
 
@@ -19,10 +20,9 @@ use super::error::HandlerError;
 )]
 #[instrument]
 pub async fn fetch_sensors(State(pool): State<PgPool>) -> Result<Json<Vec<Sensor>>, HandlerError> {
-    let sensors = Sensor::read(&pool).await.map_err(|e| {
-        warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
-    })?;
+    let sensors = Sensor::read(&pool)
+        .await
+        .context("Failed to fetch data from database")?;
     Ok(Json(sensors))
 }
 
@@ -42,10 +42,9 @@ pub async fn fetch_sensor_by_sensor_id(
     State(pool): State<PgPool>,
     Path(sensor_id): Path<i32>,
 ) -> Result<Json<Sensor>, HandlerError> {
-    let sensor = Sensor::read_by_id(&pool, sensor_id).await.map_err(|e| {
-        warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
-    })?;
+    let sensor = Sensor::read_by_id(&pool, sensor_id)
+        .await
+        .context("Failed to fetch data from database")?;
     Ok(Json(sensor))
 }
 
@@ -67,10 +66,10 @@ pub async fn insert_sensor(
     if sensor.name.is_empty() || sensor.unit.is_empty() {
         return Err(HandlerError::new(400, "Invalid input".to_string()));
     }
-    sensor.insert(&pool).await.map_err(|e| {
-        warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to store data in database: {e}"))
-    })?;
+    sensor
+        .insert(&pool)
+        .await
+        .context("Failed to store data in database")?;
     Ok("OK".to_string())
 }
 
@@ -92,10 +91,10 @@ pub async fn delete_sensor(
     if sensor.name.is_empty() || sensor.unit.is_empty() {
         return Err(HandlerError::new(400, "Invalid input".to_string()));
     }
-    sensor.delete(&pool).await.map_err(|e| {
-        warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to store data in database: {e}"))
-    })?;
+    sensor
+        .delete(&pool)
+        .await
+        .context("Failed to store data in database")?;
     Ok("OK".to_string())
 }
 
@@ -117,10 +116,10 @@ pub async fn update_sensor(
     if sensor.name.is_empty() || sensor.unit.is_empty() {
         return Err(HandlerError::new(400, "Invalid input".to_string()));
     }
-    sensor.update(&pool).await.map_err(|e| {
-        warn!("Failed with error: {}", e);
-        HandlerError::new(500, format!("Failed to store data in database: {e}"))
-    })?;
+    sensor
+        .update(&pool)
+        .await
+        .context("Failed to store data in database")?;
     Ok("OK".to_string())
 }
 
@@ -142,10 +141,7 @@ pub async fn fetch_sensors_by_device_id(
 ) -> Result<Json<Vec<Sensor>>, HandlerError> {
     let sensors = Sensor::read_by_device_id(&pool, device_id)
         .await
-        .map_err(|e| {
-            warn!("Failed with error: {}", e);
-            HandlerError::new(500, format!("Failed to fetch data from database: {e}"))
-        })?;
+        .context("Failed to fetch data from database")?;
     Ok(Json(sensors))
 }
 
