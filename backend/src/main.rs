@@ -4,7 +4,7 @@ use metrics_exporter_prometheus::PrometheusBuilder;
 use moka::future::Cache;
 use sqlx::postgres::PgPoolOptions;
 use tokio::{net::TcpListener, sync::mpsc::channel};
-use tracing::{info, Level};
+use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 use crate::{
@@ -109,29 +109,37 @@ async fn main() -> Result<(), anyhow::Error> {
     let bg_pool = connection.clone();
     let measurement_cache_bg = measurement_cache.clone();
 
-    tokio::spawn(async move {
-        update_metrics(&bg_pool, &measurement_cache_bg).await;
-    });
-
     let (tx, rx) = channel::<NewMeasurement>(1 << 13);
 
     let insert_pool = connection.clone();
     let insert_cache = measurement_cache.clone();
 
-    tokio::spawn(async move {
-        handle_insert_measurement_bg_thread(rx, insert_pool, insert_cache).await;
-    });
-
     let refresh_pool = connection.clone();
-
-    tokio::spawn(async move {
-        refresh_views(&refresh_pool).await.unwrap();
-    });
 
     let app = create_router(connection, metrics_handler, measurement_cache, tx);
 
     let listener = TcpListener::bind(&opts.host).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+
+    tokio::select! {
+        _ = update_metrics(&bg_pool, &measurement_cache_bg) => {
+            error!("update_metrics task exited unexpectedly");
+        }
+        _ = handle_insert_measurement_bg_thread(rx, insert_pool, insert_cache) => {
+            error!("insert_measurement background task exited unexpectedly");
+        }
+        result = refresh_views(&refresh_pool) => {
+            match result {
+                Ok(()) => error!("refresh_views task exited unexpectedly"),
+                Err(e) => error!("refresh_views task failed: {e:#}"),
+            }
+        }
+        result = axum::serve(listener, app) => {
+            match result {
+                Ok(()) => info!("server shut down gracefully"),
+                Err(e) => error!("server error: {e:#}"),
+            }
+        }
+    }
 
     Ok(())
 }
