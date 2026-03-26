@@ -1,8 +1,9 @@
-use metrics::{counter, gauge};
+use metrics::{counter, gauge, histogram};
 use moka::future::Cache;
 use sqlx::PgPool;
 use tokio::sync::mpsc::Receiver;
-use tracing::{debug, info, warn};
+use tokio::time::Instant;
+use tracing::{debug, error, info};
 
 use crate::{
     devices::Device,
@@ -71,12 +72,35 @@ pub async fn handle_insert_measurement_bg_thread(
     cache: Cache<(i32, i32), Measurement>,
 ) {
     while let Some(measurement) = rx.recv().await {
-        info!("Received new measurement: {:?}", measurement);
-        info!("Current queue size: {}", rx.len());
-        if let Err(e) = insert_measurement(measurement, &pool, &cache).await {
-            warn!("Failed to insert measurement: {}", e);
-        } else {
-            counter!("new_measurements").increment(1);
+        let queue_size = rx.len();
+        info!(
+            device_id = measurement.device,
+            sensor_id = measurement.sensor,
+            value = measurement.measurement,
+            queue_size = queue_size,
+            "Received new measurement"
+        );
+
+        let start = Instant::now();
+        match insert_measurement(measurement, &pool, &cache).await {
+            Ok(()) => {
+                let elapsed = start.elapsed();
+                histogram!("db_insert_duration_seconds").record(elapsed);
+                counter!("new_measurements").increment(1);
+                info!(
+                    duration_ms = elapsed.as_millis() as u64,
+                    "Measurement inserted successfully"
+                );
+            }
+            Err(e) => {
+                let elapsed = start.elapsed();
+                histogram!("db_insert_duration_seconds").record(elapsed);
+                error!(
+                    duration_ms = elapsed.as_millis() as u64,
+                    error = %e,
+                    "Failed to insert measurement"
+                );
+            }
         }
     }
 }
@@ -86,9 +110,20 @@ async fn insert_measurement(
     pool: &PgPool,
     cache: &Cache<(i32, i32), Measurement>,
 ) -> anyhow::Result<()> {
+    debug!(
+        device_id = measurement.device,
+        sensor_id = measurement.sensor,
+        "Looking up device and sensor"
+    );
     let device = Device::read_by_id(pool, measurement.device).await?;
-
     let sensor = Sensor::read_by_id(pool, measurement.sensor).await?;
+
+    debug!(
+        device_name = %device.name,
+        sensor_name = %sensor.name,
+        "Resolved device and sensor, updating cache"
+    );
+
     let entry = Measurement {
         value: measurement.measurement,
         timestamp: measurement.timestamp.unwrap_or_else(chrono::Utc::now),

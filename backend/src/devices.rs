@@ -1,6 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
+use tracing::{debug, info};
 use utoipa::ToSchema;
 
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
@@ -27,9 +28,11 @@ impl Device {
     }
 
     pub async fn refresh_device_sensors_view(pool: &PgPool) -> Result<()> {
+        debug!("Refreshing device_sensors materialized view");
         sqlx::query!("REFRESH MATERIALIZED VIEW device_sensors")
             .execute(pool)
             .await?;
+        debug!("Materialized view refreshed");
         Ok(())
     }
 
@@ -52,13 +55,16 @@ impl Device {
     }
 
     pub async fn delete(self, pool: &PgPool) -> Result<()> {
+        info!(device_id = self.id, device_name = %self.name, "Deleting device");
         sqlx::query!("DELETE FROM devices WHERE id = $1", self.id)
             .execute(pool)
             .await?;
+        info!(device_id = self.id, "Device deleted");
         Ok(())
     }
 
     pub async fn update(self, pool: &PgPool) -> Result<()> {
+        info!(device_id = self.id, name = %self.name, location = %self.location, "Updating device");
         sqlx::query!(
             "UPDATE devices SET name = $1,location = $2 WHERE id = $3",
             self.name,
@@ -68,6 +74,7 @@ impl Device {
         .execute(pool)
         .await?;
         Self::refresh_device_sensors_view(pool).await?;
+        info!(device_id = self.id, "Device updated");
         Ok(())
     }
 }
@@ -78,6 +85,7 @@ impl NewDevice {
     }
 
     pub async fn insert(self, pool: &PgPool) -> Result<()> {
+        info!(name = %self.name, location = %self.location, "Inserting new device");
         sqlx::query!(
             "INSERT INTO devices (name, location) VALUES ($1, $2)",
             self.name,
@@ -86,6 +94,7 @@ impl NewDevice {
         .execute(pool)
         .await?;
         Device::refresh_device_sensors_view(pool).await?;
+        info!(name = %self.name, "Device inserted");
         Ok(())
     }
 }
