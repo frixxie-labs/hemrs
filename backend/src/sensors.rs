@@ -1,6 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
+use tracing::info;
 use utoipa::ToSchema;
 
 use crate::devices::Device;
@@ -42,13 +43,16 @@ impl Sensor {
     }
 
     pub async fn delete(self, pool: &PgPool) -> Result<()> {
+        info!(sensor_id = self.id, sensor_name = %self.name, "Deleting sensor");
         sqlx::query!("DELETE FROM sensors WHERE id = $1", self.id)
             .execute(pool)
             .await?;
+        info!(sensor_id = self.id, "Sensor deleted");
         Ok(())
     }
 
     pub async fn update(self, pool: &PgPool) -> anyhow::Result<()> {
+        info!(sensor_id = self.id, name = %self.name, unit = %self.unit, "Updating sensor");
         sqlx::query!(
             "UPDATE sensors SET name = $1,unit = $2 WHERE id = $3",
             self.name,
@@ -58,6 +62,7 @@ impl Sensor {
         .execute(pool)
         .await?;
         Device::refresh_device_sensors_view(pool).await?;
+        info!(sensor_id = self.id, "Sensor updated");
         Ok(())
     }
 
@@ -79,6 +84,7 @@ impl NewSensor {
     }
 
     pub async fn insert(self, pool: &PgPool) -> Result<()> {
+        info!(name = %self.name, unit = %self.unit, "Inserting new sensor");
         sqlx::query!(
             "INSERT INTO sensors (name, unit) VALUES ($1, $2)",
             self.name,
@@ -87,6 +93,7 @@ impl NewSensor {
         .execute(pool)
         .await?;
         Device::refresh_device_sensors_view(pool).await?;
+        info!(name = %self.name, "Sensor inserted");
         Ok(())
     }
 }
