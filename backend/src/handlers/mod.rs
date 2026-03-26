@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Request, State},
+    extract::{MatchedPath, Request, State},
     middleware::{self, Next},
     response::Response,
     routing::{delete, get, post, put},
@@ -39,12 +39,16 @@ mod sensors;
 #[instrument]
 pub async fn profile_endpoint(request: Request, next: Next) -> Response {
     let method = request.method().clone().to_string();
-    let uri = request.uri().clone().to_string();
-    info!("Handling {} at {}", method, uri);
+    let path = request
+        .extensions()
+        .get::<MatchedPath>()
+        .map(|p| p.as_str().to_string())
+        .unwrap_or_else(|| request.uri().path().to_string());
+    info!("Handling {} at {}", method, path);
 
     let now = Instant::now();
 
-    let labels = [("method", method.clone()), ("uri", uri.clone())];
+    let labels = [("method", method.clone()), ("path", path.clone())];
 
     let response = next.run(request).await;
 
@@ -55,7 +59,7 @@ pub async fn profile_endpoint(request: Request, next: Next) -> Response {
     info!(
         "Finished handling {} at {}, used {} ms",
         method,
-        uri,
+        path,
         elapsed.as_millis()
     );
     response

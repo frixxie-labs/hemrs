@@ -28,9 +28,6 @@ pub async fn update_metrics(pool: &PgPool, cache: &Cache<(i32, i32), Measurement
             //check cache first
             if let Some(measurement) = cache.get(&(device.id, sensor.id)).await {
                 if measurement.timestamp >= now - chrono::Duration::seconds(300) {
-                    if measurement.timestamp < now - chrono::Duration::seconds(300) {
-                        continue;
-                    }
                     let lables = [
                         ("device_name", measurement.device_name),
                         ("device_location", measurement.device_location),
