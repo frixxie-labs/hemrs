@@ -1,13 +1,16 @@
 use anyhow::Context;
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     response::{IntoResponse, Response},
     Json,
 };
+use chrono::{DateTime, Utc};
 use moka::future::Cache;
+use serde::Deserialize;
 use sqlx::PgPool;
 use tokio::sync::mpsc::Sender;
 use tracing::instrument;
+use utoipa::IntoParams;
 
 use crate::measurements::{Measurement, MeasurementStats, NewMeasurement, NewMeasurements};
 
@@ -239,6 +242,36 @@ pub async fn fetch_stats_by_device_id_and_sensor_id(
     Ok(Json(stats))
 }
 
+#[derive(Debug, Deserialize, IntoParams)]
+pub struct DateRangeParams {
+    /// Start of the date range (required), ISO 8601 / RFC 3339 format
+    pub start: DateTime<Utc>,
+    /// End of the date range (optional, defaults to now), ISO 8601 / RFC 3339 format
+    pub end: Option<DateTime<Utc>>,
+}
+
+#[utoipa::path(
+    get,
+    path = "api/measurements/range",
+    params(DateRangeParams),
+    responses(
+        (status = 200, description = "List of measurements within date range", body = [Measurement]),
+        (status = 400, description = "Missing or invalid query parameters"),
+        (status = 500, description = "Internal server error"),
+    )
+)]
+#[instrument]
+pub async fn fetch_measurements_by_date_range(
+    State(app_state): ApplicationState,
+    Query(params): Query<DateRangeParams>,
+) -> Result<Json<Vec<Measurement>>, HandlerError> {
+    let (pool, _cache) = app_state;
+    let measurements = Measurement::read_by_date_range(&pool, params.start, params.end)
+        .await
+        .context("Failed to fetch data from database")?;
+    Ok(Json(measurements))
+}
+
 #[cfg(test)]
 mod tests {
     use tokio::sync::mpsc::Receiver;
@@ -352,5 +385,124 @@ mod tests {
             rx.recv().await.is_some(),
             "Second measurement should be sent to background thread"
         );
+    }
+
+    fn make_app_state(pool: PgPool) -> ApplicationState {
+        let cache: Cache<(i32, i32), Measurement> =
+            moka::future::Cache::builder().max_capacity(128).build();
+        State((pool, cache))
+    }
+
+    async fn setup_device_and_sensor(pool: &PgPool) {
+        NewDevice::new("test-device".to_string(), "test-location".to_string())
+            .insert(pool)
+            .await
+            .unwrap();
+        NewSensor::new("test-sensor".to_string(), "°C".to_string())
+            .insert(pool)
+            .await
+            .unwrap();
+    }
+
+    #[sqlx::test]
+    async fn fetch_measurements_by_date_range_returns_measurements_in_window(db: PgPool) {
+        setup_device_and_sensor(&db).await;
+
+        let now = chrono::Utc::now();
+        // Insert a measurement that falls inside the window
+        NewMeasurement::new(Some(now), 1, 1, 55.0)
+            .insert(&db)
+            .await
+            .unwrap();
+
+        let state = make_app_state(db);
+        let params = Query(DateRangeParams {
+            start: now - chrono::Duration::seconds(10),
+            end: Some(now + chrono::Duration::seconds(10)),
+        });
+
+        let Json(results) = fetch_measurements_by_date_range(state, params)
+            .await
+            .unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].value, 55.0);
+    }
+
+    #[sqlx::test]
+    async fn fetch_measurements_by_date_range_excludes_measurements_outside_window(db: PgPool) {
+        setup_device_and_sensor(&db).await;
+
+        let now = chrono::Utc::now();
+        // Outside — 2 hours ago
+        NewMeasurement::new(Some(now - chrono::Duration::hours(2)), 1, 1, 99.0)
+            .insert(&db)
+            .await
+            .unwrap();
+        // Inside
+        NewMeasurement::new(Some(now), 1, 1, 1.0)
+            .insert(&db)
+            .await
+            .unwrap();
+
+        let state = make_app_state(db);
+        let params = Query(DateRangeParams {
+            start: now - chrono::Duration::minutes(5),
+            end: Some(now + chrono::Duration::minutes(5)),
+        });
+
+        let Json(results) = fetch_measurements_by_date_range(state, params)
+            .await
+            .unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].value, 1.0);
+    }
+
+    #[sqlx::test]
+    async fn fetch_measurements_by_date_range_returns_empty_for_future_window(db: PgPool) {
+        setup_device_and_sensor(&db).await;
+
+        let now = chrono::Utc::now();
+        NewMeasurement::new(Some(now), 1, 1, 3.0)
+            .insert(&db)
+            .await
+            .unwrap();
+
+        let state = make_app_state(db);
+        let params = Query(DateRangeParams {
+            start: now + chrono::Duration::hours(1),
+            end: Some(now + chrono::Duration::hours(2)),
+        });
+
+        let Json(results) = fetch_measurements_by_date_range(state, params)
+            .await
+            .unwrap();
+
+        assert!(results.is_empty());
+    }
+
+    #[sqlx::test]
+    async fn fetch_measurements_by_date_range_without_end_defaults_to_now(db: PgPool) {
+        setup_device_and_sensor(&db).await;
+
+        let now = chrono::Utc::now();
+        NewMeasurement::new(Some(now), 1, 1, 8.0)
+            .insert(&db)
+            .await
+            .unwrap();
+
+        let state = make_app_state(db);
+        let params = Query(DateRangeParams {
+            start: now - chrono::Duration::seconds(10),
+            end: None,
+        });
+
+        let Json(results) = fetch_measurements_by_date_range(state, params)
+            .await
+            .unwrap();
+
+        assert!(!results.is_empty());
+        assert_eq!(results[0].value, 8.0);
     }
 }
