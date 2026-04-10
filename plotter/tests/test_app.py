@@ -1,9 +1,7 @@
 """Tests for FastAPI endpoints in app.py."""
 
-from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
-import pytest
 from requests.exceptions import ConnectionError, HTTPError
 
 from tests.conftest import make_measurement, make_measurements

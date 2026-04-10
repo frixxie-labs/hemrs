@@ -174,7 +174,7 @@ class TestFetchMeasurementsByDateRange:
     def test_with_start_and_end(self, client: BackendClient):
         mock_resp = _mock_response([SAMPLE_MEASUREMENT])
         with patch.object(client.session, "get", return_value=mock_resp) as mock_get:
-            result = client.fetch_measurements_by_date_range(
+            client.fetch_measurements_by_date_range(
                 start=datetime(2025, 6, 1, tzinfo=timezone.utc),
                 end=datetime(2025, 6, 30, tzinfo=timezone.utc),
             )
