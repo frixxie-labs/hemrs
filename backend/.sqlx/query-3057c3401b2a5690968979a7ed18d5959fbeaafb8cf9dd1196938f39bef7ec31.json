@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "REFRESH MATERIALIZED VIEW device_sensors",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "3057c3401b2a5690968979a7ed18d5959fbeaafb8cf9dd1196938f39bef7ec31"
+}

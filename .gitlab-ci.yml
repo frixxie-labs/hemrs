@@ -1,7 +1,51 @@
 stages:
+  - lint
   - build
   - test
   - deploy
+
+# ── Plotter (Python) ─────────────────────────────────────────────
+
+lint-plotter:
+  stage: lint
+  image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+  script:
+    - uv tool run ruff check plotter/
+    - uv tool run ruff format --check plotter/
+  rules:
+    - changes:
+        - plotter/**/*
+
+build-plotter:
+  stage: build
+  image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+  script:
+    - cd plotter
+    - uv sync --frozen
+  rules:
+    - changes:
+        - plotter/**/*
+
+deploy-plotter:
+  stage: deploy
+  tags:
+    - docker-build
+  image:
+    name: quay.io/buildah/stable:latest
+    entrypoint: [""]
+  variables:
+    BUILDAH_ISOLATION: chroot
+    BUILDAH_FORMAT: docker
+  script:
+    - buildah login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+    - buildah build
+      --tag "${CI_REGISTRY_IMAGE}/plotter:${CI_COMMIT_TAG}"
+      -f plotter/Dockerfile plotter/
+    - buildah push "${CI_REGISTRY_IMAGE}/plotter:${CI_COMMIT_TAG}"
+  rules:
+    - if: $CI_COMMIT_TAG
+
+# ── Backend (Rust) ────────────────────────────────────────────────
 
 build-backend:
   stage: build
