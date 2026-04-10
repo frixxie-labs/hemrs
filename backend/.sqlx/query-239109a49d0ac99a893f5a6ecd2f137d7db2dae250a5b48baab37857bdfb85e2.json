@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT m.ts AS timestamp, m.value, s.unit, m.device_id, d.name AS device_name, d.location AS device_location, m.sensor_id, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id WHERE m.ts >= $1 AND m.ts <= $2 ORDER BY m.ts",
+  "query": "SELECT DISTINCT ON (m.device_id, m.sensor_id) m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name\n             FROM measurements m\n             JOIN devices d ON m.device_id = d.id\n             JOIN sensors s ON m.sensor_id = s.id\n             ORDER BY m.device_id, m.sensor_id, ts DESC",
   "describe": {
     "columns": [
       {
@@ -20,39 +20,24 @@
       },
       {
         "ordinal": 3,
-        "name": "device_id",
-        "type_info": "Int4"
-      },
-      {
-        "ordinal": 4,
         "name": "device_name",
         "type_info": "Text"
       },
       {
-        "ordinal": 5,
+        "ordinal": 4,
         "name": "device_location",
         "type_info": "Text"
       },
       {
-        "ordinal": 6,
-        "name": "sensor_id",
-        "type_info": "Int4"
-      },
-      {
-        "ordinal": 7,
+        "ordinal": 5,
         "name": "sensor_name",
         "type_info": "Text"
       }
     ],
     "parameters": {
-      "Left": [
-        "Timestamptz",
-        "Timestamptz"
-      ]
+      "Left": []
     },
     "nullable": [
-      false,
-      false,
       false,
       false,
       false,
@@ -61,5 +46,5 @@
       false
     ]
   },
-  "hash": "7f0bdeb5045fe348675050448f33d697a61b1d567cdae65cbb189cee5cd1a8aa"
+  "hash": "239109a49d0ac99a893f5a6ecd2f137d7db2dae250a5b48baab37857bdfb85e2"
 }
