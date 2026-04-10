@@ -1,0 +1,62 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT m.ts AS timestamp, m.value, s.unit, m.device_id, d.name AS device_name, d.location AS device_location, m.sensor_id, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id ORDER BY ts",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "timestamp",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 1,
+        "name": "value",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 2,
+        "name": "unit",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "device_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "device_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "device_location",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "sensor_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "sensor_name",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "7d0062b526a2b8f2dbc10bb056581bc34470bc495645f2a20e11c3a46ed23e0e"
+}

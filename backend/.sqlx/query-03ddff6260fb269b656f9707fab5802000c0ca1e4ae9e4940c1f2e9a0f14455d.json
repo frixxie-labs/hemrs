@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT min(value) as \"min!\", max(value) as \"max!\", count(value) as \"count!\", avg(value) as \"avg!\", stddev(value) as \"stddev!\", variance(value) as \"variance!\" FROM measurements WHERE device_id = ($1) AND sensor_id = ($2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "min!",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 1,
+        "name": "max!",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 2,
+        "name": "count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "avg!",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 4,
+        "name": "stddev!",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 5,
+        "name": "variance!",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "03ddff6260fb269b656f9707fab5802000c0ca1e4ae9e4940c1f2e9a0f14455d"
+}
