@@ -105,6 +105,22 @@ mod tests {
 
     use crate::devices::{Device, NewDevice};
 
+    // ── quickcheck: pure constructor logic, no DB ─────────────────────────────
+
+    #[quickcheck_macros::quickcheck]
+    fn device_new_stores_all_fields(id: i32, name: String, location: String) -> bool {
+        let d = Device::new(id, name.clone(), location.clone());
+        d.id == id && d.name == name && d.location == location
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn new_device_new_stores_all_fields(name: String, location: String) -> bool {
+        let d = NewDevice::new(name.clone(), location.clone());
+        d.name == name && d.location == location
+    }
+
+    // ── sqlx integration tests ────────────────────────────────────────────────
+
     #[sqlx::test]
     async fn insert(pool: PgPool) {
         let device = NewDevice::new("test".to_string(), "test".to_string());

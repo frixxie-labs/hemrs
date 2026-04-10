@@ -108,6 +108,22 @@ mod tests {
         sensors::{NewSensor, Sensor},
     };
 
+    // ── quickcheck: pure constructor logic, no DB ─────────────────────────────
+
+    #[quickcheck_macros::quickcheck]
+    fn sensor_new_stores_all_fields(id: i32, name: String, unit: String) -> bool {
+        let s = Sensor::new(id, name.clone(), unit.clone());
+        s.id == id && s.name == name && s.unit == unit
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn new_sensor_new_stores_all_fields(name: String, unit: String) -> bool {
+        let s = NewSensor::new(name.clone(), unit.clone());
+        s.name == name && s.unit == unit
+    }
+
+    // ── sqlx integration tests ────────────────────────────────────────────────
+
     #[sqlx::test]
     async fn insert(pool: PgPool) {
         let sensor = NewSensor::new("test".to_string(), "test".to_string());

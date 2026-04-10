@@ -9,8 +9,8 @@ use devices::{delete_device, fetch_devices, insert_device, update_device};
 use measurements::{
     fetch_all_latest_measurements, fetch_all_measurements, fetch_latest_measurement,
     fetch_latest_measurement_by_device_id_and_sensor_id, fetch_measurement_by_device_id,
-    fetch_measurement_by_device_id_and_sensor_id, fetch_measurements_count,
-    fetch_stats_by_device_id_and_sensor_id, store_measurements,
+    fetch_measurement_by_device_id_and_sensor_id, fetch_measurements_by_date_range,
+    fetch_measurements_count, fetch_stats_by_device_id_and_sensor_id, store_measurements,
 };
 use metrics::histogram;
 use metrics_exporter_prometheus::PrometheusHandle;
@@ -79,6 +79,7 @@ pub fn create_router(
             get(fetch_all_latest_measurements),
         )
         .route("/measurements/count", get(fetch_measurements_count))
+        .route("/measurements/range", get(fetch_measurements_by_date_range))
         .with_state((connection.clone(), cache.clone()))
         .route("/measurements", post(store_measurements))
         .with_state(tx.clone());
@@ -181,6 +182,7 @@ async fn metrics(State(handle): State<PrometheusHandle>) -> String {
         measurements::fetch_measurement_by_device_id_and_sensor_id,
         measurements::fetch_all_latest_measurements,
         measurements::fetch_stats_by_device_id_and_sensor_id,
+        measurements::fetch_measurements_by_date_range,
     ),
     components(
         schemas(

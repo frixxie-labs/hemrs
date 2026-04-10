@@ -87,6 +87,51 @@ impl From<LogLevel> for Level {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::LogLevel;
+    use std::str::FromStr;
+    use tracing::Level;
+
+    const VALID_LEVELS: &[&str] = &["trace", "debug", "info", "warn", "error"];
+
+    #[test]
+    fn valid_log_levels_parse_successfully() {
+        for &s in VALID_LEVELS {
+            assert!(
+                LogLevel::from_str(s).is_ok(),
+                "expected '{s}' to parse as a valid LogLevel"
+            );
+        }
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn unknown_log_level_returns_err(s: String) -> bool {
+        if VALID_LEVELS.contains(&s.as_str()) {
+            return true; // skip known-good values
+        }
+        LogLevel::from_str(&s).is_err()
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn log_level_from_is_total(raw: u8) -> bool {
+        // Map the 5 variants by index; From<LogLevel> must never panic.
+        let level = match raw % 5 {
+            0 => LogLevel::Trace,
+            1 => LogLevel::Debug,
+            2 => LogLevel::Info,
+            3 => LogLevel::Warn,
+            _ => LogLevel::Error,
+        };
+        let tracing_level: Level = level.into();
+        // The conversion is exhaustive — just confirm it produces a valid Level.
+        matches!(
+            tracing_level,
+            Level::TRACE | Level::DEBUG | Level::INFO | Level::WARN | Level::ERROR
+        )
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     let opts = Opts::parse();

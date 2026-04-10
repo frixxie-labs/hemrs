@@ -1,6 +1,6 @@
 [package]
 name = "backend"
-version = "0.5.0"
+version = "0.38.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -23,3 +23,7 @@ metrics-exporter-prometheus = "0.18.1"
 futures = "0.3.32"
 moka = { version = "0.12.15", features = ["future"] }
 utoipa = { version = "5.4.0", features = ["chrono"] }
+
+[dev-dependencies]
+quickcheck = "1.1.0"
+quickcheck_macros = "1.2.0"
