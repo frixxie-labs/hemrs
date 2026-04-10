@@ -26,6 +26,17 @@ build-plotter:
     - changes:
         - plotter/**/*
 
+test-plotter:
+  stage: test
+  image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+  script:
+    - cd plotter
+    - uv sync --frozen
+    - uv run pytest
+  rules:
+    - changes:
+        - plotter/**/*
+
 deploy-plotter:
   stage: deploy
   tags:
