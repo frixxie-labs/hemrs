@@ -1,4 +1,7 @@
-import { fetchPlotSvg } from "../lib/plotter.ts";
+import {
+  fetchPlotSvg,
+  getTodayDeviceSensorMeasurementsPlot,
+} from "../lib/plotter.ts";
 
 const SVG_CONTENT =
   '<svg xmlns="http://www.w3.org/2000/svg"><circle r="10"/></svg>';
@@ -62,6 +65,48 @@ Deno.test("fetchPlotSvg returns null on fetch error", async () => {
     const result = await fetchPlotSvg("plot/fail");
     if (result !== null) {
       throw new Error(`Expected null, got: ${result}`);
+    }
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+Deno.test("getTodayDeviceSensorMeasurementsPlot passes today start param", async () => {
+  let capturedUrl = "";
+  const original = globalThis.fetch;
+  const encoder = new TextEncoder();
+  const svgBody = '<svg xmlns="http://www.w3.org/2000/svg"></svg>';
+  globalThis.fetch = (input: string | URL | Request) => {
+    capturedUrl = typeof input === "string"
+      ? input
+      : input instanceof URL
+      ? input.toString()
+      : input.url;
+    return Promise.resolve(
+      new Response(encoder.encode(svgBody), { status: 200 }),
+    );
+  };
+  try {
+    const result = await getTodayDeviceSensorMeasurementsPlot(3, 7);
+    // Should return a valid data URI
+    if (!result || !result.startsWith("data:image/svg+xml;base64,")) {
+      throw new Error(`Expected data URI, got: ${result}`);
+    }
+    // URL should target the correct device/sensor path
+    if (!capturedUrl.includes("/plot/devices/3/sensors/7/measurements")) {
+      throw new Error(`Unexpected URL path: ${capturedUrl}`);
+    }
+    // URL should contain a start query param with today's midnight as ISO string
+    const today = new Date();
+    const startOfDay = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+    ).toISOString();
+    if (!capturedUrl.includes(`start=${startOfDay}`)) {
+      throw new Error(
+        `Expected start param with today's start (${startOfDay}), got: ${capturedUrl}`,
+      );
     }
   } finally {
     globalThis.fetch = original;
