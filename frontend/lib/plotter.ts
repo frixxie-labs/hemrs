@@ -8,7 +8,11 @@ export async function fetchPlotSvg(path: string): Promise<string | null> {
       return null;
     }
     const bytes = new Uint8Array(await response.arrayBuffer());
-    const base64 = btoa(String.fromCharCode(...bytes));
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binary);
     return `data:image/svg+xml;base64,${base64}`;
   } catch (error) {
     console.error("Failed to fetch plot:", error);
