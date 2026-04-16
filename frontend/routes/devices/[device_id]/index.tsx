@@ -1,21 +1,17 @@
 import { Context } from "fresh";
 import { getSensorsByDeviceId, Sensor } from "../../../lib/sensor.ts";
 import { Device, getDevices } from "../../../lib/device.ts";
-import { getDeviceMeasurementsPlot } from "../../../lib/plotter.ts";
-import PlotCard from "../../../components/PlotCard.tsx";
 import SensorList from "../../../islands/SensorList.tsx";
 
 interface DeviceProps {
   sensors: Promise<Sensor[]>;
   device: Device;
-  plot: Promise<string | null>;
 }
 
 export const handler = {
   async GET(ctx: Context<DeviceProps>) {
     const device_id = ctx.params.device_id;
     const sensors = getSensorsByDeviceId(parseInt(device_id));
-    const plot = getDeviceMeasurementsPlot(parseInt(device_id));
     const device = await getDevices().then((devices) =>
       devices.find((d) => d.id === parseInt(device_id))
     );
@@ -25,14 +21,14 @@ export const handler = {
 
     ctx.state.sensors = sensors;
     ctx.state.device = device;
-    ctx.state.plot = plot;
+
     return await Home(ctx);
   },
 };
 
 export default async function Home(ctx: Context<DeviceProps>) {
   const sensors = await ctx.state.sensors;
-  const plot = await ctx.state.plot;
+
   return (
     <div class="px-4 py-8 mx-auto">
       <div class="max-w-screen-md mx-auto flex flex-col items-center justify-center">
@@ -42,10 +38,6 @@ export default async function Home(ctx: Context<DeviceProps>) {
         <p class="text-lg mb-6">
           Device Location: {ctx.state.device.location}
         </p>
-        <PlotCard
-          title={`Measurements for ${ctx.state.device.name}`}
-          svg={plot}
-        />
         <SensorList
           device_id={ctx.state.device.id}
           sensors={sensors}
