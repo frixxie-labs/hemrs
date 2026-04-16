@@ -2,13 +2,13 @@ services:
   hemrs:
     build: .
     ports:
-      - '65534:65534'
+      - "65534:65534"
     environment:
       DATABASE_URL: postgresql://postgres:admin@db:5432/postgres
   plotter:
     build: ./plotter
     ports:
-      - '8000:8000'
+      - "8000:8000"
     environment:
       BACKEND_URL: http://hemrs:65534
     depends_on:

@@ -10,9 +10,9 @@ metadata:
   namespace: default
 spec:
   ports:
-  - port: 65534
-    protocol: TCP
-    targetPort: 65534
+    - port: 65534
+      protocol: TCP
+      targetPort: 65534
   selector:
     io.kompose.service: hemrs
   type: LoadBalancer
