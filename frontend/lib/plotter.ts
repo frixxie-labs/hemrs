@@ -1,0 +1,38 @@
+const PLOTTER_URL = Deno.env.get("PLOTTER_URL") || "http://localhost:8000/";
+
+async function fetchPlotSvg(path: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${PLOTTER_URL}${path}`);
+    if (!response.ok) {
+      console.error(`Plotter request failed: ${response.status} for ${path}`);
+      return null;
+    }
+    return await response.text();
+  } catch (error) {
+    console.error("Failed to fetch plot:", error);
+    return null;
+  }
+}
+
+export function getLatestAllPlot(): Promise<string | null> {
+  return fetchPlotSvg("plot/measurements/latest/all");
+}
+
+export function getAllMeasurementsPlot(): Promise<string | null> {
+  return fetchPlotSvg("plot/measurements");
+}
+
+export function getDeviceMeasurementsPlot(
+  deviceId: number,
+): Promise<string | null> {
+  return fetchPlotSvg(`plot/devices/${deviceId}/measurements`);
+}
+
+export function getDeviceSensorMeasurementsPlot(
+  deviceId: number,
+  sensorId: number,
+): Promise<string | null> {
+  return fetchPlotSvg(
+    `plot/devices/${deviceId}/sensors/${sensorId}/measurements`,
+  );
+}
