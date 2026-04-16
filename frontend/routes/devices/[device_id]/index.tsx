@@ -42,7 +42,10 @@ export default async function Home(ctx: Context<DeviceProps>) {
         <p class="text-lg mb-6">
           Device Location: {ctx.state.device.location}
         </p>
-        <PlotCard title={`Measurements for ${ctx.state.device.name}`} svg={plot} />
+        <PlotCard
+          title={`Measurements for ${ctx.state.device.name}`}
+          svg={plot}
+        />
         <SensorList
           device_id={ctx.state.device.id}
           sensors={sensors}

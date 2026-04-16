@@ -76,7 +76,10 @@ export default async function MeasurementStats(
           Device: {ctx.state.device.name} ({ctx.state.device.id})
         </p>
         <MeasurementStatCard measurement_stats={stats} latest={latest} />
-        <PlotCard title={`${ctx.state.sensor.name} Measurements Over Time`} svg={plot} />
+        <PlotCard
+          title={`${ctx.state.sensor.name} Measurements Over Time`}
+          svg={plot}
+        />
       </div>
     </div>
   );
