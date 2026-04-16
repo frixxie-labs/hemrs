@@ -27,6 +27,16 @@ client = BackendClient(base_url=BACKEND_URL)
 SVG_MEDIA_TYPE = "image/svg+xml"
 
 
+@app.get("/status/health")
+def health():
+    return {"status": "healthy"}
+
+
+@app.get("/status/ping")
+def ping():
+    return {"ping": "pong"}
+
+
 def _fig_to_svg(fig: plt.Figure) -> bytes:
     """Render a matplotlib figure to SVG bytes and close it."""
     buf = io.BytesIO()
