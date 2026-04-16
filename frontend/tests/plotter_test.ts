@@ -1,6 +1,7 @@
 import { fetchPlotSvg } from "../lib/plotter.ts";
 
-const SVG_CONTENT = '<svg xmlns="http://www.w3.org/2000/svg"><circle r="10"/></svg>';
+const SVG_CONTENT =
+  '<svg xmlns="http://www.w3.org/2000/svg"><circle r="10"/></svg>';
 
 function mockFetch(
   response: { ok: boolean; status?: number; body?: string },
@@ -28,7 +29,9 @@ Deno.test("fetchPlotSvg returns base64 data URI for valid SVG", async () => {
       throw new Error("Expected a data URI, got null");
     }
     if (!result.startsWith("data:image/svg+xml;base64,")) {
-      throw new Error(`Expected data URI prefix, got: ${result.substring(0, 40)}`);
+      throw new Error(
+        `Expected data URI prefix, got: ${result.substring(0, 40)}`,
+      );
     }
     const base64 = result.replace("data:image/svg+xml;base64,", "");
     const decoded = atob(base64);
