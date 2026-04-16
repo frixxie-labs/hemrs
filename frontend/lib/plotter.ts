@@ -42,3 +42,18 @@ export function getDeviceSensorMeasurementsPlot(
     `plot/devices/${deviceId}/sensors/${sensorId}/measurements`,
   );
 }
+
+export function getTodayDeviceSensorMeasurementsPlot(
+  deviceId: number,
+  sensorId: number,
+): Promise<string | null> {
+  const today = new Date();
+  const start = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  ).toISOString();
+  return fetchPlotSvg(
+    `plot/devices/${deviceId}/sensors/${sensorId}/measurements?start=${start}`,
+  );
+}

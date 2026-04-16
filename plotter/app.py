@@ -156,7 +156,11 @@ def plot_measurements_by_device(device_id: int, request: Request):
     response_class=Response,
 )
 def plot_measurements_by_device_and_sensor(
-    device_id: int, sensor_id: int, request: Request
+    device_id: int,
+    sensor_id: int,
+    request: Request,
+    start: datetime | None = Query(default=None),
+    end: datetime | None = Query(default=None),
 ):
     """Plot measurements for a specific device/sensor pair as a time-series SVG."""
     cache_key = _cache_key(request)
@@ -169,6 +173,11 @@ def plot_measurements_by_device_and_sensor(
         )
     except (ConnectionError, HTTPError) as exc:
         _handle_backend_error(exc)
+
+    if measurements and start is not None:
+        measurements = [m for m in measurements if m.timestamp >= start]
+    if measurements and end is not None:
+        measurements = [m for m in measurements if m.timestamp <= end]
 
     if not measurements:
         raise HTTPException(

@@ -117,6 +117,84 @@ class TestPlotMeasurementsByDeviceAndSensor:
         resp = test_app.get("/plot/devices/1/sensors/2/measurements")
         assert resp.status_code == 503
 
+    def test_start_filter_excludes_old_measurements(
+        self, test_app, mock_client: MagicMock
+    ):
+        """Passing ?start= should exclude measurements before that time."""
+        from datetime import datetime, timezone
+
+        old = make_measurements(
+            2,
+            base_timestamp=datetime(2025, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
+            sensor_name="temp",
+            unit="°C",
+        )
+        new = make_measurements(
+            2,
+            base_timestamp=datetime(2025, 6, 15, 10, 0, 0, tzinfo=timezone.utc),
+            sensor_name="temp",
+            unit="°C",
+        )
+        mock_client.fetch_measurements_by_device_and_sensor.return_value = old + new
+        resp = test_app.get(
+            "/plot/devices/1/sensors/2/measurements",
+            params={"start": "2025-06-01T00:00:00Z"},
+        )
+        assert resp.status_code == 200
+        # The old January dates should not appear in the SVG
+        assert "2025-01" not in resp.text
+
+    def test_end_filter_excludes_future_measurements(
+        self, test_app, mock_client: MagicMock
+    ):
+        """Passing ?end= should exclude measurements after that time."""
+        from datetime import datetime, timezone
+
+        early = make_measurements(
+            2,
+            base_timestamp=datetime(2025, 6, 1, 10, 0, 0, tzinfo=timezone.utc),
+            sensor_name="temp",
+            unit="°C",
+        )
+        late = make_measurements(
+            2,
+            base_timestamp=datetime(2025, 12, 1, 10, 0, 0, tzinfo=timezone.utc),
+            sensor_name="temp",
+            unit="°C",
+        )
+        mock_client.fetch_measurements_by_device_and_sensor.return_value = early + late
+        resp = test_app.get(
+            "/plot/devices/1/sensors/2/measurements",
+            params={"end": "2025-06-30T23:59:59Z"},
+        )
+        assert resp.status_code == 200
+        assert "2025-12" not in resp.text
+
+    def test_start_filter_all_excluded_returns_404(
+        self, test_app, mock_client: MagicMock
+    ):
+        """If start filter excludes everything, should return 404."""
+        from datetime import datetime, timezone
+
+        old = make_measurements(
+            3,
+            base_timestamp=datetime(2025, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
+        )
+        mock_client.fetch_measurements_by_device_and_sensor.return_value = old
+        resp = test_app.get(
+            "/plot/devices/1/sensors/2/measurements",
+            params={"start": "2025-12-01T00:00:00Z"},
+        )
+        assert resp.status_code == 404
+
+    def test_no_filter_params_returns_all(self, test_app, mock_client: MagicMock):
+        """Without start/end, all measurements are plotted (backward compat)."""
+        mock_client.fetch_measurements_by_device_and_sensor.return_value = (
+            make_measurements(3)
+        )
+        resp = test_app.get("/plot/devices/1/sensors/2/measurements")
+        assert resp.status_code == 200
+
 
 # ---------------------------------------------------------------------------
 # GET /plot/measurements/range

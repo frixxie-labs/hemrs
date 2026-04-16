@@ -11,7 +11,7 @@ import {
   getLatestMeasurementByDeviceAndSensorId,
   Measurement,
 } from "../../../../lib/measurements.ts";
-import { getDeviceSensorMeasurementsPlot } from "../../../../lib/plotter.ts";
+import { getTodayDeviceSensorMeasurementsPlot } from "../../../../lib/plotter.ts";
 
 interface MeasurementStatsProps {
   stats: Promise<Stats>;
@@ -36,7 +36,7 @@ export const handler = {
       parseInt(sensor_id),
     );
 
-    const plot = getDeviceSensorMeasurementsPlot(
+    const plot = getTodayDeviceSensorMeasurementsPlot(
       parseInt(device_id),
       parseInt(sensor_id),
     );
