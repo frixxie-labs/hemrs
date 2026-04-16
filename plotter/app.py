@@ -5,6 +5,7 @@ from datetime import datetime
 import matplotlib
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+import numpy as np
 from cachetools import TTLCache
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import Response
@@ -192,6 +193,15 @@ def plot_measurements_by_device_and_sensor(
 
     fig, ax = plt.subplots(figsize=(12, 6))
     ax.plot(timestamps, values, marker=".", markersize=3)
+
+    # Dotted regression line
+    if len(timestamps) >= 2:
+        ts_numeric = np.array([t.timestamp() for t in timestamps])
+        vals = np.array(values)
+        coeffs = np.polyfit(ts_numeric, vals, 1)
+        reg_values = np.polyval(coeffs, ts_numeric)
+        ax.plot(timestamps, reg_values, linestyle=":", color="red", label="Regression")
+        ax.legend(fontsize="small", loc="best")
 
     ax.set_xlabel("Time")
     ax.set_ylabel(f"{measurements[0].sensor_name} ({measurements[0].unit})")
