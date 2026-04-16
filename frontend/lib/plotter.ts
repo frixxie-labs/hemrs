@@ -1,13 +1,15 @@
 const PLOTTER_URL = Deno.env.get("PLOTTER_URL") || "http://localhost:8000/";
 
-async function fetchPlotSvg(path: string): Promise<string | null> {
+export async function fetchPlotSvg(path: string): Promise<string | null> {
   try {
     const response = await fetch(`${PLOTTER_URL}${path}`);
     if (!response.ok) {
       console.error(`Plotter request failed: ${response.status} for ${path}`);
       return null;
     }
-    return await response.text();
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const base64 = btoa(String.fromCharCode(...bytes));
+    return `data:image/svg+xml;base64,${base64}`;
   } catch (error) {
     console.error("Failed to fetch plot:", error);
     return null;
