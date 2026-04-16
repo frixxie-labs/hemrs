@@ -104,6 +104,7 @@ def test_app(mock_client: MagicMock) -> TestClient:
 
     original_client = app_module.client
     app_module.client = mock_client
+    app_module._plot_cache.clear()
     try:
         yield TestClient(app_module.app)
     finally:

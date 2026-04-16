@@ -5,7 +5,8 @@ from datetime import datetime
 import matplotlib
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-from fastapi import FastAPI, HTTPException, Query
+from cachetools import TTLCache
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import Response
 from requests.exceptions import ConnectionError, HTTPError
 
@@ -14,6 +15,8 @@ from backend_client import BackendClient
 matplotlib.use("svg")
 
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:65534")
+CACHE_TTL = int(os.environ.get("PLOT_CACHE_TTL", "60"))
+CACHE_MAXSIZE = int(os.environ.get("PLOT_CACHE_MAXSIZE", "128"))
 
 app = FastAPI(
     title="hemrs plotter",
@@ -23,6 +26,15 @@ app = FastAPI(
     openapi_url=None,
 )
 client = BackendClient(base_url=BACKEND_URL)
+
+_plot_cache: TTLCache[str, bytes] = TTLCache(maxsize=CACHE_MAXSIZE, ttl=CACHE_TTL)
+
+
+def _cache_key(request: Request) -> str:
+    """Build a cache key from the request path and query string."""
+    url = request.url
+    return f"{url.path}?{url.query}" if url.query else url.path
+
 
 SVG_MEDIA_TYPE = "image/svg+xml"
 
@@ -55,8 +67,12 @@ def _handle_backend_error(exc: Exception):
 
 
 @app.get("/plot/measurements", response_class=Response)
-def plot_all_measurements():
+def plot_all_measurements(request: Request):
     """Plot all measurements as a time-series SVG, grouped by sensor."""
+    cache_key = _cache_key(request)
+    if cache_key in _plot_cache:
+        return Response(content=_plot_cache[cache_key], media_type=SVG_MEDIA_TYPE)
+
     try:
         measurements = client.fetch_all_measurements()
     except (ConnectionError, HTTPError) as exc:
@@ -85,12 +101,18 @@ def plot_all_measurements():
     fig.autofmt_xdate()
     ax.grid(True, alpha=0.3)
 
-    return Response(content=_fig_to_svg(fig), media_type=SVG_MEDIA_TYPE)
+    svg = _fig_to_svg(fig)
+    _plot_cache[cache_key] = svg
+    return Response(content=svg, media_type=SVG_MEDIA_TYPE)
 
 
 @app.get("/plot/devices/{device_id}/measurements", response_class=Response)
-def plot_measurements_by_device(device_id: int):
+def plot_measurements_by_device(device_id: int, request: Request):
     """Plot all measurements for a device as a time-series SVG."""
+    cache_key = _cache_key(request)
+    if cache_key in _plot_cache:
+        return Response(content=_plot_cache[cache_key], media_type=SVG_MEDIA_TYPE)
+
     try:
         measurements = client.fetch_measurements_by_device_id(device_id)
     except (ConnectionError, HTTPError) as exc:
@@ -124,15 +146,23 @@ def plot_measurements_by_device(device_id: int):
     fig.autofmt_xdate()
     ax.grid(True, alpha=0.3)
 
-    return Response(content=_fig_to_svg(fig), media_type=SVG_MEDIA_TYPE)
+    svg = _fig_to_svg(fig)
+    _plot_cache[cache_key] = svg
+    return Response(content=svg, media_type=SVG_MEDIA_TYPE)
 
 
 @app.get(
     "/plot/devices/{device_id}/sensors/{sensor_id}/measurements",
     response_class=Response,
 )
-def plot_measurements_by_device_and_sensor(device_id: int, sensor_id: int):
+def plot_measurements_by_device_and_sensor(
+    device_id: int, sensor_id: int, request: Request
+):
     """Plot measurements for a specific device/sensor pair as a time-series SVG."""
+    cache_key = _cache_key(request)
+    if cache_key in _plot_cache:
+        return Response(content=_plot_cache[cache_key], media_type=SVG_MEDIA_TYPE)
+
     try:
         measurements = client.fetch_measurements_by_device_and_sensor(
             device_id, sensor_id
@@ -161,15 +191,22 @@ def plot_measurements_by_device_and_sensor(device_id: int, sensor_id: int):
     fig.autofmt_xdate()
     ax.grid(True, alpha=0.3)
 
-    return Response(content=_fig_to_svg(fig), media_type=SVG_MEDIA_TYPE)
+    svg = _fig_to_svg(fig)
+    _plot_cache[cache_key] = svg
+    return Response(content=svg, media_type=SVG_MEDIA_TYPE)
 
 
 @app.get("/plot/measurements/range", response_class=Response)
 def plot_measurements_by_range(
+    request: Request,
     start: datetime = Query(...),
     end: datetime | None = Query(default=None),
 ):
     """Plot measurements within a date range as a time-series SVG."""
+    cache_key = _cache_key(request)
+    if cache_key in _plot_cache:
+        return Response(content=_plot_cache[cache_key], media_type=SVG_MEDIA_TYPE)
+
     try:
         measurements = client.fetch_measurements_by_date_range(start, end)
     except (ConnectionError, HTTPError) as exc:
@@ -204,12 +241,18 @@ def plot_measurements_by_range(
     fig.autofmt_xdate()
     ax.grid(True, alpha=0.3)
 
-    return Response(content=_fig_to_svg(fig), media_type=SVG_MEDIA_TYPE)
+    svg = _fig_to_svg(fig)
+    _plot_cache[cache_key] = svg
+    return Response(content=svg, media_type=SVG_MEDIA_TYPE)
 
 
 @app.get("/plot/measurements/latest/all", response_class=Response)
-def plot_all_latest_measurements():
+def plot_all_latest_measurements(request: Request):
     """Bar chart of the latest measurement per device/sensor pair as SVG."""
+    cache_key = _cache_key(request)
+    if cache_key in _plot_cache:
+        return Response(content=_plot_cache[cache_key], media_type=SVG_MEDIA_TYPE)
+
     try:
         measurements = client.fetch_all_latest_measurements()
     except (ConnectionError, HTTPError) as exc:
@@ -241,4 +284,6 @@ def plot_all_latest_measurements():
 
     fig.tight_layout()
 
-    return Response(content=_fig_to_svg(fig), media_type=SVG_MEDIA_TYPE)
+    svg = _fig_to_svg(fig)
+    _plot_cache[cache_key] = svg
+    return Response(content=svg, media_type=SVG_MEDIA_TYPE)
