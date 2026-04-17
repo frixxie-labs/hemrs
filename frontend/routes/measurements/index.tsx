@@ -1,27 +1,17 @@
-import { Context } from "fresh";
-import MeasuremetList from "../../components/MeasurementsList.tsx";
-import {
-  getAllLatestMeasurements,
-  Measurement,
-} from "../../lib/measurements.ts";
+import { page } from "fresh";
+import { define } from "../../utils.ts";
+import MeasurementList from "../../components/MeasurementsList.tsx";
+import { getAllLatestMeasurements } from "../../lib/measurements.ts";
 import Button from "../../components/Button.tsx";
 
-interface MeasurementsProps {
-  measurements: Promise<Measurement[]>;
-}
-
-export const handler = {
-  async GET(ctx: Context<MeasurementsProps>) {
-    const measurements = getAllLatestMeasurements();
-    ctx.state.measurements = measurements;
-    return await Measurements(ctx);
+export const handler = define.handlers({
+  async GET(_ctx) {
+    const measurements = await getAllLatestMeasurements();
+    return page({ measurements });
   },
-};
+});
 
-export default async function Measurements(
-  ctx: Context<MeasurementsProps>,
-) {
-  const measurements = await ctx.state.measurements;
+export default define.page<typeof handler>(({ data }) => {
   return (
     <div class="px-4 py-8 mx-auto">
       <div class="max-w-screen-md mx-auto flex flex-col items-center justify-center">
@@ -29,10 +19,8 @@ export default async function Measurements(
         <a href="/measurements/new">
           <Button type="button">New measurement</Button>
         </a>
-        <MeasuremetList
-          measurements={measurements}
-        />
+        <MeasurementList measurements={data.measurements} />
       </div>
     </div>
   );
-}
+});

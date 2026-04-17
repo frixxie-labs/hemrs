@@ -1,40 +1,43 @@
-import { Context } from "fresh";
+import { page } from "fresh";
+import { define } from "../../utils.ts";
 import Button from "../../components/Button.tsx";
 import { createDevice } from "../../lib/device.ts";
 
-interface NewDeviceProps {
-  device_name: string;
-  device_location: string;
-}
-
-export const handler = {
-  async GET(ctx: Context<NewDeviceProps>) {
-    const device_name = ctx.url.searchParams.get("device_name") || "";
-    const device_location = ctx.url.searchParams.get("device_location") || "";
-    if (device_name !== "" && device_location !== "") {
-      await createDevice(device_name, device_location);
-      return Response.redirect(`${ctx.url.origin}/devices`);
-    }
-    console.log(
-      "Device created:",
-      `Name: ${device_name}, Location: ${device_location}`,
-    );
-    return new_device(ctx);
+export const handler = define.handlers({
+  GET(_ctx) {
+    return page({ error: undefined as string | undefined });
   },
-};
+  async POST(ctx) {
+    const form = await ctx.req.formData();
+    const device_name = form.get("device_name")?.toString() || "";
+    const device_location = form.get("device_location")?.toString() || "";
+    if (device_name && device_location) {
+      await createDevice(device_name, device_location);
+      console.log(
+        "Device created:",
+        `Name: ${device_name}, Location: ${device_location}`,
+      );
+      return new Response(null, {
+        status: 303,
+        headers: { Location: "/devices" },
+      });
+    }
+    return page({ error: "Please fill in all fields." });
+  },
+});
 
-export default function new_device(ctx: Context<NewDeviceProps>) {
+export default define.page<typeof handler>(({ data }) => {
   return (
     <div class="px-4 py-8 mx-auto">
       <div class="max-w-screen-md mx-auto flex flex-col items-center justify-center">
         <h1 class="text-2xl font-bold mb-4">New Device</h1>
-        <form>
+        {data.error && <p class="text-red-500 mb-4">{data.error}</p>}
+        <form method="POST">
           <label class="block mb-2">
             Device Name:
             <input
               type="text"
               name="device_name"
-              value={ctx.state.device_name}
               class="border rounded px-3 py-2 w-full"
               required
             />
@@ -44,7 +47,6 @@ export default function new_device(ctx: Context<NewDeviceProps>) {
             <input
               type="text"
               name="device_location"
-              value={ctx.state.device_location}
               class="border rounded px-3 py-2 w-full"
               required
             />
@@ -59,4 +61,4 @@ export default function new_device(ctx: Context<NewDeviceProps>) {
       </div>
     </div>
   );
-}
+});
