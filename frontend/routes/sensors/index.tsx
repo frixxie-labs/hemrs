@@ -1,23 +1,17 @@
-import { Context } from "fresh";
+import { page } from "fresh";
+import { define } from "../../utils.ts";
 import SensorList from "../../components/SensorList.tsx";
-import { getSensors, Sensor } from "../../lib/sensor.ts";
+import { getSensors } from "../../lib/sensor.ts";
 import Button from "../../components/Button.tsx";
 
-interface SensorsProps {
-  sensors: Promise<Sensor[]>;
-}
-
-export const handler = {
-  async GET(ctx: Context<SensorsProps>) {
-    const sensors = getSensors();
-
-    ctx.state.sensors = sensors;
-    return await Sensors(ctx);
+export const handler = define.handlers({
+  async GET(_ctx) {
+    const sensors = await getSensors();
+    return page({ sensors });
   },
-};
+});
 
-export default async function Sensors(ctx: Context<SensorsProps>) {
-  const sensors = await ctx.state.sensors;
+export default define.page<typeof handler>(({ data }) => {
   return (
     <div class="px-4 py-8 mx-auto">
       <div class="max-w-screen-md mx-auto flex flex-col items-center justify-center">
@@ -25,10 +19,8 @@ export default async function Sensors(ctx: Context<SensorsProps>) {
         <a href="/sensors/new">
           <Button type="button">New Sensor</Button>
         </a>
-        <SensorList
-          sensors={sensors}
-        />
+        <SensorList sensors={data.sensors} />
       </div>
     </div>
   );
-}
+});

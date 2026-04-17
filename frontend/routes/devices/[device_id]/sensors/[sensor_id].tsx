@@ -1,86 +1,58 @@
-import { Context } from "fresh";
-import {
-  getMeasurementStats,
-  MeasurementStats as Stats,
-} from "../../../../lib/measurement_stats.ts";
+import { HttpError, page } from "fresh";
+import { define } from "../../../../utils.ts";
+import { getMeasurementStats } from "../../../../lib/measurement_stats.ts";
 import MeasurementStatCard from "../../../../components/MeasurementStatCard.tsx";
 import PlotCard from "../../../../components/PlotCard.tsx";
-import { Device, getDeviceById } from "../../../../lib/device.ts";
-import { getSensorById, Sensor } from "../../../../lib/sensor.ts";
+import { getDeviceById } from "../../../../lib/device.ts";
+import { getSensorById } from "../../../../lib/sensor.ts";
 import {
   getLatestMeasurementByDeviceAndSensorId,
-  Measurement,
 } from "../../../../lib/measurements.ts";
 import { getTodayDeviceSensorMeasurementsPlot } from "../../../../lib/plotter.ts";
 
-interface MeasurementStatsProps {
-  stats: Promise<Stats>;
-  latest: Promise<Measurement>;
-  device: Device;
-  sensor: Sensor;
-  plot: Promise<string | null>;
-}
+export const handler = define.handlers({
+  async GET(ctx) {
+    const device_id = parseInt(ctx.params.device_id);
+    const sensor_id = parseInt(ctx.params.sensor_id);
 
-export const handler = {
-  async GET(ctx: Context<MeasurementStatsProps>) {
-    const device_id = ctx.params.device_id;
-    const sensor_id = ctx.params.sensor_id;
+    const [stats, latest, plot, device, sensor] = await Promise.all([
+      getMeasurementStats(device_id, sensor_id),
+      getLatestMeasurementByDeviceAndSensorId(device_id, sensor_id),
+      getTodayDeviceSensorMeasurementsPlot(device_id, sensor_id),
+      getDeviceById(device_id),
+      getSensorById(sensor_id),
+    ]);
 
-    const stats = getMeasurementStats(
-      parseInt(device_id),
-      parseInt(sensor_id),
-    );
-
-    const latest = getLatestMeasurementByDeviceAndSensorId(
-      parseInt(device_id),
-      parseInt(sensor_id),
-    );
-
-    const plot = getTodayDeviceSensorMeasurementsPlot(
-      parseInt(device_id),
-      parseInt(sensor_id),
-    );
-
-    const device = await getDeviceById(parseInt(device_id));
     if (!device) {
-      throw new Error(`Device with ID ${device_id} not found`);
+      throw new HttpError(404, `Device with ID ${device_id} not found`);
     }
-    const sensor = await getSensorById(parseInt(sensor_id));
     if (!sensor) {
-      throw new Error(`Sensor with ID ${sensor_id} not found`);
+      throw new HttpError(404, `Sensor with ID ${sensor_id} not found`);
     }
 
-    ctx.state.stats = stats;
-    ctx.state.device = device;
-    ctx.state.sensor = sensor;
-    ctx.state.latest = latest;
-    ctx.state.plot = plot;
-
-    return MeasurementStats(ctx);
+    return page({ stats, latest, plot, device, sensor });
   },
-};
+});
 
-export default async function MeasurementStats(
-  ctx: Context<MeasurementStatsProps>,
-) {
-  const stats = await ctx.state.stats;
-  const latest = await ctx.state.latest;
-  const plot = await ctx.state.plot;
+export default define.page<typeof handler>(({ data }) => {
   return (
     <div class="px-4 py-8 mx-auto">
       <div class="max-w-screen-md mx-auto flex flex-col items-center justify-center">
         <h1 class="text-2xl font-bold mb-4">
-          Measurement Statistics for {ctx.state.sensor.name}
+          Measurement Statistics for {data.sensor.name}
         </h1>
         <p class="text-lg mb-4">
-          Device: {ctx.state.device.name} ({ctx.state.device.id})
+          Device: {data.device.name} ({data.device.id})
         </p>
-        <MeasurementStatCard measurement_stats={stats} latest={latest} />
+        <MeasurementStatCard
+          measurement_stats={data.stats}
+          latest={data.latest}
+        />
         <PlotCard
-          title={`${ctx.state.sensor.name} Measurements Over Time`}
-          svg={plot}
+          title={`${data.sensor.name} Measurements Over Time`}
+          svg={data.plot}
         />
       </div>
     </div>
   );
-}
+});

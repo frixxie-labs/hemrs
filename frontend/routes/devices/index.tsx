@@ -1,23 +1,17 @@
-import { Context } from "fresh";
+import { page } from "fresh";
+import { define } from "../../utils.ts";
 import Button from "../../components/Button.tsx";
-import { Device, getDevices } from "../../lib/device.ts";
+import { getDevices } from "../../lib/device.ts";
 import DeviceList from "../../components/DeviceList.tsx";
 
-interface DeviceProps {
-  devices: Promise<Device[]>;
-}
-
-export const handler = {
-  async GET(ctx: Context<DeviceProps>) {
-    const devices = getDevices();
-
-    ctx.state.devices = devices;
-    return await Devices(ctx);
+export const handler = define.handlers({
+  async GET(_ctx) {
+    const devices = await getDevices();
+    return page({ devices });
   },
-};
+});
 
-export default async function Devices(ctx: Context<DeviceProps>) {
-  const devices = await ctx.state.devices;
+export default define.page<typeof handler>(({ data }) => {
   return (
     <div class="px-2 sm:px-4 py-4 sm:py-8 mx-auto">
       <div class="max-w-screen-lg mx-auto flex flex-col items-center justify-center space-y-4">
@@ -27,10 +21,8 @@ export default async function Devices(ctx: Context<DeviceProps>) {
         <a href="/devices/new" class="mb-4">
           <Button type="button">New Device</Button>
         </a>
-        <DeviceList
-          devices={devices}
-        />
+        <DeviceList devices={data.devices} />
       </div>
     </div>
   );
-}
+});
