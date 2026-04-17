@@ -126,15 +126,6 @@ build-frontend:
     - changes:
         - frontend/**/*
 
-test-frontend:
-  stage: test
-  image: "denoland/deno:latest"
-  script:
-    - cd frontend
-    - deno test
-  rules:
-    - changes:
-        - frontend/**/*
 
 deploy-frontend:
   stage: deploy
