@@ -115,6 +115,17 @@ deploy-backend:
 
 # ── Frontend (Deno) ───────────────────────────────────────────────
 
+lint-frontend:
+  stage: lint
+  image: "denoland/deno:latest"
+  script:
+    - cd frontend
+    - deno fmt --check .
+    - deno lint .
+  rules:
+    - changes:
+        - frontend/**/*
+
 build-frontend:
   stage: build
   image: "denoland/deno:latest"
@@ -126,6 +137,16 @@ build-frontend:
     - changes:
         - frontend/**/*
 
+
+test-frontend:
+  stage: test
+  image: "denoland/deno:latest"
+  script:
+    - cd frontend
+    - deno task test
+  rules:
+    - changes:
+        - frontend/**/*
 
 deploy-frontend:
   stage: deploy
