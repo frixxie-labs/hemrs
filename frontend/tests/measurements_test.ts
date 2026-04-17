@@ -5,72 +5,38 @@ import {
   getLatestMeasurementByDeviceAndSensorId,
   getMeasurementCount,
 } from "../lib/measurements.ts";
-import { getDevices } from "../lib/device.ts";
-import { getSensorsByDeviceId } from "../lib/sensor.ts";
+import { installMockFetch, okTextResponse } from "./mock_fetch.ts";
+
+const MOCK_MEASUREMENT = {
+  timestamp: "2025-01-15T12:00:00Z",
+  value: 22.5,
+  unit: "°C",
+  device_name: "Living Room Sensor",
+  device_location: "Living Room",
+  sensor_name: "Temperature",
+};
+
+const MOCK_MEASUREMENTS = [
+  MOCK_MEASUREMENT,
+  {
+    timestamp: "2025-01-15T12:00:00Z",
+    value: 55.0,
+    unit: "%",
+    device_name: "Living Room Sensor",
+    device_location: "Living Room",
+    sensor_name: "Humidity",
+  },
+];
 
 Deno.test("getLatestMeasurement returns a measurement object", async () => {
-  const measurement = await getLatestMeasurement();
-  if (measurement === null) {
-    throw new Error("Expected a measurement object, but got null");
-  }
-  if (
-    typeof measurement.timestamp !== "string" ||
-    typeof measurement.value !== "number" ||
-    typeof measurement.unit !== "string" ||
-    typeof measurement.device_name !== "string" ||
-    typeof measurement.device_location !== "string" ||
-    typeof measurement.sensor_name !== "string"
-  ) {
-    throw new Error("Measurement object does not have the expected structure");
-  }
-});
-
-Deno.test("getLatestMeasurementByDeviceAndSensorId returns a measurement object", async () => {
-  // Get actual devices and sensors from the database
-  const devices = await getDevices();
-  if (devices.length === 0) {
-    throw new Error("No devices found to test");
-  }
-
-  const deviceId = devices[0].id;
-  const sensors = await getSensorsByDeviceId(deviceId);
-  if (sensors.length === 0) {
-    throw new Error("No sensors found for the device");
-  }
-
-  const sensorId = sensors[0].id;
-
-  // Create a test measurement to ensure data exists
-  await createMeasurement(deviceId, sensorId, 25.5);
-
-  const measurement = await getLatestMeasurementByDeviceAndSensorId(
-    deviceId,
-    sensorId,
-  );
-  if (measurement === null) {
-    throw new Error("Expected a measurement object, but got null");
-  }
-  if (
-    typeof measurement.timestamp !== "string" ||
-    typeof measurement.value !== "number" ||
-    typeof measurement.unit !== "string" ||
-    typeof measurement.device_name !== "string" ||
-    typeof measurement.device_location !== "string" ||
-    typeof measurement.sensor_name !== "string"
-  ) {
-    throw new Error("Measurement object does not have the expected structure");
-  }
-});
-
-Deno.test("getAllLatestMeasurements returns an array of measurement objects", async () => {
-  const measurements = await getAllLatestMeasurements();
-  if (!Array.isArray(measurements)) {
-    throw new Error("Expected an array of measurements");
-  }
-  if (measurements.length === 0) {
-    throw new Error("Expected at least one measurement");
-  }
-  measurements.forEach((measurement) => {
+  const restore = installMockFetch({
+    "api/measurements/latest": MOCK_MEASUREMENT,
+  });
+  try {
+    const measurement = await getLatestMeasurement();
+    if (measurement === null) {
+      throw new Error("Expected a measurement object, but got null");
+    }
     if (
       typeof measurement.timestamp !== "string" ||
       typeof measurement.value !== "number" ||
@@ -83,15 +49,84 @@ Deno.test("getAllLatestMeasurements returns an array of measurement objects", as
         "Measurement object does not have the expected structure",
       );
     }
+  } finally {
+    restore();
+  }
+});
+
+Deno.test("getLatestMeasurementByDeviceAndSensorId returns a measurement object", async () => {
+  const restore = installMockFetch({
+    "POST api/measurements": () => okTextResponse(),
+    "measurements/latest": MOCK_MEASUREMENT,
   });
+  try {
+    await createMeasurement(1, 1, 25.5);
+
+    const measurement = await getLatestMeasurementByDeviceAndSensorId(1, 1);
+    if (measurement === null) {
+      throw new Error("Expected a measurement object, but got null");
+    }
+    if (
+      typeof measurement.timestamp !== "string" ||
+      typeof measurement.value !== "number" ||
+      typeof measurement.unit !== "string" ||
+      typeof measurement.device_name !== "string" ||
+      typeof measurement.device_location !== "string" ||
+      typeof measurement.sensor_name !== "string"
+    ) {
+      throw new Error(
+        "Measurement object does not have the expected structure",
+      );
+    }
+  } finally {
+    restore();
+  }
+});
+
+Deno.test("getAllLatestMeasurements returns an array of measurement objects", async () => {
+  const restore = installMockFetch({
+    "api/measurements/latest/all": MOCK_MEASUREMENTS,
+  });
+  try {
+    const measurements = await getAllLatestMeasurements();
+    if (!Array.isArray(measurements)) {
+      throw new Error("Expected an array of measurements");
+    }
+    if (measurements.length === 0) {
+      throw new Error("Expected at least one measurement");
+    }
+    measurements.forEach((measurement) => {
+      if (
+        typeof measurement.timestamp !== "string" ||
+        typeof measurement.value !== "number" ||
+        typeof measurement.unit !== "string" ||
+        typeof measurement.device_name !== "string" ||
+        typeof measurement.device_location !== "string" ||
+        typeof measurement.sensor_name !== "string"
+      ) {
+        throw new Error(
+          "Measurement object does not have the expected structure",
+        );
+      }
+    });
+  } finally {
+    restore();
+  }
 });
 
 Deno.test("getMeasurementCount returns a number", async () => {
-  const count = await getMeasurementCount();
-  if (typeof count !== "number") {
-    throw new Error("Expected a number for measurement count");
-  }
-  if (count < 0) {
-    throw new Error("Measurement count should not be negative");
+  const restore = installMockFetch({
+    "api/measurements/count": 42,
+  });
+  try {
+    const count = await getMeasurementCount();
+    if (typeof count !== "number") {
+      throw new Error("Expected a number for measurement count");
+    }
+    if (count < 0) {
+      throw new Error("Measurement count should not be negative");
+    }
+  } finally {
+    restore();
   }
 });

@@ -1,6 +1,7 @@
 {
   "nodeModulesDir": "auto",
   "tasks": {
+    "test": "deno test --allow-env tests/",
     "check": "deno fmt --check . && deno lint . && deno check",
     "dev": "vite",
     "build": "vite build",
