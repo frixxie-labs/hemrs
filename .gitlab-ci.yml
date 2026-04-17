@@ -67,6 +67,11 @@ build-backend:
     - cargo build --workspace --verbose
   variables:
     SQLX_OFFLINE: 1
+  rules:
+    - changes:
+        - backend/**/*
+        - Cargo.toml
+        - Cargo.lock
 
 test-backend:
   stage: test
@@ -84,6 +89,11 @@ test-backend:
     POSTGRES_PASSWORD: admin
     POSTGRES_HOST_AUTH_METHOD: trust
     DATABASE_URL: postgresql://postgres:admin@postgres:5432/postgres
+  rules:
+    - changes:
+        - backend/**/*
+        - Cargo.toml
+        - Cargo.lock
 
 deploy-backend:
   stage: deploy
@@ -112,6 +122,16 @@ build-frontend:
     - cd frontend
     - deno task check
     - deno task build
+  rules:
+    - changes:
+        - frontend/**/*
+
+test-frontend:
+  stage: test
+  image: "denoland/deno:latest"
+  script:
+    - cd frontend
+    - deno test
   rules:
     - changes:
         - frontend/**/*
