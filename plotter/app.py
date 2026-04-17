@@ -198,9 +198,15 @@ def plot_measurements_by_device_and_sensor(
     if len(timestamps) >= 2:
         ts_numeric = np.array([t.timestamp() for t in timestamps])
         vals = np.array(values)
-        coeffs = np.polyfit(ts_numeric, vals, 1)
+        coeffs = np.polyfit(ts_numeric, vals, 3)
         reg_values = np.polyval(coeffs, ts_numeric)
-        ax.plot(timestamps, reg_values, linestyle=":", color="red", label="Regression")
+        ax.plot(
+            timestamps,
+            reg_values,
+            linestyle=":",
+            color="red",
+            label="Polynomial regression",
+        )
         ax.legend(fontsize="small", loc="best")
 
     ax.set_xlabel("Time")
