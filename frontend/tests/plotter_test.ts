@@ -96,16 +96,17 @@ Deno.test("getTodayDeviceSensorMeasurementsPlot passes today start param", async
     if (!capturedUrl.includes("/plot/devices/3/sensors/7/measurements")) {
       throw new Error(`Unexpected URL path: ${capturedUrl}`);
     }
-    // URL should contain a start query param with today's midnight as ISO string
-    const today = new Date();
-    const startOfDay = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
-    ).toISOString();
-    if (!capturedUrl.includes(`start=${startOfDay}`)) {
+    // URL should contain a start query param within the last 24 hours
+    const url = new URL(capturedUrl, "http://localhost");
+    const startParam = url.searchParams.get("start");
+    if (!startParam) {
+      throw new Error(`Expected start query param, got: ${capturedUrl}`);
+    }
+    const startTime = new Date(startParam).getTime();
+    const expected = Date.now() - 24 * 60 * 60 * 1000;
+    if (Math.abs(startTime - expected) > 5000) {
       throw new Error(
-        `Expected start param with today's start (${startOfDay}), got: ${capturedUrl}`,
+        `Expected start param ~24h ago, got: ${startParam}`,
       );
     }
   } finally {
