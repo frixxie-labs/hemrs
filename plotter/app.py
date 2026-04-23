@@ -198,7 +198,7 @@ def plot_measurements_by_device_and_sensor(
     if len(timestamps) >= 2:
         ts_numeric = np.array([t.timestamp() for t in timestamps])
         vals = np.array(values)
-        coeffs = np.polyfit(ts_numeric, vals, 3)
+        coeffs = np.polyfit(ts_numeric, vals, 2)
         reg_values = np.polyval(coeffs, ts_numeric)
         ax.plot(
             timestamps,
