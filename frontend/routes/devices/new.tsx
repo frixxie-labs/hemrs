@@ -28,7 +28,10 @@ export default define.page<typeof handler>(({ data }) => {
       <div class="max-w-screen-md mx-auto">
         <h1 class="text-2xl font-bold mb-4 text-text-primary">New Device</h1>
         {data.error && <p class="text-red-400 mb-4">{data.error}</p>}
-        <form method="POST" class="bg-dark-card border border-dark-border rounded-xl p-6 space-y-4">
+        <form
+          method="POST"
+          class="bg-dark-card border border-dark-border rounded-xl p-6 space-y-4"
+        >
           <label class="block">
             <span class="text-text-secondary text-sm">Device Name:</span>
             <input
@@ -47,7 +50,10 @@ export default define.page<typeof handler>(({ data }) => {
               required
             />
           </label>
-          <Button type="submit" class="bg-accent-green-dim text-dark-bg hover:bg-accent-green">
+          <Button
+            type="submit"
+            class="bg-accent-green-dim text-dark-bg hover:bg-accent-green"
+          >
             Create Device
           </Button>
         </form>
