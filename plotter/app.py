@@ -133,7 +133,14 @@ def plot_all_measurements(request: Request):
         items.sort(key=lambda m: m.timestamp)
         timestamps = [m.timestamp for m in items]
         values = [m.value for m in items]
-        ax.plot(timestamps, values, label=label, marker=".", markersize=3, color=_kanagawa_color(i))
+        ax.plot(
+            timestamps,
+            values,
+            label=label,
+            marker=".",
+            markersize=3,
+            color=_kanagawa_color(i),
+        )
 
     ax.set_xlabel("Time")
     ax.set_ylabel("Value")
@@ -178,7 +185,14 @@ def plot_measurements_by_device(device_id: int, request: Request):
         items.sort(key=lambda m: m.timestamp)
         timestamps = [m.timestamp for m in items]
         values = [m.value for m in items]
-        ax.plot(timestamps, values, label=label, marker=".", markersize=3, color=_kanagawa_color(i))
+        ax.plot(
+            timestamps,
+            values,
+            label=label,
+            marker=".",
+            markersize=3,
+            color=_kanagawa_color(i),
+        )
 
     ax.set_xlabel("Time")
     ax.set_ylabel("Value")
@@ -294,7 +308,14 @@ def plot_measurements_by_range(
         items.sort(key=lambda m: m.timestamp)
         timestamps = [m.timestamp for m in items]
         values = [m.value for m in items]
-        ax.plot(timestamps, values, label=label, marker=".", markersize=3, color=_kanagawa_color(i))
+        ax.plot(
+            timestamps,
+            values,
+            label=label,
+            marker=".",
+            markersize=3,
+            color=_kanagawa_color(i),
+        )
 
     ax.set_xlabel("Time")
     ax.set_ylabel("Value")

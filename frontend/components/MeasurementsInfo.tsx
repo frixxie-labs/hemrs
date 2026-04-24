@@ -37,8 +37,16 @@ export default function MeasurementsInfo({
         )}
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard label="Devices" value={device_count} subtitle="Registered devices" />
-        <StatCard label="Sensors" value={sensor_count} subtitle="Configured sensors" />
+        <StatCard
+          label="Devices"
+          value={device_count}
+          subtitle="Registered devices"
+        />
+        <StatCard
+          label="Sensors"
+          value={sensor_count}
+          subtitle="Configured sensors"
+        />
         <StatCard
           label="Measurements"
           value={measurement_count.toLocaleString()}
