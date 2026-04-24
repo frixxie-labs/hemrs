@@ -13,14 +13,14 @@ export const handler = define.handlers({
 
 export default define.page<typeof handler>(({ data }) => {
   return (
-    <div class="px-4 py-8 mx-auto">
-      <div class="max-w-screen-md mx-auto flex flex-col items-center justify-center">
-        <h1 class="text-2xl font-bold mb-4">Sensors</h1>
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-text-primary">Sensors</h1>
         <a href="/sensors/new">
           <Button type="button">New Sensor</Button>
         </a>
-        <SensorList sensors={data.sensors} />
       </div>
+      <SensorList sensors={data.sensors} />
     </div>
   );
 });

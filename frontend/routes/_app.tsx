@@ -7,10 +7,10 @@ export default function App({ Component }: PageProps) {
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>fresh-project</title>
+        <title>HEMRS - Sensor Dashboard</title>
         <link rel="stylesheet" href="/styles.css" />
       </head>
-      <body f-client-nav>
+      <body f-client-nav class="bg-dark-bg text-text-primary">
         <Partial name="body">
           <Component />
         </Partial>

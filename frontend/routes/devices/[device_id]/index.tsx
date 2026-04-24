@@ -20,19 +20,19 @@ export const handler = define.handlers({
 
 export default define.page<typeof handler>(({ data }) => {
   return (
-    <div class="px-4 py-8 mx-auto">
-      <div class="max-w-screen-md mx-auto flex flex-col items-center justify-center">
-        <h1 class="text-3xl font-bold mb-4">
+    <div class="space-y-4">
+      <div class="bg-dark-card border border-dark-border rounded-xl p-6">
+        <h1 class="text-2xl font-bold text-text-primary">
           Device: {data.device.name}
         </h1>
-        <p class="text-lg mb-6">
-          Device Location: {data.device.location}
+        <p class="text-text-secondary mt-1">
+          Location: {data.device.location}
         </p>
-        <SensorList
-          device_id={data.device.id}
-          sensors={data.sensors}
-        />
       </div>
+      <SensorList
+        device_id={data.device.id}
+        sensors={data.sensors}
+      />
     </div>
   );
 });

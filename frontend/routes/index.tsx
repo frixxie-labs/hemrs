@@ -19,18 +19,13 @@ export const handler = define.handlers({
 
 export default define.page<typeof handler>(({ data }) => {
   return (
-    <div class="px-2 sm:px-4 py-4 sm:py-8 mx-auto">
-      <div class="max-w-screen-lg mx-auto flex flex-col items-center justify-center space-y-4">
-        <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">
-          HEMRS Dashboard
-        </h1>
-        <MeasurementsInfo
-          device_count={data.devices.length}
-          sensor_count={data.sensors.length}
-          measurement_count={data.measurement_count}
-        />
-        <DeviceList devices={data.devices} clickable />
-      </div>
+    <div class="space-y-6">
+      <MeasurementsInfo
+        device_count={data.devices.length}
+        sensor_count={data.sensors.length}
+        measurement_count={data.measurement_count}
+      />
+      <DeviceList devices={data.devices} clickable searchable />
     </div>
   );
 });

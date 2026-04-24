@@ -28,10 +28,6 @@ export const handler = define.handlers({
         parseInt(sensor_id),
         parseFloat(value),
       );
-      console.log(
-        "Measurement created:",
-        `Device ID: ${device_id}, Sensor ID: ${sensor_id}, Value: ${value}`,
-      );
       return new Response(null, {
         status: 303,
         headers: { Location: "/measurements" },
@@ -46,15 +42,17 @@ export const handler = define.handlers({
 export default define.page<typeof handler>(({ data }) => {
   return (
     <div class="px-4 py-8 mx-auto">
-      <div class="max-w-screen-md mx-auto flex flex-col items-center justify-center">
-        <h1 class="text-2xl font-bold mb-4">New measurement</h1>
-        {data.error && <p class="text-red-500 mb-4">{data.error}</p>}
-        <form method="POST">
-          <label class="block mb-2">
-            Device:
+      <div class="max-w-screen-md mx-auto">
+        <h1 class="text-2xl font-bold mb-4 text-text-primary">
+          New measurement
+        </h1>
+        {data.error && <p class="text-red-400 mb-4">{data.error}</p>}
+        <form method="POST" class="bg-dark-card border border-dark-border rounded-xl p-6 space-y-4">
+          <label class="block">
+            <span class="text-text-secondary text-sm">Device:</span>
             <select
               name="device_id"
-              class="border rounded px-3 py-2 w-full"
+              class="bg-dark-card-inner border border-dark-border rounded-lg px-3 py-2 w-full text-text-primary mt-1 focus:outline-none focus:border-accent-green"
               required
             >
               {data.devices.map((device) => (
@@ -64,11 +62,11 @@ export default define.page<typeof handler>(({ data }) => {
               ))}
             </select>
           </label>
-          <label class="block mb-2">
-            Sensor:
+          <label class="block">
+            <span class="text-text-secondary text-sm">Sensor:</span>
             <select
               name="sensor_id"
-              class="border rounded px-3 py-2 w-full"
+              class="bg-dark-card-inner border border-dark-border rounded-lg px-3 py-2 w-full text-text-primary mt-1 focus:outline-none focus:border-accent-green"
               required
             >
               {data.sensors.map((sensor) => (
@@ -78,19 +76,16 @@ export default define.page<typeof handler>(({ data }) => {
               ))}
             </select>
           </label>
-          <label class="block mb-2">
-            Value:
+          <label class="block">
+            <span class="text-text-secondary text-sm">Value:</span>
             <input
               type="number"
               name="value"
-              class="border rounded px-3 py-2 w-full"
+              class="bg-dark-card-inner border border-dark-border rounded-lg px-3 py-2 w-full text-text-primary mt-1 focus:outline-none focus:border-accent-green"
               required
             />
           </label>
-          <Button
-            type="submit"
-            class="bg-blue-500 text-white px-4 py-2 rounded"
-          >
+          <Button type="submit" class="bg-accent-green-dim text-dark-bg hover:bg-accent-green">
             Create Measurement
           </Button>
         </form>

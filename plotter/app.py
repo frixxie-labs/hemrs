@@ -15,6 +15,47 @@ from backend_client import BackendClient
 
 matplotlib.use("svg")
 
+# -- Kanagawa theme (inspired by "The Great Wave off Kanagawa") --
+_KANAGAWA_BG = "#1F1F28"  # sumiInk0 – dark indigo background
+_KANAGAWA_FG = "#DCD7BA"  # fujiWhite – warm off-white foreground
+_KANAGAWA_GRID = "#54546D"  # sumiInk4
+_KANAGAWA_PALETTE = [
+    "#7E9CD8",  # crystalBlue
+    "#E46876",  # waveRed
+    "#98BB6C",  # springGreen
+    "#E6C384",  # carpYellow
+    "#957FB8",  # oniViolet
+    "#7FB4CA",  # springBlue
+    "#D27E99",  # sakuraPink
+    "#FF9E3B",  # surimiOrange
+    "#7AA89F",  # waveAqua2
+    "#FFA066",  # peachRed
+]
+
+
+def _apply_kanagawa(fig: plt.Figure, ax: plt.Axes):
+    """Apply Kanagawa colour theme to a figure and axes."""
+    fig.patch.set_facecolor(_KANAGAWA_BG)
+    ax.set_facecolor(_KANAGAWA_BG)
+    ax.title.set_color(_KANAGAWA_FG)
+    ax.xaxis.label.set_color(_KANAGAWA_FG)
+    ax.yaxis.label.set_color(_KANAGAWA_FG)
+    ax.tick_params(colors=_KANAGAWA_FG)
+    for spine in ax.spines.values():
+        spine.set_color(_KANAGAWA_GRID)
+    ax.grid(True, color=_KANAGAWA_GRID, alpha=0.4)
+    legend = ax.get_legend()
+    if legend:
+        legend.get_frame().set_facecolor(_KANAGAWA_BG)
+        legend.get_frame().set_edgecolor(_KANAGAWA_GRID)
+        for text in legend.get_texts():
+            text.set_color(_KANAGAWA_FG)
+
+
+def _kanagawa_color(index: int) -> str:
+    return _KANAGAWA_PALETTE[index % len(_KANAGAWA_PALETTE)]
+
+
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:65534")
 CACHE_TTL = int(os.environ.get("PLOT_CACHE_TTL", "60"))
 CACHE_MAXSIZE = int(os.environ.get("PLOT_CACHE_MAXSIZE", "128"))
@@ -88,11 +129,11 @@ def plot_all_measurements(request: Request):
         groups.setdefault(key, []).append(m)
 
     fig, ax = plt.subplots(figsize=(12, 6))
-    for label, items in groups.items():
+    for i, (label, items) in enumerate(groups.items()):
         items.sort(key=lambda m: m.timestamp)
         timestamps = [m.timestamp for m in items]
         values = [m.value for m in items]
-        ax.plot(timestamps, values, label=label, marker=".", markersize=3)
+        ax.plot(timestamps, values, label=label, marker=".", markersize=3, color=_kanagawa_color(i))
 
     ax.set_xlabel("Time")
     ax.set_ylabel("Value")
@@ -100,7 +141,7 @@ def plot_all_measurements(request: Request):
     ax.legend(fontsize="small", loc="best")
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d %H:%M"))
     fig.autofmt_xdate()
-    ax.grid(True, alpha=0.3)
+    _apply_kanagawa(fig, ax)
 
     svg = _fig_to_svg(fig)
     _plot_cache[cache_key] = svg
@@ -133,11 +174,11 @@ def plot_measurements_by_device(device_id: int, request: Request):
     device_label = measurements[0].device_name
 
     fig, ax = plt.subplots(figsize=(12, 6))
-    for label, items in groups.items():
+    for i, (label, items) in enumerate(groups.items()):
         items.sort(key=lambda m: m.timestamp)
         timestamps = [m.timestamp for m in items]
         values = [m.value for m in items]
-        ax.plot(timestamps, values, label=label, marker=".", markersize=3)
+        ax.plot(timestamps, values, label=label, marker=".", markersize=3, color=_kanagawa_color(i))
 
     ax.set_xlabel("Time")
     ax.set_ylabel("Value")
@@ -145,7 +186,7 @@ def plot_measurements_by_device(device_id: int, request: Request):
     ax.legend(fontsize="small", loc="best")
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d %H:%M"))
     fig.autofmt_xdate()
-    ax.grid(True, alpha=0.3)
+    _apply_kanagawa(fig, ax)
 
     svg = _fig_to_svg(fig)
     _plot_cache[cache_key] = svg
@@ -192,7 +233,7 @@ def plot_measurements_by_device_and_sensor(
     label = f"{measurements[0].sensor_name} ({measurements[0].unit})"
 
     fig, ax = plt.subplots(figsize=(12, 6))
-    ax.plot(timestamps, values, marker=".", markersize=3)
+    ax.plot(timestamps, values, marker=".", markersize=3, color=_kanagawa_color(0))
 
     # Dotted regression line
     if len(timestamps) >= 2:
@@ -204,7 +245,7 @@ def plot_measurements_by_device_and_sensor(
             timestamps,
             reg_values,
             linestyle=":",
-            color="red",
+            color=_kanagawa_color(1),
             label="Polynomial regression",
         )
         ax.legend(fontsize="small", loc="best")
@@ -214,7 +255,7 @@ def plot_measurements_by_device_and_sensor(
     ax.set_title(f"{measurements[0].device_name} — {label}")
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d %H:%M"))
     fig.autofmt_xdate()
-    ax.grid(True, alpha=0.3)
+    _apply_kanagawa(fig, ax)
 
     svg = _fig_to_svg(fig)
     _plot_cache[cache_key] = svg
@@ -249,11 +290,11 @@ def plot_measurements_by_range(
         groups.setdefault(key, []).append(m)
 
     fig, ax = plt.subplots(figsize=(12, 6))
-    for label, items in groups.items():
+    for i, (label, items) in enumerate(groups.items()):
         items.sort(key=lambda m: m.timestamp)
         timestamps = [m.timestamp for m in items]
         values = [m.value for m in items]
-        ax.plot(timestamps, values, label=label, marker=".", markersize=3)
+        ax.plot(timestamps, values, label=label, marker=".", markersize=3, color=_kanagawa_color(i))
 
     ax.set_xlabel("Time")
     ax.set_ylabel("Value")
@@ -264,7 +305,7 @@ def plot_measurements_by_range(
     ax.legend(fontsize="small", loc="best")
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d %H:%M"))
     fig.autofmt_xdate()
-    ax.grid(True, alpha=0.3)
+    _apply_kanagawa(fig, ax)
 
     svg = _fig_to_svg(fig)
     _plot_cache[cache_key] = svg
@@ -290,12 +331,12 @@ def plot_all_latest_measurements(request: Request):
     values = [m.value for m in measurements]
 
     fig, ax = plt.subplots(figsize=(max(6, len(labels) * 1.2), 6))
-    bars = ax.bar(range(len(labels)), values)
+    bar_colors = [_kanagawa_color(i) for i in range(len(labels))]
+    bars = ax.bar(range(len(labels)), values, color=bar_colors)
     ax.set_xticks(range(len(labels)))
     ax.set_xticklabels(labels, fontsize="small")
     ax.set_ylabel("Value")
     ax.set_title("Latest Measurements (per device/sensor)")
-    ax.grid(True, axis="y", alpha=0.3)
 
     for bar, val in zip(bars, values):
         ax.text(
@@ -305,8 +346,10 @@ def plot_all_latest_measurements(request: Request):
             ha="center",
             va="bottom",
             fontsize="small",
+            color=_KANAGAWA_FG,
         )
 
+    _apply_kanagawa(fig, ax)
     fig.tight_layout()
 
     svg = _fig_to_svg(fig)

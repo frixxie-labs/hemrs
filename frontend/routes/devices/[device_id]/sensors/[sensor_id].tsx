@@ -36,23 +36,23 @@ export const handler = define.handlers({
 
 export default define.page<typeof handler>(({ data }) => {
   return (
-    <div class="px-4 py-8 mx-auto">
-      <div class="max-w-screen-md mx-auto flex flex-col items-center justify-center">
-        <h1 class="text-2xl font-bold mb-4">
-          Measurement Statistics for {data.sensor.name}
+    <div class="space-y-4">
+      <div class="bg-dark-card border border-dark-border rounded-xl p-6">
+        <h1 class="text-2xl font-bold text-text-primary">
+          {data.sensor.name}
         </h1>
-        <p class="text-lg mb-4">
-          Device: {data.device.name} ({data.device.id})
+        <p class="text-text-secondary mt-1">
+          Device: {data.device.name} (#{data.device.id})
         </p>
-        <MeasurementStatCard
-          measurement_stats={data.stats}
-          latest={data.latest}
-        />
-        <PlotCard
-          title={`${data.sensor.name} Measurements Over Time`}
-          svg={data.plot}
-        />
       </div>
+      <MeasurementStatCard
+        measurement_stats={data.stats}
+        latest={data.latest}
+      />
+      <PlotCard
+        title={`${data.sensor.name} Measurements Over Time`}
+        svg={data.plot}
+      />
     </div>
   );
 });

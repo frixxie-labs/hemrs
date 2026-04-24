@@ -3,23 +3,40 @@ import { Device } from "../lib/device.ts";
 interface DeviceListProps {
   devices: Device[];
   clickable?: boolean;
+  searchable?: boolean;
 }
 
 export default function DeviceList(
-  { devices, clickable = false }: DeviceListProps,
+  { devices, clickable = false, searchable = false }: DeviceListProps,
 ) {
   return (
-    <div class="bg-slate-100 p-2 sm:p-4 rounded shadow-md mt-6 w-full">
-      {/* Mobile-first card layout for small screens */}
+    <div class="bg-dark-card border border-dark-border rounded-xl p-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-xl font-bold text-text-primary">Devices</h2>
+          <p class="text-text-secondary text-sm">
+            {devices.length} devices shown
+          </p>
+        </div>
+        {searchable && (
+          <input
+            type="text"
+            placeholder="Search name, location, type, status or ID"
+            class="bg-dark-card-inner border border-dark-border rounded-full px-4 py-2 text-sm text-text-primary placeholder-text-muted w-80 focus:outline-none focus:border-accent-green"
+          />
+        )}
+      </div>
+
+      {/* Mobile card layout */}
       <div class="block sm:hidden space-y-3">
         {devices.map((device) => {
           const content = (
-            <div class="bg-white p-4 rounded-lg border hover:bg-gray-50">
+            <div class="bg-dark-card-inner border border-dark-border rounded-lg p-4">
               <div class="flex justify-between items-start mb-2">
-                <h3 class="font-semibold text-lg">{device.name}</h3>
-                <span class="text-sm text-gray-500">ID: {device.id}</span>
+                <h3 class="font-semibold text-text-primary">{device.name}</h3>
+                <span class="text-sm text-text-muted">#{device.id}</span>
               </div>
-              <p class="text-gray-600 text-sm">
+              <p class="text-text-secondary text-sm">
                 <span class="font-medium">Location:</span> {device.location}
               </p>
             </div>
@@ -29,7 +46,7 @@ export default function DeviceList(
               <a
                 key={device.id}
                 href={`/devices/${device.id}`}
-                class="block cursor-pointer"
+                class="block"
               >
                 {content}
               </a>
@@ -38,46 +55,55 @@ export default function DeviceList(
         })}
       </div>
 
-      {/* Table layout for larger screens */}
+      {/* Table layout */}
       <div class="hidden sm:block overflow-x-auto">
-        <table class="min-w-full bg-white">
+        <table class="w-full">
           <thead>
-            <tr class="w-full bg-gray-200">
-              <th class="px-4 py-2 text-left">Device ID</th>
-              <th class="px-4 py-2 text-left">Name</th>
-              <th class="px-4 py-2 text-left">Location</th>
+            <tr class="border-b border-dark-border text-text-muted text-xs uppercase tracking-wider">
+              <th class="px-4 py-3 text-left font-medium">ID</th>
+              <th class="px-4 py-3 text-left font-medium">Device</th>
+              <th class="px-4 py-3 text-left font-medium">Location</th>
             </tr>
           </thead>
           <tbody>
-            {devices.map((device) => {
-              const cells = (
-                <>
-                  <td class="px-4 py-2">{device.id}</td>
-                  <td class="px-4 py-2">{device.name}</td>
-                  <td class="px-4 py-2">{device.location}</td>
-                </>
-              );
-              return clickable
+            {devices.map((device) =>
+              clickable
                 ? (
-                  <tr key={device.id} class="border-b hover:bg-gray-200">
+                  <tr
+                    key={device.id}
+                    class="border-b border-dark-border hover:bg-table-row-hover transition-colors"
+                  >
                     <td colSpan={3} class="p-0">
                       <a
                         href={`/devices/${device.id}`}
                         class="flex cursor-pointer"
                       >
-                        <span class="px-4 py-2 flex-1">{device.id}</span>
-                        <span class="px-4 py-2 flex-1">{device.name}</span>
-                        <span class="px-4 py-2 flex-1">{device.location}</span>
+                        <span class="px-4 py-3 text-text-muted flex-1">
+                          #{device.id}
+                        </span>
+                        <span class="px-4 py-3 text-text-primary flex-1">
+                          {device.name}
+                        </span>
+                        <span class="px-4 py-3 text-text-secondary flex-1">
+                          {device.location}
+                        </span>
                       </a>
                     </td>
                   </tr>
                 )
                 : (
-                  <tr key={device.id} class="border-b">
-                    {cells}
+                  <tr
+                    key={device.id}
+                    class="border-b border-dark-border hover:bg-table-row-hover transition-colors"
+                  >
+                    <td class="px-4 py-3 text-text-muted">#{device.id}</td>
+                    <td class="px-4 py-3 text-text-primary">{device.name}</td>
+                    <td class="px-4 py-3 text-text-secondary">
+                      {device.location}
+                    </td>
                   </tr>
-                );
-            })}
+                )
+            )}
           </tbody>
         </table>
       </div>
