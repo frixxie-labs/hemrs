@@ -2,30 +2,38 @@ import { Context } from "fresh";
 
 export default function Layout(ctx: Context<unknown>) {
   return (
-    <div class="layout bg-slate-50 min-h-screen p-2 sm:p-4 rounded-lg">
-      <header class="bg-[#86efac] shadow-md rounded-lg">
-        <div class="border-b-2 border-gray-200 rounded-lg flex items-center min-h-16">
-          <nav class="flex flex-wrap justify-start items-center px-2">
+    <div class="min-h-screen bg-dark-bg">
+      <header class="bg-dark-header border-b border-dark-border">
+        <div class="max-w-screen-xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+          <div>
+            <span class="text-accent-green text-sm font-semibold tracking-wide uppercase">
+              HEMRS
+            </span>
+            <h1 class="text-xl font-bold text-text-primary">
+              Sensor dashboard
+            </h1>
+          </div>
+          <nav class="flex gap-2">
             <a
-              class="mx-1 sm:ml-4 sm:mx-0 hover:text-black hover:underline rounded-full px-2 py-1 text-sm sm:text-base"
+              class="px-4 py-1.5 text-sm rounded-full border border-dark-border text-text-primary hover:bg-dark-card-inner transition-colors"
               href="/"
             >
               Home
             </a>
             <a
-              class="mx-1 sm:ml-4 sm:mx-0 hover:text-black hover:underline rounded-full px-2 py-1 text-sm sm:text-base"
+              class="px-4 py-1.5 text-sm rounded-full border border-dark-border text-text-primary hover:bg-dark-card-inner transition-colors"
               href="/devices"
             >
               Devices
             </a>
             <a
-              class="mx-1 sm:ml-4 sm:mx-0 hover:text-black hover:underline rounded-full px-2 py-1 text-sm sm:text-base"
+              class="px-4 py-1.5 text-sm rounded-full border border-dark-border text-text-primary hover:bg-dark-card-inner transition-colors"
               href="/sensors"
             >
               Sensors
             </a>
             <a
-              class="mx-1 sm:ml-4 sm:mx-0 hover:text-black hover:underline rounded-full px-2 py-1 text-sm sm:text-base"
+              class="px-4 py-1.5 text-sm rounded-full border border-dark-border text-text-primary hover:bg-dark-card-inner transition-colors"
               href="/measurements"
             >
               Measurements
@@ -33,7 +41,7 @@ export default function Layout(ctx: Context<unknown>) {
           </nav>
         </div>
       </header>
-      <main class="mt-4">
+      <main class="max-w-screen-xl mx-auto px-4 sm:px-6 py-6">
         <ctx.Component />
       </main>
     </div>

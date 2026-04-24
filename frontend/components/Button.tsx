@@ -16,7 +16,7 @@ export default function Button(props: ButtonProps) {
   return (
     <button
       {...props}
-      class={`px-2 py-1 border-gray-500 border-2 rounded bg-white hover:bg-gray-200 transition-colors ${
+      class={`px-4 py-1.5 border border-dark-border rounded-full bg-dark-card-inner text-text-primary hover:bg-dark-border transition-colors ${
         props.class ?? ""
       }`.trim()}
     />
