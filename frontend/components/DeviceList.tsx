@@ -73,20 +73,19 @@ export default function DeviceList(
                     key={device.id}
                     class="border-b border-dark-border hover:bg-table-row-hover transition-colors"
                   >
-                    <td colSpan={3} class="p-0">
-                      <a
-                        href={`/devices/${device.id}`}
-                        class="flex cursor-pointer"
-                      >
-                        <span class="px-4 py-3 text-text-muted flex-1">
-                          #{device.id}
-                        </span>
-                        <span class="px-4 py-3 text-text-primary flex-1">
-                          {device.name}
-                        </span>
-                        <span class="px-4 py-3 text-text-secondary flex-1">
-                          {device.location}
-                        </span>
+                    <td class="px-4 py-3 text-text-muted">
+                      <a href={`/devices/${device.id}`} class="cursor-pointer">
+                        #{device.id}
+                      </a>
+                    </td>
+                    <td class="px-4 py-3 text-text-primary">
+                      <a href={`/devices/${device.id}`} class="cursor-pointer">
+                        {device.name}
+                      </a>
+                    </td>
+                    <td class="px-4 py-3 text-text-secondary">
+                      <a href={`/devices/${device.id}`} class="cursor-pointer">
+                        {device.location}
                       </a>
                     </td>
                   </tr>

@@ -56,20 +56,28 @@ export default function SensorList(
                     key={sensor.id}
                     class="border-b border-dark-border hover:bg-table-row-hover transition-colors"
                   >
-                    <td colSpan={3} class="p-0">
+                    <td class="px-4 py-3 text-text-muted">
                       <a
                         href={`/devices/${device_id}/sensors/${sensor.id}`}
-                        class="flex cursor-pointer"
+                        class="cursor-pointer"
                       >
-                        <span class="px-4 py-3 text-text-muted flex-1">
-                          #{sensor.id}
-                        </span>
-                        <span class="px-4 py-3 text-text-primary flex-1">
-                          {sensor.name}
-                        </span>
-                        <span class="px-4 py-3 text-text-secondary flex-1">
-                          {sensor.unit}
-                        </span>
+                        #{sensor.id}
+                      </a>
+                    </td>
+                    <td class="px-4 py-3 text-text-primary">
+                      <a
+                        href={`/devices/${device_id}/sensors/${sensor.id}`}
+                        class="cursor-pointer"
+                      >
+                        {sensor.name}
+                      </a>
+                    </td>
+                    <td class="px-4 py-3 text-text-secondary">
+                      <a
+                        href={`/devices/${device_id}/sensors/${sensor.id}`}
+                        class="cursor-pointer"
+                      >
+                        {sensor.unit}
                       </a>
                     </td>
                   </tr>
