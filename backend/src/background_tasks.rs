@@ -115,8 +115,14 @@ async fn insert_measurement(
         sensor_id = measurement.sensor,
         "Looking up device and sensor"
     );
+
+    let device_lookup_start = Instant::now();
     let device = Device::read_by_id(pool, measurement.device).await?;
+    histogram!("device_lookup_duration_seconds").record(device_lookup_start.elapsed());
+
+    let sensor_lookup_start = Instant::now();
     let sensor = Sensor::read_by_id(pool, measurement.sensor).await?;
+    histogram!("sensor_lookup_duration_seconds").record(sensor_lookup_start.elapsed());
 
     debug!(
         device_name = %device.name,
@@ -132,8 +138,15 @@ async fn insert_measurement(
         sensor_name: sensor.name,
         unit: sensor.unit,
     };
+
+    let cache_insert_start = Instant::now();
     cache.insert((device.id, sensor.id), entry.clone()).await;
+    histogram!("cache_insert_duration_seconds").record(cache_insert_start.elapsed());
+
+    let measurement_insert_start = Instant::now();
     measurement.insert(pool).await?;
+    histogram!("measurement_insert_duration_seconds").record(measurement_insert_start.elapsed());
+
     Ok(())
 }
 
