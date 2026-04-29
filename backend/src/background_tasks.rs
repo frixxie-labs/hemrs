@@ -116,13 +116,14 @@ async fn insert_measurement(
         "Looking up device and sensor"
     );
 
-    let device_lookup_start = Instant::now();
-    let device = Device::read_by_id(pool, measurement.device).await?;
-    histogram!("device_lookup_duration_seconds").record(device_lookup_start.elapsed());
-
-    let sensor_lookup_start = Instant::now();
-    let sensor = Sensor::read_by_id(pool, measurement.sensor).await?;
-    histogram!("sensor_lookup_duration_seconds").record(sensor_lookup_start.elapsed());
+    let lookup_start = Instant::now();
+    let (device, sensor) = tokio::join!(
+        Device::read_by_id(pool, measurement.device),
+        Sensor::read_by_id(pool, measurement.sensor),
+    );
+    let device = device?;
+    let sensor = sensor?;
+    histogram!("device_sensor_lookup_duration_seconds").record(lookup_start.elapsed());
 
     debug!(
         device_name = %device.name,
