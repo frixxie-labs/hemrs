@@ -18,8 +18,8 @@ tower = { version = "0.5.3", features = ["tracing", "load"] }
 tower-http = { version = "0.6.8", features = ["trace", "full"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["json", "tracing"] }
-metrics = "0.24.3"
-metrics-exporter-prometheus = "0.18.1"
+metrics = "0.24.5"
+metrics-exporter-prometheus = "0.18.3"
 futures = "0.3.32"
 moka = { version = "0.12.15", features = ["future"] }
 utoipa = { version = "5.4.0", features = ["chrono"] }
