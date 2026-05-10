@@ -11,13 +11,13 @@
   "lint": { "rules": { "tags": ["fresh", "recommended"] } },
   "exclude": ["**/_fresh/*"],
   "imports": {
-    "fresh": "jsr:@fresh/core@^2.3.1",
+    "fresh": "jsr:@fresh/core@^2.3.3",
     "preact": "npm:preact@^10.29.1",
     "@preact/signals": "npm:@preact/signals@^2.9.0",
-    "@fresh/plugin-vite": "jsr:@fresh/plugin-vite@^1.1.0",
-    "vite": "npm:vite@^7.3.2",
-    "tailwindcss": "npm:tailwindcss@^4.2.4",
-    "@tailwindcss/vite": "npm:@tailwindcss/vite@^4.2.4"
+    "@fresh/plugin-vite": "jsr:@fresh/plugin-vite@^1.1.2",
+    "vite": "npm:vite@^7.3.3",
+    "tailwindcss": "npm:tailwindcss@^4.3.0",
+    "@tailwindcss/vite": "npm:@tailwindcss/vite@^4.3.0"
   },
   "compilerOptions": {
     "lib": ["dom", "dom.asynciterable", "dom.iterable", "deno.ns"],
