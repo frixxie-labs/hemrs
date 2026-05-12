@@ -1,0 +1,338 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "*"
+  pull_request:
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: arc-runner-set
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      plotter: ${{ steps.filter.outputs.plotter }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - '.sqlx/**'
+            frontend:
+              - 'frontend/**'
+            plotter:
+              - 'plotter/**'
+
+  lint-plotter:
+    name: Lint plotter
+    needs: changes
+    if: needs.changes.outputs.plotter == 'true'
+    runs-on: arc-runner-set
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Run ruff
+        run: |
+          uv tool run ruff check plotter/
+          uv tool run ruff format --check plotter/
+
+  build-plotter:
+    name: Build plotter
+    needs: changes
+    if: needs.changes.outputs.plotter == 'true'
+    runs-on: arc-runner-set
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies
+        working-directory: plotter
+        run: uv sync --frozen
+
+  test-plotter:
+    name: Test plotter
+    needs: changes
+    if: needs.changes.outputs.plotter == 'true'
+    runs-on: arc-runner-set
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies
+        working-directory: plotter
+        run: uv sync --frozen
+
+      - name: Run tests
+        working-directory: plotter
+        run: uv run pytest
+
+  build-backend:
+    name: Build backend
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: arc-runner-set
+    env:
+      SQLX_OFFLINE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo data
+        uses: Swatinem/rust-cache@v2
+
+      - name: Show Rust versions
+        run: rustc --version && cargo --version
+
+      - name: Build workspace
+        run: cargo build --workspace --verbose
+
+  test-backend:
+    name: Test backend
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: arc-runner-set
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: admin
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      SQLX_OFFLINE: "1"
+      DATABASE_URL: postgresql://postgres:admin@localhost:5432/postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo data
+        uses: Swatinem/rust-cache@v2
+
+      - name: Show Rust versions
+        run: rustc --version && cargo --version
+
+      - name: Run tests
+        run: cargo test --workspace --verbose
+
+  lint-frontend:
+    name: Lint frontend
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: arc-runner-set
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: latest
+
+      - name: Check formatting
+        working-directory: frontend
+        run: deno fmt --check .
+
+      - name: Lint
+        working-directory: frontend
+        run: deno lint .
+
+  build-frontend:
+    name: Build frontend
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: arc-runner-set
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: latest
+
+      - name: Check frontend
+        working-directory: frontend
+        run: deno task check
+
+      - name: Build frontend
+        working-directory: frontend
+        run: deno task build
+
+  test-frontend:
+    name: Test frontend
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: arc-runner-set
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: latest
+
+      - name: Run tests
+        working-directory: frontend
+        run: deno task test
+
+  deploy-backend:
+    name: Deploy backend image
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: arc-runner-set
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare image name
+        id: image
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY}"
+          echo "name=${image,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.image.outputs.name }}:${{ github.ref_name }}
+
+  deploy-plotter:
+    name: Deploy plotter image
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: arc-runner-set
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare image name
+        id: image
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY}/plotter"
+          echo "name=${image,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: plotter
+          file: plotter/Dockerfile
+          push: true
+          tags: ${{ steps.image.outputs.name }}:${{ github.ref_name }}
+
+  deploy-frontend:
+    name: Deploy frontend image
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: arc-runner-set
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare image name
+        id: image
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY}/frontend"
+          echo "name=${image,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          push: true
+          tags: ${{ steps.image.outputs.name }}:${{ github.ref_name }}
+          build-args: |
+            GIT_REVISION=${{ github.sha }}
+
+  changelog:
+    name: Generate changelog
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: arc-runner-set
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --repository . --output CHANGELOG.md
+
+      - name: Upload changelog
+        uses: actions/upload-artifact@v4
+        with:
+          name: CHANGELOG
+          path: CHANGELOG.md
