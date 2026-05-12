@@ -17,36 +17,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  changes:
-    name: Detect changes
-    runs-on: arc-runner-set
-    outputs:
-      backend: ${{ steps.filter.outputs.backend }}
-      frontend: ${{ steps.filter.outputs.frontend }}
-      plotter: ${{ steps.filter.outputs.plotter }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Detect changed paths
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            backend:
-              - 'backend/**'
-              - 'Cargo.toml'
-              - 'Cargo.lock'
-              - '.sqlx/**'
-            frontend:
-              - 'frontend/**'
-            plotter:
-              - 'plotter/**'
-
   lint-plotter:
     name: Lint plotter
-    needs: changes
-    if: needs.changes.outputs.plotter == 'true'
     runs-on: arc-runner-set
     steps:
       - name: Checkout
@@ -54,8 +26,6 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
 
       - name: Run ruff
         run: |
@@ -64,8 +34,7 @@ jobs:
 
   build-plotter:
     name: Build plotter
-    needs: changes
-    if: needs.changes.outputs.plotter == 'true'
+    needs: lint-plotter
     runs-on: arc-runner-set
     steps:
       - name: Checkout
@@ -73,8 +42,6 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
 
       - name: Sync dependencies
         working-directory: plotter
@@ -82,8 +49,7 @@ jobs:
 
   test-plotter:
     name: Test plotter
-    needs: changes
-    if: needs.changes.outputs.plotter == 'true'
+    needs: build-plotter
     runs-on: arc-runner-set
     steps:
       - name: Checkout
@@ -91,8 +57,6 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
 
       - name: Sync dependencies
         working-directory: plotter
@@ -104,8 +68,6 @@ jobs:
 
   build-backend:
     name: Build backend
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
     runs-on: arc-runner-set
     env:
       SQLX_OFFLINE: "1"
@@ -121,9 +83,6 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache cargo data
-        uses: Swatinem/rust-cache@v2
-
       - name: Show Rust versions
         run: rustc --version && cargo --version
 
@@ -132,8 +91,7 @@ jobs:
 
   test-backend:
     name: Test backend
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    needs: build-backend
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -165,9 +123,6 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache cargo data
-        uses: Swatinem/rust-cache@v2
-
       - name: Show Rust versions
         run: rustc --version && cargo --version
 
@@ -176,8 +131,6 @@ jobs:
 
   lint-frontend:
     name: Lint frontend
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true'
     runs-on: arc-runner-set
     steps:
       - name: Checkout
@@ -198,8 +151,7 @@ jobs:
 
   build-frontend:
     name: Build frontend
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    needs: lint-frontend
     runs-on: arc-runner-set
     steps:
       - name: Checkout
@@ -220,8 +172,7 @@ jobs:
 
   test-frontend:
     name: Test frontend
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    needs: build-frontend
     runs-on: arc-runner-set
     steps:
       - name: Checkout
