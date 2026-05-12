@@ -19,13 +19,12 @@ env:
 jobs:
   lint-plotter:
     name: Lint plotter
-    runs-on: arc
+    runs-on: arc-services
+    container:
+      image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
 
       - name: Run ruff
         run: |
@@ -35,13 +34,12 @@ jobs:
   build-plotter:
     name: Build plotter
     needs: lint-plotter
-    runs-on: arc
+    runs-on: arc-services
+    container:
+      image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
 
       - name: Sync dependencies
         working-directory: plotter
@@ -50,13 +48,12 @@ jobs:
   test-plotter:
     name: Test plotter
     needs: build-plotter
-    runs-on: arc
+    runs-on: arc-services
+    container:
+      image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
 
       - name: Sync dependencies
         working-directory: plotter
@@ -68,20 +65,14 @@ jobs:
 
   build-backend:
     name: Build backend
-    runs-on: arc
+    runs-on: arc-services
+    container:
+      image: rust:latest
     env:
       SQLX_OFFLINE: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Install native build tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
 
       - name: Show Rust versions
         run: rustc --version && cargo --version
@@ -94,7 +85,7 @@ jobs:
     needs: build-backend
     runs-on: arc-services
     container:
-      image: rust:1-bookworm
+      image: rust:latest
     services:
       postgres:
         image: postgres:latest
@@ -115,14 +106,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install native build tools
-        run: |
-          apt-get update
-          apt-get install -y build-essential pkg-config
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Show Rust versions
         run: rustc --version && cargo --version
 
@@ -131,15 +114,12 @@ jobs:
 
   lint-frontend:
     name: Lint frontend
-    runs-on: arc
+    runs-on: arc-services
+    container:
+      image: denoland/deno:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Install Deno
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: latest
 
       - name: Check formatting
         working-directory: frontend
@@ -152,15 +132,12 @@ jobs:
   build-frontend:
     name: Build frontend
     needs: lint-frontend
-    runs-on: arc
+    runs-on: arc-services
+    container:
+      image: denoland/deno:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Install Deno
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: latest
 
       - name: Check frontend
         working-directory: frontend
@@ -173,15 +150,12 @@ jobs:
   test-frontend:
     name: Test frontend
     needs: build-frontend
-    runs-on: arc
+    runs-on: arc-services
+    container:
+      image: denoland/deno:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Install Deno
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: latest
 
       - name: Run tests
         working-directory: frontend
@@ -189,6 +163,10 @@ jobs:
 
   deploy-backend:
     name: Deploy backend image
+    needs:
+      - test-backend
+      - test-frontend
+      - test-plotter
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: arc-buildah
     steps:
@@ -218,6 +196,10 @@ jobs:
 
   deploy-plotter:
     name: Deploy plotter image
+    needs:
+      - test-backend
+      - test-frontend
+      - test-plotter
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: arc-buildah
     steps:
@@ -247,6 +229,10 @@ jobs:
 
   deploy-frontend:
     name: Deploy frontend image
+    needs:
+      - test-backend
+      - test-frontend
+      - test-plotter
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: arc-buildah
     steps:
@@ -275,25 +261,3 @@ jobs:
           tags: ${{ steps.image.outputs.name }}:${{ github.ref_name }}
           build-args: |
             GIT_REVISION=${{ github.sha }}
-
-  changelog:
-    name: Generate changelog
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: arc
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Generate changelog
-        uses: orhun/git-cliff-action@v4
-        with:
-          config: cliff.toml
-          args: --repository . --output CHANGELOG.md
-
-      - name: Upload changelog
-        uses: actions/upload-artifact@v4
-        with:
-          name: CHANGELOG
-          path: CHANGELOG.md
