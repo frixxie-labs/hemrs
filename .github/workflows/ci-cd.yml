@@ -19,7 +19,7 @@ env:
 jobs:
   lint-plotter:
     name: Lint plotter
-    runs-on: arc-runner-set
+    runs-on: arc
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,7 +35,7 @@ jobs:
   build-plotter:
     name: Build plotter
     needs: lint-plotter
-    runs-on: arc-runner-set
+    runs-on: arc
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,7 +50,7 @@ jobs:
   test-plotter:
     name: Test plotter
     needs: build-plotter
-    runs-on: arc-runner-set
+    runs-on: arc
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -68,7 +68,7 @@ jobs:
 
   build-backend:
     name: Build backend
-    runs-on: arc-runner-set
+    runs-on: arc
     env:
       SQLX_OFFLINE: "1"
     steps:
@@ -92,7 +92,7 @@ jobs:
   test-backend:
     name: Test backend
     needs: build-backend
-    runs-on: ubuntu-latest
+    runs-on: arc-services
     services:
       postgres:
         image: postgres:latest
@@ -131,7 +131,7 @@ jobs:
 
   lint-frontend:
     name: Lint frontend
-    runs-on: arc-runner-set
+    runs-on: arc
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -152,7 +152,7 @@ jobs:
   build-frontend:
     name: Build frontend
     needs: lint-frontend
-    runs-on: arc-runner-set
+    runs-on: arc
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -173,7 +173,7 @@ jobs:
   test-frontend:
     name: Test frontend
     needs: build-frontend
-    runs-on: arc-runner-set
+    runs-on: arc
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -190,7 +190,7 @@ jobs:
   deploy-backend:
     name: Deploy backend image
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
+    runs-on: arc-buildah
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -219,7 +219,7 @@ jobs:
   deploy-plotter:
     name: Deploy plotter image
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
+    runs-on: arc-buildah
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -248,7 +248,7 @@ jobs:
   deploy-frontend:
     name: Deploy frontend image
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
+    runs-on: arc-buildah
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -279,7 +279,7 @@ jobs:
   changelog:
     name: Generate changelog
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: arc-runner-set
+    runs-on: arc
     steps:
       - name: Checkout
         uses: actions/checkout@v4
