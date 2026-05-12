@@ -134,7 +134,7 @@ jobs:
     name: Test backend
     needs: changes
     if: needs.changes.outputs.backend == 'true'
-    runs-on: arc-runner-set
+    runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:latest
@@ -239,7 +239,7 @@ jobs:
   deploy-backend:
     name: Deploy backend image
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: arc-runner-set
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -268,7 +268,7 @@ jobs:
   deploy-plotter:
     name: Deploy plotter image
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: arc-runner-set
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -297,7 +297,7 @@ jobs:
   deploy-frontend:
     name: Deploy frontend image
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: arc-runner-set
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
