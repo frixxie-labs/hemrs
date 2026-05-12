@@ -93,6 +93,8 @@ jobs:
     name: Test backend
     needs: build-backend
     runs-on: arc-services
+    container:
+      image: rust:1-bookworm
     services:
       postgres:
         image: postgres:latest
@@ -101,24 +103,22 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: admin
           POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     env:
       SQLX_OFFLINE: "1"
-      DATABASE_URL: postgresql://postgres:admin@localhost:5432/postgres
+      DATABASE_URL: postgresql://postgres:admin@postgres:5432/postgres
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install native build tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config
+          apt-get update
+          apt-get install -y build-essential pkg-config
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
