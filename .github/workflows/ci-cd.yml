@@ -165,10 +165,8 @@ jobs:
     name: Deploy backend image
     needs:
       - test-backend
-      - test-frontend
-      - test-plotter
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: arc-buildah
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -197,11 +195,9 @@ jobs:
   deploy-plotter:
     name: Deploy plotter image
     needs:
-      - test-backend
-      - test-frontend
       - test-plotter
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: arc-buildah
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -230,11 +226,9 @@ jobs:
   deploy-frontend:
     name: Deploy frontend image
     needs:
-      - test-backend
       - test-frontend
-      - test-plotter
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: arc-buildah
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
