@@ -19,7 +19,7 @@ env:
 jobs:
   lint-plotter:
     name: Lint plotter
-    runs-on: arc-services
+    runs-on: arc-frixxie-runner
     container:
       image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
     steps:
@@ -34,7 +34,7 @@ jobs:
   build-plotter:
     name: Build plotter
     needs: lint-plotter
-    runs-on: arc-services
+    runs-on: arc-frixxie-runner
     container:
       image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
     steps:
@@ -48,7 +48,7 @@ jobs:
   test-plotter:
     name: Test plotter
     needs: build-plotter
-    runs-on: arc-services
+    runs-on: arc-frixxie-runner
     container:
       image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
     steps:
@@ -65,7 +65,7 @@ jobs:
 
   build-backend:
     name: Build backend
-    runs-on: arc-services
+    runs-on: arc-frixxie-runner
     container:
       image: rust:latest
     env:
@@ -83,7 +83,7 @@ jobs:
   test-backend:
     name: Test backend
     needs: build-backend
-    runs-on: arc-services
+    runs-on: arc-frixxie-runner
     container:
       image: rust:latest
     services:
@@ -114,7 +114,7 @@ jobs:
 
   lint-frontend:
     name: Lint frontend
-    runs-on: arc-services
+    runs-on: arc-frixxie-runner
     container:
       image: denoland/deno:latest
     steps:
@@ -132,7 +132,7 @@ jobs:
   build-frontend:
     name: Build frontend
     needs: lint-frontend
-    runs-on: arc-services
+    runs-on: arc-frixxie-runner
     container:
       image: denoland/deno:latest
     steps:
@@ -150,7 +150,7 @@ jobs:
   test-frontend:
     name: Test frontend
     needs: build-frontend
-    runs-on: arc-services
+    runs-on: arc-frixxie-runner
     container:
       image: denoland/deno:latest
     steps:
