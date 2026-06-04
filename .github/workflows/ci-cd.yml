@@ -164,7 +164,9 @@ jobs:
   deploy-backend:
     name: Deploy backend image
     needs:
+      - test-plotter
       - test-backend
+      - test-frontend
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
@@ -196,6 +198,8 @@ jobs:
     name: Deploy plotter image
     needs:
       - test-plotter
+      - test-backend
+      - test-frontend
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
@@ -226,6 +230,8 @@ jobs:
   deploy-frontend:
     name: Deploy frontend image
     needs:
+      - test-plotter
+      - test-backend
       - test-frontend
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
