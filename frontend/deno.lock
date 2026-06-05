@@ -33,9 +33,9 @@
     "npm:@opentelemetry/api@^1.9.0": "1.9.1",
     "npm:@preact/signals@^2.5.1": "2.9.1_preact@10.29.2",
     "npm:@preact/signals@^2.9.1": "2.9.1_preact@10.29.2",
-    "npm:@prefresh/vite@^2.4.8": "2.4.12_preact@10.29.2_vite@7.3.3__@types+node@24.2.0",
+    "npm:@prefresh/vite@^2.4.8": "2.4.12_preact@10.29.2_vite@7.3.5__@types+node@24.2.0_@types+node@24.2.0",
     "npm:@remix-run/node-fetch-server@0.12": "0.12.0",
-    "npm:@tailwindcss/vite@^4.3.0": "4.3.0_vite@7.3.3__@types+node@24.2.0_@types+node@24.2.0",
+    "npm:@tailwindcss/vite@^4.3.0": "4.3.0_vite@7.3.5__@types+node@24.2.0_@types+node@24.2.0",
     "npm:@types/babel__core@^7.20.5": "7.20.5",
     "npm:@types/node@*": "24.2.0",
     "npm:esbuild-wasm@~0.25.11": "0.25.12",
@@ -47,8 +47,7 @@
     "npm:preact@^10.29.2": "10.29.2",
     "npm:rollup@^4.55.1": "4.60.3",
     "npm:tailwindcss@^4.3.0": "4.3.0",
-    "npm:vite@^7.1.4": "7.3.3_@types+node@24.2.0",
-    "npm:vite@^7.3.3": "7.3.3_@types+node@24.2.0"
+    "npm:vite@^7.3.5": "7.3.5_@types+node@24.2.0"
   },
   "jsr": {
     "@deno/esbuild-plugin@1.2.1": {
@@ -111,8 +110,7 @@
         "npm:@prefresh/vite",
         "npm:@remix-run/node-fetch-server",
         "npm:@types/babel__core",
-        "npm:rollup",
-        "npm:vite@^7.1.4"
+        "npm:rollup"
       ]
     },
     "@std/bytes@1.0.6": {
@@ -670,7 +668,7 @@
     "@prefresh/utils@1.2.1": {
       "integrity": "sha512-vq/sIuN5nYfYzvyayXI4C2QkprfNaHUQ9ZX+3xLD8nL3rWyzpxOm1+K7RtMbhd+66QcaISViK7amjnheQ/4WZw=="
     },
-    "@prefresh/vite@2.4.12_preact@10.29.2_vite@7.3.3__@types+node@24.2.0": {
+    "@prefresh/vite@2.4.12_preact@10.29.2_vite@7.3.5__@types+node@24.2.0_@types+node@24.2.0": {
       "integrity": "sha512-FY1fzXpUjiuosznMV0YM7XAOPZjB5FIdWS0W24+XnlxYkt9hNAwwsiKYn+cuTEoMtD/ZVazS5QVssBr9YhpCQA==",
       "dependencies": [
         "@babel/core",
@@ -905,7 +903,7 @@
         "@tailwindcss/oxide-win32-x64-msvc"
       ]
     },
-    "@tailwindcss/vite@4.3.0_vite@7.3.3__@types+node@24.2.0_@types+node@24.2.0": {
+    "@tailwindcss/vite@4.3.0_vite@7.3.5__@types+node@24.2.0_@types+node@24.2.0": {
       "integrity": "sha512-t6J3OrB5Fc0ExuhohouH0fWUGMYL6PTLhW+E7zIk/pdbnJARZDCwjBznFnkh5ynRnIRSI4YjtTH0t6USjJISrw==",
       "dependencies": [
         "@tailwindcss/node",
@@ -1292,8 +1290,8 @@
       ],
       "bin": true
     },
-    "vite@7.3.3_@types+node@24.2.0": {
-      "integrity": "sha512-/4XH147Ui7OGTjg3HbdWe5arnZQSbfuRzdr9Ec7TQi5I7R+ir0Rlc9GIvD4v0XZurELqA035KVXJXpR61xhiTA==",
+    "vite@7.3.5_@types+node@24.2.0": {
+      "integrity": "sha512-KuOaNhcnGFN2zIPGA7wRmzF+lJA1sea7rHq17aiJ++9lzY1WWG6Jpwqwe1KNbRVPIqHmr8GLYx7jbrQcN/7/ww==",
       "dependencies": [
         "@types/node",
         "esbuild@0.27.7",
@@ -1323,7 +1321,7 @@
       "npm:@tailwindcss/vite@^4.3.0",
       "npm:preact@^10.29.2",
       "npm:tailwindcss@^4.3.0",
-      "npm:vite@^7.3.3"
+      "npm:vite@^7.3.5"
     ]
   }
 }
