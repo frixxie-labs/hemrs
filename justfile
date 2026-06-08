@@ -5,6 +5,11 @@ SQLX_OFFLINE := "1"
 
 default: test
 
+upgrade:
+    cargo upgrade --incompatible && cargo update
+    cd plotter && uv lock --upgrade
+    cd frontend && deno update
+
 check: sqlx_prepare
     cargo check
 
