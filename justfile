@@ -8,7 +8,7 @@ default: test
 upgrade:
     cargo upgrade --incompatible && cargo update
     cd plotter && uv lock --upgrade
-    cd frontend && deno update
+    cd frontend && deno task update && deno update
 
 check: sqlx_prepare
     cargo check
