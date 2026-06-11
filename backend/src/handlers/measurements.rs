@@ -1,5 +1,3 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
-
 use anyhow::Context;
 use axum::{
     extract::{Path, Query, State},
@@ -21,14 +19,8 @@ use super::error::HandlerError;
 
 type ApplicationState = State<(PgPool, Cache<(i32, i32), Measurement>)>;
 
-static MAX_OBSERVED_MEASUREMENT_QUEUE_LEN: AtomicUsize = AtomicUsize::new(0);
-
 fn record_measurement_queue_len(tx: &Sender<NewMeasurement>) {
-    let queue_len = tx.max_capacity().saturating_sub(tx.capacity());
-    let previous_max = MAX_OBSERVED_MEASUREMENT_QUEUE_LEN.fetch_max(queue_len, Ordering::Relaxed);
-    let max_queue_len = previous_max.max(queue_len);
-
-    gauge!("measurement_insert_queue_max_len").set(max_queue_len as f64);
+    gauge!("measurement_insert_queue_max_len").set(tx.max_capacity() as f64);
 }
 
 async fn enqueue_measurement(
