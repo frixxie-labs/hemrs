@@ -194,6 +194,7 @@ Recorded metrics include:
 - `device_sensor_lookup_duration_seconds` histogram.
 - `cache_insert_duration_seconds` histogram.
 - `measurement_insert_duration_seconds` histogram.
+- `measurement_insert_queue_max_len` gauge for the maximum observed measurement insert queue length since process start.
 - `new_measurements` counter.
 - `hemrs_pg_pool_size` absolute counter-style metric.
 - `hemrs_cache_size` absolute counter-style metric.
