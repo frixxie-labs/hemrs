@@ -294,117 +294,84 @@ pub async fn fetch_measurements_by_date_range(
 
 #[cfg(test)]
 mod tests {
-    use tokio::sync::mpsc::Receiver;
-
     use crate::{devices::NewDevice, measurements::NewMeasurement, sensors::NewSensor};
 
     use super::*;
 
-    #[sqlx::test]
-    async fn should_store_single_measurement_without_ts(db: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
-        device.insert(&db).await.unwrap();
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
-        sensor.insert(&db).await.unwrap();
-        let new_measurement = NewMeasurement::new(None, 1, 1, 1.0);
-        let (tx, mut rx): (Sender<NewMeasurement>, Receiver<NewMeasurement>) =
-            tokio::sync::mpsc::channel(100);
+    type MeasurementParts = (i32, i32, f32, bool);
 
-        let result = store_measurements(
-            State(tx),
-            Json(NewMeasurements::Measurement(new_measurement)),
-        )
-        .await
-        .unwrap();
-        assert_eq!(result.status(), 201);
-
-        assert!(
-            rx.recv().await.is_some(),
-            "Measurement should be sent to background thread"
-        );
+    fn fixed_timestamp() -> DateTime<Utc> {
+        DateTime::<Utc>::from_timestamp(1_700_000_000, 123_456_789).unwrap()
     }
 
-    #[sqlx::test]
-    async fn should_store_single_measurement_with_ts(db: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
-        device.insert(&db).await.unwrap();
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
-        sensor.insert(&db).await.unwrap();
-        let (tx, mut rx): (Sender<NewMeasurement>, Receiver<NewMeasurement>) =
-            tokio::sync::mpsc::channel(100);
-        let new_measurement = NewMeasurement::new(Some(chrono::Utc::now()), 1, 1, 1.0);
-        let result = store_measurements(
-            State(tx),
-            Json(NewMeasurements::Measurement(new_measurement)),
-        )
-        .await
-        .unwrap();
-        assert_eq!(result.status(), 201);
-
-        assert!(
-            rx.recv().await.is_some(),
-            "Measurement should be sent to background thread"
-        );
+    fn measurement_from_parts(
+        (device, sensor, measurement, with_ts): MeasurementParts,
+    ) -> NewMeasurement {
+        NewMeasurement::new(with_ts.then(fixed_timestamp), device, sensor, measurement)
     }
 
-    #[sqlx::test]
-    async fn should_store_multiple_measurements(db: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
-        device.insert(&db).await.unwrap();
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
-        sensor.insert(&db).await.unwrap();
-        let new_measurements = vec![
-            NewMeasurement::new(None, 1, 1, 1.0),
-            NewMeasurement::new(None, 1, 1, 2.0),
-        ];
-
-        // Create a channel to send measurements to the background thread
-        let (tx, mut rx): (Sender<NewMeasurement>, Receiver<NewMeasurement>) =
-            tokio::sync::mpsc::channel(100);
-
-        let result = store_measurements(
-            State(tx),
-            Json(NewMeasurements::Measurements(new_measurements)),
-        )
-        .await
-        .unwrap();
-        assert_eq!(result.status(), 201);
-
-        // Check that both measurements were sent to the background thread
-        assert!(
-            rx.recv().await.is_some(),
-            "First measurement should be sent to background thread"
-        );
+    fn measurements_match(actual: &NewMeasurement, expected: &NewMeasurement) -> bool {
+        actual.timestamp == expected.timestamp
+            && actual.device == expected.device
+            && actual.sensor == expected.sensor
+            && actual.measurement.to_bits() == expected.measurement.to_bits()
     }
 
-    #[sqlx::test]
-    async fn should_store_multiple_measurements_with_and_without_ts(db: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
-        device.insert(&db).await.unwrap();
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
-        sensor.insert(&db).await.unwrap();
-        let (tx, mut rx): (Sender<NewMeasurement>, Receiver<NewMeasurement>) =
-            tokio::sync::mpsc::channel(100);
-        let new_measurements = vec![
-            NewMeasurement::new(None, 1, 1, 1.0),
-            NewMeasurement::new(Some(chrono::Utc::now()), 1, 1, 2.0),
-        ];
-        let result = store_measurements(
-            State(tx),
-            Json(NewMeasurements::Measurements(new_measurements)),
+    fn store_measurements_queues_expected(
+        payload: NewMeasurements,
+        expected: Vec<NewMeasurement>,
+    ) -> bool {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        rt.block_on(async move {
+            let (tx, mut rx): (Sender<NewMeasurement>, _) =
+                tokio::sync::mpsc::channel(expected.len().max(1));
+
+            let Ok(response) = store_measurements(State(tx), Json(payload)).await else {
+                return false;
+            };
+
+            if response.status() != axum::http::StatusCode::CREATED {
+                return false;
+            }
+
+            for expected_measurement in &expected {
+                let Some(actual) = rx.recv().await else {
+                    return false;
+                };
+                if !measurements_match(&actual, expected_measurement) {
+                    return false;
+                }
+            }
+
+            rx.recv().await.is_none()
+        })
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn store_single_measurement_queues_exact_measurement(parts: MeasurementParts) -> bool {
+        let measurement = measurement_from_parts(parts);
+        store_measurements_queues_expected(
+            NewMeasurements::Measurement(measurement.clone()),
+            vec![measurement],
         )
-        .await
-        .unwrap();
-        assert_eq!(result.status(), 201);
-        // Check that both measurements were sent to the background thread
-        assert!(
-            rx.recv().await.is_some(),
-            "First measurement should be sent to background thread"
-        );
-        assert!(
-            rx.recv().await.is_some(),
-            "Second measurement should be sent to background thread"
-        );
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn store_measurement_batch_queues_all_measurements_in_order(
+        items: Vec<MeasurementParts>,
+    ) -> bool {
+        let measurements = items
+            .into_iter()
+            .map(measurement_from_parts)
+            .collect::<Vec<_>>();
+        store_measurements_queues_expected(
+            NewMeasurements::Measurements(measurements.clone()),
+            measurements,
+        )
     }
 
     fn make_app_state(pool: PgPool) -> ApplicationState {
