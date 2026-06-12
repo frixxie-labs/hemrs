@@ -14,7 +14,10 @@ permissions:
   issues: read
   pull-requests: read
 
-network: defaults
+network:
+  - defaults
+  - github.com
+  - api.github.com
 
 tools:
   github:
