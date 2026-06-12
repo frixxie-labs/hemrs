@@ -1,5 +1,3 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
-
 use anyhow::Context;
 use axum::{
     extract::{Path, Query, State},
@@ -7,7 +5,6 @@ use axum::{
     Json,
 };
 use chrono::{DateTime, Utc};
-use metrics::gauge;
 use moka::future::Cache;
 use serde::Deserialize;
 use sqlx::PgPool;
@@ -20,27 +17,6 @@ use crate::measurements::{Measurement, MeasurementStats, NewMeasurement, NewMeas
 use super::error::HandlerError;
 
 type ApplicationState = State<(PgPool, Cache<(i32, i32), Measurement>)>;
-
-static MAX_OBSERVED_MEASUREMENT_QUEUE_LEN: AtomicUsize = AtomicUsize::new(0);
-
-fn record_measurement_queue_len(tx: &Sender<NewMeasurement>) {
-    let queue_len = tx.max_capacity().saturating_sub(tx.capacity());
-    let previous_max = MAX_OBSERVED_MEASUREMENT_QUEUE_LEN.fetch_max(queue_len, Ordering::Relaxed);
-    let max_queue_len = previous_max.max(queue_len);
-
-    gauge!("measurement_insert_queue_max_len").set(max_queue_len as f64);
-}
-
-async fn enqueue_measurement(
-    tx: &Sender<NewMeasurement>,
-    measurement: NewMeasurement,
-) -> anyhow::Result<()> {
-    tx.send(measurement)
-        .await
-        .context("Failed to send measurement to background thread")?;
-    record_measurement_queue_len(tx);
-    Ok(())
-}
 
 #[utoipa::path(
     post,
@@ -61,11 +37,15 @@ where
 {
     match measurement {
         NewMeasurements::Measurement(new_measurement) => {
-            enqueue_measurement(&tx, new_measurement).await?;
+            tx.send(new_measurement)
+                .await
+                .context("Failed to send measurement to background thread")?;
         }
         NewMeasurements::Measurements(new_measurements) => {
             for measurement in new_measurements {
-                enqueue_measurement(&tx, measurement).await?;
+                tx.send(measurement)
+                    .await
+                    .context("Failed to send measurement to background thread")?;
             }
         }
     };
