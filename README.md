@@ -238,8 +238,3 @@ migrations directory. Run migrations to set up the required tables and views.
 - **Querying**: Cached latest measurements with sub-millisecond response times
 - **Storage**: Efficient PostgreSQL indexing on timestamp and foreign keys
 - **Memory**: Bounded cache prevents memory leaks during extended operation
-
-## Future Enhancements
-
-- [ ] WebSocket support for real-time measurement streaming
-- [ ] Advanced analytics and alerting capabilities
