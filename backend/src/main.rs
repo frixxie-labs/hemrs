@@ -71,7 +71,7 @@ pub struct Opts {
     ///
     /// Valid values are: trace, debug, info, warn, error.
     /// Defaults to "info" level.
-    #[arg(short, long, default_value = "info")]
+    #[arg(short, long, default_value = "warn")]
     log_level: LogLevel,
 }
 
