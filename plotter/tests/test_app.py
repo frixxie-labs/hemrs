@@ -1,11 +1,11 @@
 """Tests for FastAPI endpoints in app.py."""
 
+from datetime import UTC
 from unittest.mock import MagicMock
 
 from requests.exceptions import ConnectionError, HTTPError
 
 from tests.conftest import make_measurement, make_measurements
-
 
 # ---------------------------------------------------------------------------
 # GET /plot/measurements
@@ -121,17 +121,17 @@ class TestPlotMeasurementsByDeviceAndSensor:
         self, test_app, mock_client: MagicMock
     ):
         """Passing ?start= should exclude measurements before that time."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         old = make_measurements(
             2,
-            base_timestamp=datetime(2025, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
+            base_timestamp=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC),
             sensor_name="temp",
             unit="°C",
         )
         new = make_measurements(
             2,
-            base_timestamp=datetime(2025, 6, 15, 10, 0, 0, tzinfo=timezone.utc),
+            base_timestamp=datetime(2025, 6, 15, 10, 0, 0, tzinfo=UTC),
             sensor_name="temp",
             unit="°C",
         )
@@ -148,17 +148,17 @@ class TestPlotMeasurementsByDeviceAndSensor:
         self, test_app, mock_client: MagicMock
     ):
         """Passing ?end= should exclude measurements after that time."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         early = make_measurements(
             2,
-            base_timestamp=datetime(2025, 6, 1, 10, 0, 0, tzinfo=timezone.utc),
+            base_timestamp=datetime(2025, 6, 1, 10, 0, 0, tzinfo=UTC),
             sensor_name="temp",
             unit="°C",
         )
         late = make_measurements(
             2,
-            base_timestamp=datetime(2025, 12, 1, 10, 0, 0, tzinfo=timezone.utc),
+            base_timestamp=datetime(2025, 12, 1, 10, 0, 0, tzinfo=UTC),
             sensor_name="temp",
             unit="°C",
         )
@@ -174,11 +174,11 @@ class TestPlotMeasurementsByDeviceAndSensor:
         self, test_app, mock_client: MagicMock
     ):
         """If start filter excludes everything, should return 404."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         old = make_measurements(
             3,
-            base_timestamp=datetime(2025, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
+            base_timestamp=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC),
         )
         mock_client.fetch_measurements_by_device_and_sensor.return_value = old
         resp = test_app.get(

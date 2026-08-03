@@ -6,32 +6,38 @@
       {
         "ordinal": 0,
         "name": "min!",
-        "type_info": "Float4"
+        "type_info": "Float4",
+        "origin": "Expression"
       },
       {
         "ordinal": 1,
         "name": "max!",
-        "type_info": "Float4"
+        "type_info": "Float4",
+        "origin": "Expression"
       },
       {
         "ordinal": 2,
         "name": "count!",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": "Expression"
       },
       {
         "ordinal": 3,
         "name": "avg!",
-        "type_info": "Float8"
+        "type_info": "Float8",
+        "origin": "Expression"
       },
       {
         "ordinal": 4,
         "name": "stddev!",
-        "type_info": "Float8"
+        "type_info": "Float8",
+        "origin": "Expression"
       },
       {
         "ordinal": 5,
         "name": "variance!",
-        "type_info": "Float8"
+        "type_info": "Float8",
+        "origin": "Expression"
       }
     ],
     "parameters": {

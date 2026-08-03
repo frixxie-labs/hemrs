@@ -6,17 +6,35 @@
       {
         "ordinal": 0,
         "name": "id!",
-        "type_info": "Int4"
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "device_sensors",
+            "name": "sensor_id"
+          }
+        }
       },
       {
         "ordinal": 1,
         "name": "name!",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "device_sensors",
+            "name": "name"
+          }
+        }
       },
       {
         "ordinal": 2,
         "name": "unit!",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "device_sensors",
+            "name": "unit"
+          }
+        }
       }
     ],
     "parameters": {

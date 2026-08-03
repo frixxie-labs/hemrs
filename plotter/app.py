@@ -1,6 +1,7 @@
 import io
 import os
 from datetime import datetime
+from typing import Annotated
 
 import matplotlib
 import matplotlib.dates as mdates
@@ -215,8 +216,8 @@ def plot_measurements_by_device_and_sensor(
     device_id: int,
     sensor_id: int,
     request: Request,
-    start: datetime | None = Query(default=None),
-    end: datetime | None = Query(default=None),
+    start: Annotated[datetime | None, Query()] = None,
+    end: Annotated[datetime | None, Query()] = None,
 ):
     """Plot measurements for a specific device/sensor pair as a time-series SVG."""
     cache_key = _cache_key(request)
@@ -279,8 +280,8 @@ def plot_measurements_by_device_and_sensor(
 @app.get("/plot/measurements/range", response_class=Response)
 def plot_measurements_by_range(
     request: Request,
-    start: datetime = Query(...),
-    end: datetime | None = Query(default=None),
+    start: Annotated[datetime, Query()],
+    end: Annotated[datetime | None, Query()] = None,
 ):
     """Plot measurements within a date range as a time-series SVG."""
     cache_key = _cache_key(request)

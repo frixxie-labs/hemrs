@@ -1,11 +1,10 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
 from models import Device, Measurement, MeasurementStats, Sensor
-
 
 # ---------------------------------------------------------------------------
 # Sample data factories
@@ -31,7 +30,7 @@ def make_measurement(
     sensor_name: str = "temperature",
 ) -> Measurement:
     return Measurement(
-        timestamp=timestamp or datetime(2025, 6, 1, 12, 0, 0, tzinfo=timezone.utc),
+        timestamp=timestamp or datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC),
         value=value,
         unit=unit,
         device_name=device_name,
@@ -42,9 +41,7 @@ def make_measurement(
 
 def make_measurements(count: int = 5, **kwargs) -> list[Measurement]:
     """Create a list of measurements with incrementing timestamps and values."""
-    base_ts = kwargs.pop(
-        "base_timestamp", datetime(2025, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
-    )
+    base_ts = kwargs.pop("base_timestamp", datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC))
     base_val = kwargs.pop("base_value", 20.0)
     return [
         make_measurement(
