@@ -7,12 +7,11 @@ import matplotlib
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
+from backend_client import BackendClient
 from cachetools import TTLCache
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import Response
 from requests.exceptions import ConnectionError, HTTPError
-
-from backend_client import BackendClient
 
 matplotlib.use("svg")
 
