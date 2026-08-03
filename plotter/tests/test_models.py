@@ -3,9 +3,8 @@
 from datetime import UTC, datetime
 
 import pytest
-from pydantic import ValidationError
-
 from models import Device, Measurement, MeasurementStats, Sensor
+from pydantic import ValidationError
 
 # ---------------------------------------------------------------------------
 # Device

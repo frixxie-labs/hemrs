@@ -3,7 +3,6 @@ from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
-
 from models import Device, Measurement, MeasurementStats, Sensor
 
 # ---------------------------------------------------------------------------

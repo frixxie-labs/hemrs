@@ -1,7 +1,6 @@
 from datetime import datetime
 
 import requests
-
 from models import Device, Measurement, MeasurementStats, Sensor
 
 DEFAULT_BASE_URL = "http://localhost:65534"

@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
-
 from backend_client import BackendClient
 from models import Device, Measurement, MeasurementStats, Sensor
 
