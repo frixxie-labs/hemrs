@@ -1,6 +1,6 @@
 """Tests for BackendClient with mocked HTTP responses."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -68,11 +68,11 @@ class TestFetchDeviceById:
         assert device.id == 1
 
     def test_http_error_propagates(self, client: BackendClient):
-        with patch.object(
-            client.session, "get", return_value=_mock_error_response(404)
+        with (
+            patch.object(client.session, "get", return_value=_mock_error_response(404)),
+            pytest.raises(requests.exceptions.HTTPError),
         ):
-            with pytest.raises(requests.exceptions.HTTPError):
-                client.fetch_device_by_id(999)
+            client.fetch_device_by_id(999)
 
 
 # ---------------------------------------------------------------------------
@@ -162,7 +162,7 @@ class TestFetchMeasurementsByDateRange:
         mock_resp = _mock_response([SAMPLE_MEASUREMENT])
         with patch.object(client.session, "get", return_value=mock_resp) as mock_get:
             result = client.fetch_measurements_by_date_range(
-                start=datetime(2025, 6, 1, tzinfo=timezone.utc)
+                start=datetime(2025, 6, 1, tzinfo=UTC)
             )
         assert len(result) == 1
         # Verify params passed correctly
@@ -175,8 +175,8 @@ class TestFetchMeasurementsByDateRange:
         mock_resp = _mock_response([SAMPLE_MEASUREMENT])
         with patch.object(client.session, "get", return_value=mock_resp) as mock_get:
             client.fetch_measurements_by_date_range(
-                start=datetime(2025, 6, 1, tzinfo=timezone.utc),
-                end=datetime(2025, 6, 30, tzinfo=timezone.utc),
+                start=datetime(2025, 6, 1, tzinfo=UTC),
+                end=datetime(2025, 6, 30, tzinfo=UTC),
             )
         call_kwargs = mock_get.call_args
         params = call_kwargs.kwargs.get("params") or call_kwargs[1].get("params", {})

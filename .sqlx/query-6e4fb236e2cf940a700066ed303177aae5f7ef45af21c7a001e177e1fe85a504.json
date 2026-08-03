@@ -6,32 +6,68 @@
       {
         "ordinal": 0,
         "name": "timestamp",
-        "type_info": "Timestamptz"
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "measurements",
+            "name": "ts"
+          }
+        }
       },
       {
         "ordinal": 1,
         "name": "value",
-        "type_info": "Float4"
+        "type_info": "Float4",
+        "origin": {
+          "Table": {
+            "table": "measurements",
+            "name": "value"
+          }
+        }
       },
       {
         "ordinal": 2,
         "name": "unit",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sensors",
+            "name": "unit"
+          }
+        }
       },
       {
         "ordinal": 3,
         "name": "device_name",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "devices",
+            "name": "name"
+          }
+        }
       },
       {
         "ordinal": 4,
         "name": "device_location",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "devices",
+            "name": "location"
+          }
+        }
       },
       {
         "ordinal": 5,
         "name": "sensor_name",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sensors",
+            "name": "name"
+          }
+        }
       }
     ],
     "parameters": {

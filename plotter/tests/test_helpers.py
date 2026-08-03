@@ -37,7 +37,7 @@ class TestFigToSvg:
         assert fig_number not in plt.get_fignums()
 
     def test_empty_plot(self):
-        fig, ax = plt.subplots()
+        fig, _ = plt.subplots()
         result = _fig_to_svg(fig)
         assert len(result) > 0
         assert b"<svg" in result

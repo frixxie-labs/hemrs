@@ -1,12 +1,11 @@
 """Tests for Pydantic data models."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
 
 from models import Device, Measurement, MeasurementStats, Sensor
-
 
 # ---------------------------------------------------------------------------
 # Device
@@ -65,7 +64,7 @@ class TestSensor:
 class TestMeasurement:
     def test_valid(self):
         m = Measurement(
-            timestamp=datetime(2025, 6, 1, 12, 0, 0, tzinfo=timezone.utc),
+            timestamp=datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC),
             value=21.5,
             unit="°C",
             device_name="living-room",
@@ -73,7 +72,7 @@ class TestMeasurement:
             sensor_name="temperature",
         )
         assert m.value == 21.5
-        assert m.timestamp.tzinfo == timezone.utc
+        assert m.timestamp.tzinfo == UTC
 
     def test_parses_iso_timestamp(self):
         m = Measurement.model_validate(
@@ -90,7 +89,7 @@ class TestMeasurement:
 
     def test_negative_value(self):
         m = Measurement(
-            timestamp=datetime(2025, 1, 15, tzinfo=timezone.utc),
+            timestamp=datetime(2025, 1, 15, tzinfo=UTC),
             value=-10.3,
             unit="°C",
             device_name="outdoor",
@@ -102,7 +101,7 @@ class TestMeasurement:
     def test_missing_value_raises(self):
         with pytest.raises(ValidationError):
             Measurement(
-                timestamp=datetime.now(tz=timezone.utc),
+                timestamp=datetime.now(tz=UTC),
                 unit="°C",
                 device_name="x",
                 device_location="y",
@@ -111,7 +110,7 @@ class TestMeasurement:
 
     def test_serialization_roundtrip(self):
         m = Measurement(
-            timestamp=datetime(2025, 6, 1, 12, 0, 0, tzinfo=timezone.utc),
+            timestamp=datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC),
             value=21.5,
             unit="°C",
             device_name="lr",
