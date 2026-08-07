@@ -17,7 +17,7 @@
 `backend/src/main.rs` does the following:
 
 1. Parses `Opts` from CLI/env with Clap.
-2. Configures tracing with the selected log level.
+2. Configures tracing to emit newline-delimited, flattened JSON with the selected log level.
 3. Installs a Prometheus recorder.
 4. Opens a PostgreSQL pool using `PgPoolOptions`.
 5. Builds a Moka cache keyed by `(device_id, sensor_id)` with capacity `128` and TTL `60s`.
@@ -32,6 +32,9 @@ CLI options are defined in `Opts`:
 - `--host` / `-h`: bind address, default `0.0.0.0:65534`.
 - `--db-url` / `-d` / `DATABASE_URL`: PostgreSQL URL, default `postgres://postgres:example@localhost:5432/postgres`.
 - `--log-level` / `-l`: one of `trace`, `debug`, `info`, `warn`, `error`; default `info`.
+
+Logs are written to stdout as one JSON object per line. When shipping stdout directly to
+VictoriaLogs' JSON stream API, set `_msg_field=message` and `_time_field=timestamp`.
 
 ## Routing
 
