@@ -4,7 +4,7 @@ use metrics_exporter_prometheus::PrometheusBuilder;
 use moka::future::Cache;
 use sqlx::postgres::PgPoolOptions;
 use tokio::{net::TcpListener, sync::mpsc::channel};
-use tracing::{error, info, Level};
+use tracing::{Level, error, info};
 use tracing_subscriber::FmtSubscriber;
 
 use crate::{

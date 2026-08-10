@@ -220,11 +220,7 @@ mod tests {
     // ── quickcheck: pure logic, no DB ────────────────────────────────────────
 
     #[quickcheck_macros::quickcheck]
-    fn new_measurement_fields_are_stored_correctly(
-        device: i32,
-        sensor: i32,
-        value: f32,
-    ) -> bool {
+    fn new_measurement_fields_are_stored_correctly(device: i32, sensor: i32, value: f32) -> bool {
         // NaN != NaN by IEEE 754, so skip it; the constructor itself is still tested.
         if value.is_nan() {
             return true;
@@ -257,9 +253,7 @@ mod tests {
         let json = serde_json::to_string(&original).expect("serialization failed");
         let parsed: Result<NewMeasurements, _> = serde_json::from_str(&json);
         match parsed {
-            Ok(NewMeasurements::Measurement(m)) => {
-                m.device == device && m.sensor == sensor
-            }
+            Ok(NewMeasurements::Measurement(m)) => m.device == device && m.sensor == sensor,
             _ => false,
         }
     }
