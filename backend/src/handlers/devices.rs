@@ -1,7 +1,7 @@
 use anyhow::Context;
 use axum::{
-    extract::{Path, State},
     Json,
+    extract::{Path, State},
 };
 use sqlx::PgPool;
 use tracing::instrument;

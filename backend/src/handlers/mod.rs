@@ -1,9 +1,9 @@
 use axum::{
+    Router,
     extract::{MatchedPath, Request, State},
     middleware::{self, Next},
     response::Response,
     routing::{delete, get, post, put},
-    Router,
 };
 use devices::{delete_device, fetch_devices, insert_device, update_device};
 use measurements::{

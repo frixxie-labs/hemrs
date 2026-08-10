@@ -4,7 +4,7 @@ Use this file as the first stop before modifying HEMRS.
 
 ## Project Map
 
-- `backend/`: Rust 2021 Axum API server and domain/data-access modules.
+- `backend/`: Rust 2024 Axum API server and domain/data-access modules.
 - `frontend/`: Fresh 2 / Deno / Preact frontend.
 - `plotter/`: Python FastAPI service that renders SVG plots from backend data.
 - `backend/migrations/`: SQLx migrations for PostgreSQL.
