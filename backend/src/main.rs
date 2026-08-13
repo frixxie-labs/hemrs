@@ -106,7 +106,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let connection = PgPoolOptions::new().connect(&opts.db_url).await.unwrap();
 
     let measurement_cache: Cache<(i32, i32), Measurement> = Cache::builder()
-        .max_capacity(128)
+        .max_capacity(512)
         .time_to_live(std::time::Duration::from_secs(60))
         .build();
 
