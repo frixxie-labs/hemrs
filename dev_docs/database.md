@@ -50,6 +50,8 @@ CREATE TABLE measurements(
 );
 ```
 
+The `measurements_device_sensor_ts_idx` index on `(device_id, sensor_id, ts DESC)` supports latest-measurement lookups without sorting the full measurements table.
+
 Note: `device_id` and `sensor_id` are declared as `SERIAL` while also being foreign keys. That is unusual because foreign-key columns normally use `INTEGER`; preserve behavior unless intentionally migrating the schema.
 
 ## Views
