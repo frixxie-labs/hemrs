@@ -114,13 +114,20 @@ async fn main() -> Result<(), anyhow::Error> {
     let measurement_cache_bg = measurement_cache.clone();
 
     let (tx, rx) = channel::<NewMeasurement>(1 << 13);
+    let (measurement_updates, _) = tokio::sync::broadcast::channel(1024);
 
     let insert_pool = connection.clone();
     let insert_cache = measurement_cache.clone();
 
     let refresh_pool = connection.clone();
 
-    let app = create_router(connection, metrics_handler, measurement_cache, tx);
+    let app = create_router(
+        connection,
+        metrics_handler,
+        measurement_cache,
+        tx,
+        measurement_updates.clone(),
+    );
 
     let listener = TcpListener::bind(&opts.host).await.unwrap();
 
@@ -128,7 +135,7 @@ async fn main() -> Result<(), anyhow::Error> {
         _ = update_metrics(&bg_pool, &measurement_cache_bg) => {
             error!("update_metrics task exited unexpectedly");
         }
-        _ = handle_insert_measurement_bg_thread(rx, insert_pool, insert_cache) => {
+        _ = handle_insert_measurement_bg_thread(rx, insert_pool, insert_cache, measurement_updates) => {
             error!("insert_measurement background task exited unexpectedly");
         }
         result = refresh_views(&refresh_pool) => {

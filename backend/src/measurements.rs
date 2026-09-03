@@ -65,7 +65,7 @@ impl fmt::Display for NewMeasurement {
     }
 }
 
-#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Measurement {
     pub timestamp: DateTime<Utc>,
     pub value: f32,
@@ -73,6 +73,13 @@ pub struct Measurement {
     pub device_name: String,
     pub device_location: String,
     pub sensor_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct MeasurementUpdate {
+    pub device_id: i32,
+    pub sensor_id: i32,
+    pub measurement: Measurement,
 }
 
 #[derive(Debug, Clone, Serialize, FromRow, ToSchema)]

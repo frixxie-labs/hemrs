@@ -28,6 +28,7 @@
 | `/devices/new` | `routes/devices/new.tsx` | Create device form. |
 | `/devices/:device_id` | `routes/devices/[device_id]/index.tsx` | Device detail and sensors observed for that device. |
 | `/devices/:device_id/sensors/:sensor_id` | `routes/devices/[device_id]/sensors/[sensor_id].tsx` | Sensor detail for a device, stats, latest value, and plot. |
+| `/api/devices/:device_id/sensors/:sensor_id/measurements/stream` | `routes/api/devices/[device_id]/sensors/[sensor_id]/measurements/stream.ts` | Same-origin streaming proxy to the backend SSE endpoint. |
 | `/sensors` | `routes/sensors/index.tsx` | Sensor list and link to create form. |
 | `/sensors/new` | `routes/sensors/new.tsx` | Create sensor form. |
 | `/measurements` | `routes/measurements/index.tsx` | Latest measurements per device/sensor pair. |
@@ -69,10 +70,22 @@ Use `frontend/lib` for backend and plotter calls rather than calling `fetch` dir
 - `MeasurementStats` mirrors backend stats JSON.
 - `getMeasurementStats(device_id, sensor_id)` calls the nested stats route.
 
+### `lib/measurement_stream.ts`
+
+- `MeasurementUpdate` describes a live event envelope containing device/sensor IDs and a `Measurement`.
+- `measurementStreamPath` builds the browser-safe same-origin stream URL.
+- `parseMeasurementUpdate` validates incoming event data before the UI consumes it.
+
 ### `lib/plotter.ts`
 
 - `fetchPlotSvg(path)` fetches SVG bytes from the plotter, base64-encodes them, and returns a `data:image/svg+xml;base64,...` URL.
 - Specific helpers generate plotter paths for latest all, all measurements, device measurements, device/sensor measurements, and last-24-hours device/sensor measurements.
+
+## Live Updates
+
+`islands/LiveMeasurementStatCard.tsx` hydrates the sensor detail page, starts from the server-rendered latest measurement, and listens for named `measurement` events with the browser `EventSource` API. Native reconnection is used after errors, and the connection is closed when the island unmounts. Aggregate statistics remain the server-rendered snapshot.
+
+The browser connects to the Fresh same-origin proxy rather than directly to `HEMRS_URL`. The proxy keeps internal backend addresses out of client code, avoids CORS requirements, forwards cancellation upstream, and returns the backend response body without buffering it.
 
 ## Components
 
