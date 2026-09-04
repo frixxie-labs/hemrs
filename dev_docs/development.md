@@ -178,3 +178,7 @@ Changelog job:
 - `kustomization.yaml`: groups release resources under namespace `default`.
 
 The manifests contain Kompose annotations and appear to originate from `docker-compose.yaml` conversion. Validate them before production changes.
+
+The live measurement stream uses process-local broadcast state. Because the release deployment has two backend replicas, an SSE connection only sees measurements inserted by its connected replica. Use a shared pub/sub mechanism before relying on complete cross-replica delivery.
+
+Any load balancer or reverse proxy in front of the frontend or backend must allow long-lived responses, disable buffering for `text/event-stream`, and set idle timeouts longer than the 15-second SSE keepalive interval. The application returns `X-Accel-Buffering: no`, but proxy-specific configuration may still be required.

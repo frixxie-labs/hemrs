@@ -11,6 +11,7 @@ use measurements::{
     fetch_latest_measurement_by_device_id_and_sensor_id, fetch_measurement_by_device_id,
     fetch_measurement_by_device_id_and_sensor_id, fetch_measurements_by_date_range,
     fetch_measurements_count, fetch_stats_by_device_id_and_sensor_id, store_measurements,
+    stream_measurements,
 };
 use metrics::histogram;
 use metrics_exporter_prometheus::PrometheusHandle;
@@ -19,7 +20,10 @@ use ping::ping;
 use sensors::fetch_sensors_by_device_id;
 use sensors::{delete_sensor, fetch_sensors, insert_sensor, update_sensor};
 use sqlx::Pool;
-use tokio::{sync::mpsc::Sender, time::Instant};
+use tokio::{
+    sync::{broadcast, mpsc::Sender},
+    time::Instant,
+};
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing::{info, instrument};
@@ -27,7 +31,7 @@ use utoipa::OpenApi;
 
 use crate::{
     handlers::{devices::fetch_devices_by_id, sensors::fetch_sensor_by_sensor_id},
-    measurements::{Measurement, NewMeasurement},
+    measurements::{Measurement, MeasurementUpdate, NewMeasurement},
 };
 
 mod devices;
@@ -70,6 +74,7 @@ pub fn create_router(
     metrics_handler: PrometheusHandle,
     cache: Cache<(i32, i32), Measurement>,
     tx: Sender<NewMeasurement>,
+    measurement_updates: broadcast::Sender<MeasurementUpdate>,
 ) -> Router {
     let measurements = Router::new()
         .route("/measurements", get(fetch_all_measurements))
@@ -121,10 +126,18 @@ pub fn create_router(
         .route("/sensors/{sensor_id}", get(fetch_sensor_by_sensor_id))
         .with_state(connection.clone());
 
+    let measurement_stream = Router::new()
+        .route(
+            "/devices/{device_id}/sensors/{sensor_id}/measurements/stream",
+            get(stream_measurements),
+        )
+        .with_state(measurement_updates);
+
     Router::new()
         .nest("/api", measurements)
         .nest("/api", devices)
         .nest("/api", sensors)
+        .nest("/api", measurement_stream)
         .route("/", post(store_measurements))
         .with_state(tx)
         .route("/status/ping", get(ping))
@@ -183,6 +196,7 @@ async fn metrics(State(handle): State<PrometheusHandle>) -> String {
         measurements::fetch_all_latest_measurements,
         measurements::fetch_stats_by_device_id_and_sensor_id,
         measurements::fetch_measurements_by_date_range,
+        measurements::stream_measurements,
     ),
     components(
         schemas(
@@ -194,6 +208,7 @@ async fn metrics(State(handle): State<PrometheusHandle>) -> String {
             crate::measurements::NewMeasurement,
             crate::measurements::NewMeasurements,
             crate::measurements::MeasurementStats,
+            crate::measurements::MeasurementUpdate,
             ping::PingResponse,
         )
     ),

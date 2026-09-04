@@ -16,11 +16,13 @@ HEMRS monitors environmental measurements from distributed devices. The system i
 2. The backend handler deserializes the body as `NewMeasurements`.
 3. The handler sends each `NewMeasurement` to a Tokio MPSC channel and returns HTTP `201`.
 4. `handle_insert_measurement_bg_thread` receives measurements from the channel.
-5. The background task resolves device and sensor metadata, updates the Moka latest-measurement cache, and inserts the row into PostgreSQL.
-6. Query endpoints read from PostgreSQL, with latest device/sensor reads checking the cache first.
-7. The metrics background task periodically emits gauges for recent measurements and counters for pool/cache size.
-8. The plotter fetches measurements from the backend, renders SVG charts, and caches them by request path/query.
-9. The frontend renders pages by calling the backend and plotter from server-side route handlers.
+5. The background task resolves device and sensor metadata, inserts the row into PostgreSQL, and updates the Moka latest-measurement cache.
+6. After a successful insert, the worker publishes a `MeasurementUpdate` to an in-process Tokio broadcast channel.
+7. Pair-specific SSE handlers filter the broadcast updates and stream them to subscribers with periodic keepalives.
+8. Query endpoints read from PostgreSQL, with latest device/sensor reads checking the cache first.
+9. The metrics background task periodically emits gauges for recent measurements and counters for pool/cache size.
+10. The plotter fetches measurements from the backend, renders SVG charts, and caches them by request path/query.
+11. The frontend renders pages server-side; its live measurement island connects through a same-origin streaming proxy route.
 
 ## Backend Layers
 
@@ -36,6 +38,7 @@ HEMRS monitors environmental measurements from distributed devices. The system i
 - `frontend/routes/_app.tsx`: HTML shell and global stylesheet link.
 - `frontend/routes/_layout.tsx`: dashboard header, navigation, and page container.
 - `frontend/routes/**`: server-side route handlers and page components.
+- `frontend/islands/**`: hydrated components for browser-side behavior such as live measurement updates.
 - `frontend/lib/*.ts`: backend and plotter client helpers.
 - `frontend/components/*.tsx`: reusable presentational UI components.
 - `frontend/assets/styles.css`: Tailwind v4 import and custom theme tokens.

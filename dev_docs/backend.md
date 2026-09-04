@@ -2,9 +2,9 @@
 
 ## Technology
 
-- Rust 2021.
+- Rust 2024.
 - Axum `0.8` for HTTP routing and extractors.
-- SQLx `0.8` for PostgreSQL access and compile-time checked queries.
+- SQLx `0.9` for PostgreSQL access and compile-time checked queries.
 - Tokio for async runtime, TCP listener, channels, and background tasks.
 - Moka future cache for latest measurements.
 - `metrics` plus `metrics-exporter-prometheus` for Prometheus output.
@@ -20,8 +20,8 @@
 2. Configures tracing to emit newline-delimited, flattened JSON with the selected log level.
 3. Installs a Prometheus recorder.
 4. Opens a PostgreSQL pool using `PgPoolOptions`.
-5. Builds a Moka cache keyed by `(device_id, sensor_id)` with capacity `128` and TTL `60s`.
-6. Creates a Tokio channel for measurement ingestion with buffer `1 << 13`.
+5. Builds a Moka cache keyed by `(device_id, sensor_id)` with capacity `512` and TTL `60s`.
+6. Creates a Tokio MPSC channel for measurement ingestion with buffer `1 << 13` and a broadcast channel for 1024 live updates.
 7. Builds the Axum router with cloned pool/cache/channel state.
 8. Starts concurrent tasks with `tokio::select!`: metrics update loop, insert worker, materialized view refresh loop, and HTTP server.
 
@@ -40,11 +40,12 @@ VictoriaLogs' JSON stream API, set `_msg_field=message` and `_time_field=timesta
 
 All active routes are registered in `backend/src/handlers/mod.rs`.
 
-The router is composed from three nested routers:
+The router is composed from four nested routers:
 
 - `measurements`: gets pool/cache state for reads and channel sender state for writes.
 - `devices`: gets pool state for device/sensor list reads and pool/cache state for measurement reads.
 - `sensors`: gets pool state.
+- `measurement_stream`: gets the measurement broadcast sender.
 
 Global middleware:
 
@@ -166,8 +167,9 @@ Main methods:
 
 - Looks up device and sensor concurrently with `tokio::join!`.
 - Builds a denormalized `Measurement` cache entry.
-- Inserts cache entry under `(device.id, sensor.id)`.
 - Inserts the measurement row into PostgreSQL.
+- Inserts the cache entry under `(device.id, sensor.id)`.
+- Publishes a `MeasurementUpdate` after successful insertion without waiting for subscribers.
 - Records histograms for lookup, cache insert, and database insert durations.
 - Increments `new_measurements` on success.
 
@@ -177,7 +179,7 @@ The latest-measurement cache is a Moka future cache:
 
 - Key: `(i32, i32)` representing `(device_id, sensor_id)`.
 - Value: denormalized `Measurement`.
-- Capacity: `128`.
+- Capacity: `512`.
 - TTL: `60s`.
 
 Cache use cases:
@@ -202,6 +204,12 @@ Recorded metrics include:
 - `hemrs_pg_pool_size` absolute counter-style metric.
 - `hemrs_cache_size` absolute counter-style metric.
 - `measurements` gauge labeled by `device_name`, `device_location`, `sensor_name`, and `unit` for values newer than 300 seconds.
+
+## Live Measurement Streaming
+
+`GET /api/devices/{device_id}/sensors/{sensor_id}/measurements/stream` subscribes to the process-local broadcast channel and returns matching updates as named SSE `measurement` events. Keepalive comments are sent every 15 seconds, and `X-Accel-Buffering: no` asks compatible proxies not to buffer the response.
+
+The channel is bounded and deliberately lossy so slow subscribers cannot block ingestion. Lagged receivers resume with the next available update. There are no SSE event IDs or replay, and updates do not cross backend process boundaries; multi-replica deployments need shared pub/sub for complete live delivery.
 
 ## Background View Refresh
 

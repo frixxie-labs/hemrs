@@ -1,7 +1,7 @@
 import { HttpError, page } from "fresh";
 import { define } from "../../../../utils.ts";
 import { getMeasurementStats } from "../../../../lib/measurement_stats.ts";
-import MeasurementStatCard from "../../../../components/MeasurementStatCard.tsx";
+import LiveMeasurementStatCard from "../../../../islands/LiveMeasurementStatCard.tsx";
 import PlotCard from "../../../../components/PlotCard.tsx";
 import { getDeviceById } from "../../../../lib/device.ts";
 import { getSensorById } from "../../../../lib/sensor.ts";
@@ -45,9 +45,11 @@ export default define.page<typeof handler>(({ data }) => {
           Device: {data.device.name} (#{data.device.id})
         </p>
       </div>
-      <MeasurementStatCard
-        measurement_stats={data.stats}
-        latest={data.latest}
+      <LiveMeasurementStatCard
+        deviceId={data.device.id}
+        sensorId={data.sensor.id}
+        measurementStats={data.stats}
+        initialLatest={data.latest}
       />
       <PlotCard
         title={`${data.sensor.name} Measurements Over Time`}

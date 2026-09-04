@@ -2,21 +2,85 @@ use anyhow::Context;
 use axum::{
     Json,
     extract::{Path, Query, State},
-    response::{IntoResponse, Response},
+    http::{HeaderValue, header},
+    response::{
+        IntoResponse, Response, Sse,
+        sse::{Event, KeepAlive},
+    },
 };
 use chrono::{DateTime, Utc};
+use futures::{Stream, stream};
 use moka::future::Cache;
 use serde::Deserialize;
 use sqlx::PgPool;
-use tokio::sync::mpsc::Sender;
-use tracing::instrument;
+use std::{convert::Infallible, time::Duration};
+use tokio::sync::{broadcast, mpsc::Sender};
+use tracing::{instrument, warn};
 use utoipa::IntoParams;
 
-use crate::measurements::{Measurement, MeasurementStats, NewMeasurement, NewMeasurements};
+use crate::measurements::{
+    Measurement, MeasurementStats, MeasurementUpdate, NewMeasurement, NewMeasurements,
+};
 
 use super::error::HandlerError;
 
 type ApplicationState = State<(PgPool, Cache<(i32, i32), Measurement>)>;
+
+#[utoipa::path(
+    get,
+    path = "api/devices/{device_id}/sensors/{sensor_id}/measurements/stream",
+    params(
+        ("device_id" = i32, Path, description = "Device ID"),
+        ("sensor_id" = i32, Path, description = "Sensor ID")
+    ),
+    responses(
+        (status = 200, description = "Live measurement event stream", body = MeasurementUpdate, content_type = "text/event-stream"),
+    )
+)]
+#[instrument(skip(updates))]
+pub async fn stream_measurements(
+    State(updates): State<broadcast::Sender<MeasurementUpdate>>,
+    Path((device_id, sensor_id)): Path<(i32, i32)>,
+) -> Response {
+    let receiver = updates.subscribe();
+    let stream = measurement_stream(receiver, device_id, sensor_id);
+    let mut response = Sse::new(stream)
+        .keep_alive(
+            KeepAlive::new()
+                .interval(Duration::from_secs(15))
+                .text("keep-alive"),
+        )
+        .into_response();
+    response.headers_mut().insert(
+        header::HeaderName::from_static("x-accel-buffering"),
+        HeaderValue::from_static("no"),
+    );
+    response
+}
+
+fn measurement_stream(
+    receiver: broadcast::Receiver<MeasurementUpdate>,
+    device_id: i32,
+    sensor_id: i32,
+) -> impl Stream<Item = Result<Event, Infallible>> {
+    stream::unfold(receiver, move |mut receiver| async move {
+        loop {
+            match receiver.recv().await {
+                Ok(update) if update.device_id == device_id && update.sensor_id == sensor_id => {
+                    match Event::default().event("measurement").json_data(update) {
+                        Ok(event) => return Some((Ok(event), receiver)),
+                        Err(error) => warn!(%error, "Failed to serialize measurement update"),
+                    }
+                }
+                Ok(_) => {}
+                Err(broadcast::error::RecvError::Lagged(skipped)) => {
+                    warn!(skipped, device_id, sensor_id, "Measurement stream lagged");
+                }
+                Err(broadcast::error::RecvError::Closed) => return None,
+            }
+        }
+    })
+}
 
 #[utoipa::path(
     post,
@@ -275,6 +339,7 @@ pub async fn fetch_measurements_by_date_range(
 #[cfg(test)]
 mod tests {
     use crate::{devices::NewDevice, measurements::NewMeasurement, sensors::NewSensor};
+    use futures::StreamExt;
 
     use super::*;
 
@@ -295,6 +360,85 @@ mod tests {
             && actual.device == expected.device
             && actual.sensor == expected.sensor
             && actual.measurement.to_bits() == expected.measurement.to_bits()
+    }
+
+    fn measurement_update(device_id: i32, sensor_id: i32, value: f32) -> MeasurementUpdate {
+        MeasurementUpdate {
+            device_id,
+            sensor_id,
+            measurement: Measurement {
+                timestamp: fixed_timestamp(),
+                value,
+                unit: "C".to_string(),
+                device_name: "device".to_string(),
+                device_location: "location".to_string(),
+                sensor_name: "sensor".to_string(),
+            },
+        }
+    }
+
+    #[tokio::test]
+    async fn stream_measurements_emits_matching_updates() {
+        let (updates, _) = broadcast::channel(8);
+        let response = stream_measurements(State(updates.clone()), Path((1, 2))).await;
+
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+        assert_eq!(
+            response.headers().get(header::CONTENT_TYPE).unwrap(),
+            "text/event-stream"
+        );
+        assert_eq!(response.headers().get("x-accel-buffering").unwrap(), "no");
+
+        let mut body = response.into_body().into_data_stream();
+        updates.send(measurement_update(1, 2, 12.5)).unwrap();
+        let chunk = tokio::time::timeout(Duration::from_secs(1), body.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        let event = String::from_utf8(chunk.to_vec()).unwrap();
+
+        assert!(event.starts_with("event: measurement\n"));
+        assert!(event.contains("\"device_id\":1"));
+        assert!(event.contains("\"sensor_id\":2"));
+        assert!(event.contains("\"value\":12.5"));
+    }
+
+    #[tokio::test]
+    async fn stream_measurements_ignores_updates_for_other_pairs() {
+        let (updates, _) = broadcast::channel(8);
+        let response = stream_measurements(State(updates.clone()), Path((1, 2))).await;
+        let mut body = response.into_body().into_data_stream();
+
+        updates.send(measurement_update(9, 9, 1.0)).unwrap();
+        updates.send(measurement_update(1, 2, 2.0)).unwrap();
+
+        let chunk = tokio::time::timeout(Duration::from_secs(1), body.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        let event = String::from_utf8(chunk.to_vec()).unwrap();
+        assert!(event.contains("\"value\":2.0"));
+        assert!(!event.contains("\"value\":1.0"));
+    }
+
+    #[tokio::test]
+    async fn stream_measurements_resumes_after_lag() {
+        let (updates, _) = broadcast::channel(1);
+        let response = stream_measurements(State(updates.clone()), Path((1, 2))).await;
+        let mut body = response.into_body().into_data_stream();
+
+        updates.send(measurement_update(1, 2, 1.0)).unwrap();
+        updates.send(measurement_update(1, 2, 2.0)).unwrap();
+
+        let chunk = tokio::time::timeout(Duration::from_secs(1), body.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        let event = String::from_utf8(chunk.to_vec()).unwrap();
+        assert!(event.contains("\"value\":2.0"));
     }
 
     fn store_measurements_queues_expected(
