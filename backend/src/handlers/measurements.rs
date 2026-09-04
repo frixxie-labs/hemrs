@@ -13,7 +13,7 @@ use futures::{Stream, stream};
 use moka::future::Cache;
 use serde::Deserialize;
 use sqlx::PgPool;
-use std::{convert::Infallible, time::Duration};
+use std::{convert::Infallible, future::Future, time::Duration};
 use tokio::{
     sync::{broadcast, mpsc::Sender},
     time::{MissedTickBehavior, interval},
@@ -51,6 +51,25 @@ pub async fn stream_measurements(
     )>,
     Path((device_id, sensor_id)): Path<(i32, i32)>,
 ) -> Response {
+    stream_measurements_with_interval(
+        pool,
+        cache,
+        updates,
+        device_id,
+        sensor_id,
+        MEASUREMENT_STREAM_INTERVAL,
+    )
+    .await
+}
+
+async fn stream_measurements_with_interval(
+    pool: PgPool,
+    cache: Cache<(i32, i32), Measurement>,
+    updates: broadcast::Sender<MeasurementUpdate>,
+    device_id: i32,
+    sensor_id: i32,
+    repeat_interval: Duration,
+) -> Response {
     let receiver = updates.subscribe();
     let measurement = match cache.get(&(device_id, sensor_id)).await {
         Some(measurement) => Some(measurement),
@@ -76,23 +95,60 @@ pub async fn stream_measurements(
         sensor_id,
         measurement,
     });
+    let refresh_latest = move || {
+        let pool = pool.clone();
+        let cache = cache.clone();
+        async move {
+            match Measurement::read_latest_by_device_id_and_sensor_id(device_id, sensor_id, &pool)
+                .await
+            {
+                Ok(measurement) => {
+                    cache
+                        .insert((device_id, sensor_id), measurement.clone())
+                        .await;
+                    Some(MeasurementUpdate {
+                        device_id,
+                        sensor_id,
+                        measurement,
+                    })
+                }
+                Err(error) => {
+                    warn!(%error, device_id, sensor_id, "Failed to refresh latest measurement for stream");
+                    None
+                }
+            }
+        }
+    };
     measurement_stream_response(
         receiver,
         device_id,
         sensor_id,
         latest,
-        MEASUREMENT_STREAM_INTERVAL,
+        repeat_interval,
+        refresh_latest,
     )
 }
 
-fn measurement_stream_response(
+fn measurement_stream_response<Refresh, RefreshFuture>(
     receiver: broadcast::Receiver<MeasurementUpdate>,
     device_id: i32,
     sensor_id: i32,
     latest: Option<MeasurementUpdate>,
     repeat_interval: Duration,
-) -> Response {
-    let stream = measurement_stream(receiver, device_id, sensor_id, latest, repeat_interval);
+    refresh_latest: Refresh,
+) -> Response
+where
+    Refresh: FnMut() -> RefreshFuture + Send + 'static,
+    RefreshFuture: Future<Output = Option<MeasurementUpdate>> + Send + 'static,
+{
+    let stream = measurement_stream(
+        receiver,
+        device_id,
+        sensor_id,
+        latest,
+        repeat_interval,
+        refresh_latest,
+    );
     let mut response = Sse::new(stream)
         .keep_alive(
             KeepAlive::new()
@@ -107,45 +163,56 @@ fn measurement_stream_response(
     response
 }
 
-fn measurement_stream(
+fn measurement_stream<Refresh, RefreshFuture>(
     receiver: broadcast::Receiver<MeasurementUpdate>,
     device_id: i32,
     sensor_id: i32,
     latest: Option<MeasurementUpdate>,
     repeat_interval: Duration,
-) -> impl Stream<Item = Result<Event, Infallible>> {
+    refresh_latest: Refresh,
+) -> impl Stream<Item = Result<Event, Infallible>>
+where
+    Refresh: FnMut() -> RefreshFuture,
+    RefreshFuture: Future<Output = Option<MeasurementUpdate>>,
+{
     let mut interval = interval(repeat_interval);
     interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
-    stream::unfold((receiver, latest, interval), move |state| async move {
-        let (mut receiver, mut latest, mut interval) = state;
-        loop {
-            tokio::select! {
-                result = receiver.recv() => match result {
-                    Ok(update) if update.device_id == device_id && update.sensor_id == sensor_id => {
-                        latest = Some(update.clone());
-                        match Event::default().event("measurement").json_data(update) {
-                            Ok(event) => return Some((Ok(event), (receiver, latest, interval))),
-                            Err(error) => warn!(%error, "Failed to serialize measurement update"),
+    stream::unfold(
+        (receiver, latest, interval, refresh_latest),
+        move |state| async move {
+            let (mut receiver, mut latest, mut interval, mut refresh_latest) = state;
+            loop {
+                tokio::select! {
+                    result = receiver.recv() => match result {
+                        Ok(update) if update.device_id == device_id && update.sensor_id == sensor_id => {
+                            latest = Some(update.clone());
+                            match Event::default().event("measurement").json_data(update) {
+                                Ok(event) => return Some((Ok(event), (receiver, latest, interval, refresh_latest))),
+                                Err(error) => warn!(%error, "Failed to serialize measurement update"),
+                            }
                         }
-                    }
-                    Ok(_) => {}
-                    Err(broadcast::error::RecvError::Lagged(skipped)) => {
-                        warn!(skipped, device_id, sensor_id, "Measurement stream lagged");
-                    }
-                    Err(broadcast::error::RecvError::Closed) => return None,
-                },
-                _ = interval.tick() => {
-                    if let Some(update) = latest.clone() {
-                        match Event::default().event("measurement").json_data(update) {
-                            Ok(event) => return Some((Ok(event), (receiver, latest, interval))),
-                            Err(error) => warn!(%error, "Failed to serialize latest measurement"),
+                        Ok(_) => {}
+                        Err(broadcast::error::RecvError::Lagged(skipped)) => {
+                            warn!(skipped, device_id, sensor_id, "Measurement stream lagged");
+                        }
+                        Err(broadcast::error::RecvError::Closed) => return None,
+                    },
+                    _ = interval.tick() => {
+                        if let Some(update) = refresh_latest().await {
+                            latest = Some(update);
+                        }
+                        if let Some(update) = latest.clone() {
+                            match Event::default().event("measurement").json_data(update) {
+                                Ok(event) => return Some((Ok(event), (receiver, latest, interval, refresh_latest))),
+                                Err(error) => warn!(%error, "Failed to serialize latest measurement"),
+                            }
                         }
                     }
                 }
             }
-        }
-    })
+        },
+    )
 }
 
 #[utoipa::path(
@@ -452,6 +519,7 @@ mod tests {
             2,
             None,
             MEASUREMENT_STREAM_INTERVAL,
+            || std::future::ready(None),
         );
 
         assert_eq!(response.status(), axum::http::StatusCode::OK);
@@ -485,6 +553,7 @@ mod tests {
             2,
             None,
             MEASUREMENT_STREAM_INTERVAL,
+            || std::future::ready(None),
         );
         let mut body = response.into_body().into_data_stream();
 
@@ -510,6 +579,7 @@ mod tests {
             2,
             None,
             MEASUREMENT_STREAM_INTERVAL,
+            || std::future::ready(None),
         );
         let mut body = response.into_body().into_data_stream();
 
@@ -534,6 +604,7 @@ mod tests {
             2,
             Some(measurement_update(1, 2, 12.5)),
             Duration::from_millis(10),
+            || std::future::ready(None),
         );
         let mut body = response.into_body().into_data_stream();
 
@@ -562,6 +633,52 @@ mod tests {
                 .unwrap()
                 .contains("\"value\":13.5")
         );
+    }
+
+    #[sqlx::test]
+    async fn stream_measurements_refreshes_latest_from_database(db: PgPool) {
+        setup_device_and_sensor(&db).await;
+        let timestamp = fixed_timestamp();
+        NewMeasurement::new(Some(timestamp), 1, 1, 12.5)
+            .insert(&db)
+            .await
+            .unwrap();
+        let cache = Cache::builder().max_capacity(8).build();
+        let (updates, _) = broadcast::channel(8);
+        let response = stream_measurements_with_interval(
+            db.clone(),
+            cache.clone(),
+            updates.clone(),
+            1,
+            1,
+            Duration::from_millis(10),
+        )
+        .await;
+        let mut body = response.into_body().into_data_stream();
+
+        let initial = body.next().await.unwrap().unwrap();
+        assert!(
+            String::from_utf8(initial.to_vec())
+                .unwrap()
+                .contains("\"value\":12.5")
+        );
+
+        NewMeasurement::new(Some(timestamp + chrono::Duration::seconds(1)), 1, 1, 13.5)
+            .insert(&db)
+            .await
+            .unwrap();
+
+        let refreshed = tokio::time::timeout(Duration::from_secs(1), body.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(
+            String::from_utf8(refreshed.to_vec())
+                .unwrap()
+                .contains("\"value\":13.5")
+        );
+        assert_eq!(cache.get(&(1, 1)).await.unwrap().value, 13.5);
     }
 
     fn store_measurements_queues_expected(

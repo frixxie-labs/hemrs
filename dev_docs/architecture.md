@@ -18,7 +18,7 @@ HEMRS monitors environmental measurements from distributed devices. The system i
 4. `handle_insert_measurement_bg_thread` receives measurements from the channel.
 5. The background task resolves device and sensor metadata, inserts the row into PostgreSQL, and updates the Moka latest-measurement cache.
 6. After a successful insert, the worker publishes a `MeasurementUpdate` to an in-process Tokio broadcast channel.
-7. Pair-specific SSE handlers filter the broadcast updates and stream them to subscribers with periodic keepalives.
+7. Pair-specific SSE handlers filter broadcast updates and periodically reread PostgreSQL so measurements from other backend replicas also reach subscribers.
 8. Query endpoints read from PostgreSQL, with latest device/sensor reads checking the cache first.
 9. The metrics background task periodically emits gauges for recent measurements and counters for pool/cache size.
 10. The plotter fetches measurements from the backend, renders SVG charts, and caches them by request path/query.

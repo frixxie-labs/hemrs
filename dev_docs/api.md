@@ -148,7 +148,7 @@ There is also an annotated handler path `api/sensors/device/{device_id}`, but th
 | `GET` | `/api/devices/{device_id}/sensors/{sensor_id}/measurements` | Measurements for a device/sensor pair | None | `Measurement[]` |
 | `GET` | `/api/devices/{device_id}/sensors/{sensor_id}/measurements/latest` | Latest measurement for a device/sensor pair | None | `Measurement` |
 | `GET` | `/api/devices/{device_id}/sensors/{sensor_id}/measurements/stats` | Aggregate stats for a device/sensor pair | None | `MeasurementStats` |
-| `GET` | `/api/devices/{device_id}/sensors/{sensor_id}/measurements/stream` | Live updates plus the latest value every 15 seconds for a device/sensor pair | None | `text/event-stream` |
+| `GET` | `/api/devices/{device_id}/sensors/{sensor_id}/measurements/stream` | Live updates plus a database refresh of the latest value every 15 seconds for a device/sensor pair | None | `text/event-stream` |
 
 `/api/measurements/range` expects RFC 3339 / ISO 8601 timestamps, for example:
 
@@ -165,7 +165,7 @@ event: measurement
 data: {"device_id":1,"sensor_id":2,"measurement":{"timestamp":"2026-09-03T12:00:00Z","value":21.5,"unit":"C","device_name":"Office","device_location":"Upstairs","sensor_name":"Temperature"}}
 ```
 
-The stream sends keepalive comments every 15 seconds. Delivery is best-effort: slow subscribers can miss updates, disconnected clients receive no replay, and the in-memory broadcaster only carries events from the backend process handling the insertion. With multiple backend replicas, a subscriber does not receive updates inserted by another replica.
+The stream sends keepalive comments every 15 seconds when no measurement is available. Delivery is best-effort: slow subscribers can miss immediate updates and disconnected clients receive no replay. The in-memory broadcaster only carries events from the backend process handling the insertion, while the periodic database refresh makes measurements written through another replica visible within 15 seconds.
 
 ## Error Behavior
 
