@@ -1,4 +1,5 @@
 import { define } from "../../../../../../../utils.ts";
+import { fetchMeasurementStream } from "../../../../../../../lib/measurement_stream.ts";
 
 const STREAM_HEADERS = {
   "Cache-Control": "no-cache",
@@ -24,18 +25,14 @@ export async function proxyMeasurementStream(
     return new Response("Backend URL is not configured", { status: 503 });
   }
 
-  const baseUrl = backendUrl.endsWith("/") ? backendUrl : `${backendUrl}/`;
-  const upstreamUrl = new URL(
-    `api/devices/${deviceId}/sensors/${sensorId}/measurements/stream`,
-    baseUrl,
-  );
-
   let upstream: Response;
   try {
-    upstream = await fetch(upstreamUrl, {
-      headers: { Accept: "text/event-stream" },
-      signal: request.signal,
-    });
+    upstream = await fetchMeasurementStream(
+      deviceId,
+      sensorId,
+      backendUrl,
+      request.signal,
+    );
   } catch (error) {
     if (request.signal.aborted) {
       return new Response(null, { status: 499 });
