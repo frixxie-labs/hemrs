@@ -148,7 +148,7 @@ There is also an annotated handler path `api/sensors/device/{device_id}`, but th
 | `GET` | `/api/devices/{device_id}/sensors/{sensor_id}/measurements` | Measurements for a device/sensor pair | None | `Measurement[]` |
 | `GET` | `/api/devices/{device_id}/sensors/{sensor_id}/measurements/latest` | Latest measurement for a device/sensor pair | None | `Measurement` |
 | `GET` | `/api/devices/{device_id}/sensors/{sensor_id}/measurements/stats` | Aggregate stats for a device/sensor pair | None | `MeasurementStats` |
-| `GET` | `/api/devices/{device_id}/sensors/{sensor_id}/measurements/stream` | Live updates for a device/sensor pair | None | `text/event-stream` |
+| `GET` | `/api/devices/{device_id}/sensors/{sensor_id}/measurements/stream` | Live updates plus the latest value every 15 seconds for a device/sensor pair | None | `text/event-stream` |
 
 `/api/measurements/range` expects RFC 3339 / ISO 8601 timestamps, for example:
 

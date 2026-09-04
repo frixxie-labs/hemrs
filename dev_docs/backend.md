@@ -207,7 +207,7 @@ Recorded metrics include:
 
 ## Live Measurement Streaming
 
-`GET /api/devices/{device_id}/sensors/{sensor_id}/measurements/stream` subscribes to the process-local broadcast channel and returns matching updates as named SSE `measurement` events. Keepalive comments are sent every 15 seconds, and `X-Accel-Buffering: no` asks compatible proxies not to buffer the response.
+`GET /api/devices/{device_id}/sensors/{sensor_id}/measurements/stream` subscribes to the process-local broadcast channel and returns matching updates as named SSE `measurement` events. It loads the latest value from the cache or database when a client connects, emits it immediately, and repeats the latest value every 15 seconds. Keepalive comments are used when no value exists, and `X-Accel-Buffering: no` asks compatible proxies not to buffer the response.
 
 The channel is bounded and deliberately lossy so slow subscribers cannot block ingestion. Lagged receivers resume with the next available update. There are no SSE event IDs or replay, and updates do not cross backend process boundaries; multi-replica deployments need shared pub/sub for complete live delivery.
 

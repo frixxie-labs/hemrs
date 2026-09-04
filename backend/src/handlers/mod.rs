@@ -131,7 +131,7 @@ pub fn create_router(
             "/devices/{device_id}/sensors/{sensor_id}/measurements/stream",
             get(stream_measurements),
         )
-        .with_state(measurement_updates);
+        .with_state((connection.clone(), cache.clone(), measurement_updates));
 
     Router::new()
         .nest("/api", measurements)
