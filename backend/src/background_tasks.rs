@@ -175,14 +175,20 @@ mod tests {
     use std::time::Duration;
 
     async fn setup_device_and_sensor(pool: &PgPool) {
-        NewDevice::new("stream-device".to_string(), "stream-location".to_string())
-            .insert(pool)
-            .await
-            .unwrap();
-        NewSensor::new("stream-sensor".to_string(), "C".to_string())
-            .insert(pool)
-            .await
-            .unwrap();
+        NewDevice {
+            name: "stream-device".to_string(),
+            location: "stream-location".to_string(),
+        }
+        .insert(pool)
+        .await
+        .unwrap();
+        NewSensor {
+            name: "stream-sensor".to_string(),
+            unit: "C".to_string(),
+        }
+        .insert(pool)
+        .await
+        .unwrap();
     }
 
     #[sqlx::test]
@@ -200,7 +206,12 @@ mod tests {
         let timestamp = chrono::Utc::now();
 
         measurement_tx
-            .send(NewMeasurement::new(Some(timestamp), 1, 1, 23.5))
+            .send(NewMeasurement {
+                timestamp: Some(timestamp),
+                device: 1,
+                sensor: 1,
+                measurement: 23.5,
+            })
             .await
             .unwrap();
         drop(measurement_tx);
@@ -235,7 +246,12 @@ mod tests {
         ));
 
         measurement_tx
-            .send(NewMeasurement::new(None, 1, 1, 8.0))
+            .send(NewMeasurement {
+                timestamp: None,
+                device: 1,
+                sensor: 1,
+                measurement: 8.0,
+            })
             .await
             .unwrap();
         drop(measurement_tx);

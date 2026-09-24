@@ -20,10 +20,6 @@ pub struct Sensor {
 }
 
 impl Sensor {
-    pub fn new(id: i32, name: String, unit: String) -> Self {
-        Self { id, name, unit }
-    }
-
     pub async fn read(pool: &PgPool) -> Result<Vec<Sensor>> {
         let sensors = sqlx::query_as!(Sensor, "SELECT id, name, unit FROM sensors")
             .fetch_all(pool)
@@ -79,10 +75,6 @@ impl Sensor {
 }
 
 impl NewSensor {
-    pub fn new(name: String, unit: String) -> Self {
-        Self { name, unit }
-    }
-
     pub async fn insert(self, pool: &PgPool) -> Result<()> {
         info!(name = %self.name, unit = %self.unit, "Inserting new sensor");
         sqlx::query!(
@@ -108,25 +100,14 @@ mod tests {
         sensors::{NewSensor, Sensor},
     };
 
-    // ── quickcheck: pure constructor logic, no DB ─────────────────────────────
-
-    #[quickcheck_macros::quickcheck]
-    fn sensor_new_stores_all_fields(id: i32, name: String, unit: String) -> bool {
-        let s = Sensor::new(id, name.clone(), unit.clone());
-        s.id == id && s.name == name && s.unit == unit
-    }
-
-    #[quickcheck_macros::quickcheck]
-    fn new_sensor_new_stores_all_fields(name: String, unit: String) -> bool {
-        let s = NewSensor::new(name.clone(), unit.clone());
-        s.name == name && s.unit == unit
-    }
-
     // ── sqlx integration tests ────────────────────────────────────────────────
 
     #[sqlx::test]
     async fn insert(pool: PgPool) {
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
+        let sensor = NewSensor {
+            name: "test".to_string(),
+            unit: "test".to_string(),
+        };
         sensor.insert(&pool).await.unwrap();
         let sensors = Sensor::read(&pool).await.unwrap();
 
@@ -137,7 +118,10 @@ mod tests {
 
     #[sqlx::test]
     async fn delete(pool: PgPool) {
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
+        let sensor = NewSensor {
+            name: "test".to_string(),
+            unit: "test".to_string(),
+        };
         sensor.clone().insert(&pool).await.unwrap();
         let sensors = Sensor::read(&pool).await.unwrap();
         let sensor = sensors.last().unwrap().clone().delete(&pool).await;
@@ -146,11 +130,18 @@ mod tests {
 
     #[sqlx::test]
     async fn update(pool: PgPool) {
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
+        let sensor = NewSensor {
+            name: "test".to_string(),
+            unit: "test".to_string(),
+        };
         sensor.clone().insert(&pool).await.unwrap();
         let sensors = Sensor::read(&pool).await.unwrap();
         let sensor = sensors.last().unwrap().clone();
-        let sensor = Sensor::new(sensor.id, "test2".to_string(), "test2".to_string());
+        let sensor = Sensor {
+            id: sensor.id,
+            name: "test2".to_string(),
+            unit: "test2".to_string(),
+        };
         sensor.clone().update(&pool).await.unwrap();
 
         let sensors = Sensor::read(&pool).await.unwrap();
@@ -160,18 +151,42 @@ mod tests {
 
     #[sqlx::test]
     async fn read_by_device_id(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
+        let device = NewDevice {
+            name: "test".to_string(),
+            location: "test".to_string(),
+        };
         device.clone().insert(&pool).await.unwrap();
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
+        let sensor = NewSensor {
+            name: "test".to_string(),
+            unit: "test".to_string(),
+        };
         sensor.clone().insert(&pool).await.unwrap();
-        let sensor = NewSensor::new("test2".to_string(), "test".to_string());
+        let sensor = NewSensor {
+            name: "test2".to_string(),
+            unit: "test".to_string(),
+        };
         sensor.clone().insert(&pool).await.unwrap();
 
-        let measurement = NewMeasurement::new(None, 1, 1, 1.0);
+        let measurement = NewMeasurement {
+            timestamp: None,
+            device: 1,
+            sensor: 1,
+            measurement: 1.0,
+        };
         measurement.insert(&pool).await.unwrap();
-        let measurement2 = NewMeasurement::new(None, 1, 2, 1.0);
+        let measurement2 = NewMeasurement {
+            timestamp: None,
+            device: 1,
+            sensor: 2,
+            measurement: 1.0,
+        };
         measurement2.insert(&pool).await.unwrap();
-        let measurement3 = NewMeasurement::new(None, 1, 2, 1.0);
+        let measurement3 = NewMeasurement {
+            timestamp: None,
+            device: 1,
+            sensor: 2,
+            measurement: 1.0,
+        };
         measurement3.insert(&pool).await.unwrap();
 
         Device::refresh_device_sensors_view(&pool).await.unwrap();

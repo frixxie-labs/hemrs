@@ -36,8 +36,8 @@
     "npm:@babel/core@^7.28.0": "7.29.0",
     "npm:@babel/preset-react@^7.27.1": "7.28.5_@babel+core@7.29.0",
     "npm:@opentelemetry/api@^1.9.0": "1.9.1",
-    "npm:@preact/signals@^2.11.1": "2.11.1_preact@10.29.8",
-    "npm:@preact/signals@^2.5.1": "2.11.1_preact@10.29.8",
+    "npm:@preact/signals@^2.11.2": "2.11.2_preact@10.29.8",
+    "npm:@preact/signals@^2.5.1": "2.11.2_preact@10.29.8",
     "npm:@prefresh/vite@^2.4.8": "2.4.12_preact@10.29.8_vite@7.3.6_preact-render-to-string@6.6.7",
     "npm:@remix-run/node-fetch-server@0.12": "0.12.0",
     "npm:@tailwindcss/vite@^4.3.3": "4.3.3_vite@7.3.6",
@@ -672,8 +672,8 @@
     "@preact/signals-core@1.14.4": {
       "integrity": "sha512-HNB6HYeYKhQbJ1aKl+YRjrS4+QWHLKX6qKoUsfS/m0vqzsVaEBiZiaKbG/e+NKk2ch5ALQr/ihWaMHxiCuuWHA=="
     },
-    "@preact/signals@2.11.1_preact@10.29.8": {
-      "integrity": "sha512-uYoD+USkacTNU02kfCBkJEV7xabKTmA78W5pnT2GymsuGEC9n/ZO+UT4S96l0dIL6KLDk77VJyUFuOMBvftVHg==",
+    "@preact/signals@2.11.2_preact@10.29.8": {
+      "integrity": "sha512-rVTRTt/T0HIRgbugwS5FigbfF/kfdEFYFtiqxa+lbpqTajepqnR0firuAS2iNdHyejWB7Yc9p9QePkVNBtTAwg==",
       "dependencies": [
         "@preact/signals-core",
         "preact"
@@ -1382,7 +1382,7 @@
     "dependencies": [
       "jsr:@fresh/core@^2.3.3",
       "jsr:@fresh/plugin-vite@^1.1.2",
-      "npm:@preact/signals@^2.11.1",
+      "npm:@preact/signals@^2.11.2",
       "npm:@tailwindcss/vite@^4.3.3",
       "npm:preact@^10.29.8",
       "npm:tailwindcss@^4.3.3",

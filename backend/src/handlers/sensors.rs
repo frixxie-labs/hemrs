@@ -204,11 +204,11 @@ mod tests {
         let sensors = Sensor::read(&pool).await.unwrap();
         assert!(!sensors.is_empty());
 
-        let updated_sensor = Sensor::new(
-            sensors[0].id,
-            "Updated Light".to_string(),
-            "Updated Lux".to_string(),
-        );
+        let updated_sensor = Sensor {
+            id: sensors[0].id,
+            name: "Updated Light".to_string(),
+            unit: "Updated Lux".to_string(),
+        };
         let result = update_sensor(State(pool.clone()), Json(updated_sensor)).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "OK".to_string());
