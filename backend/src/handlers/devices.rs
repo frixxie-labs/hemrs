@@ -124,13 +124,15 @@ pub async fn update_device(
 }
 
 #[cfg(test)]
-
 mod tests {
     use super::*;
 
     #[sqlx::test]
     async fn should_insert_device(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
+        let device = NewDevice {
+            name: "test".to_string(),
+            location: "test".to_string(),
+        };
 
         let result = insert_device(State(pool), Json(device)).await;
         assert!(result.is_ok());
@@ -138,7 +140,10 @@ mod tests {
 
     #[sqlx::test]
     async fn should_fetch_devices(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
+        let device = NewDevice {
+            name: "test".to_string(),
+            location: "test".to_string(),
+        };
         device.insert(&pool).await.unwrap();
 
         let result = fetch_devices(State(pool)).await;
@@ -151,7 +156,10 @@ mod tests {
 
     #[sqlx::test]
     async fn should_delete_device(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
+        let device = NewDevice {
+            name: "test".to_string(),
+            location: "test".to_string(),
+        };
         device.insert(&pool).await.unwrap();
 
         let devices = Device::read(&pool).await.unwrap();
@@ -164,12 +172,18 @@ mod tests {
 
     #[sqlx::test]
     async fn should_update_device(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
+        let device = NewDevice {
+            name: "test".to_string(),
+            location: "test".to_string(),
+        };
         device.insert(&pool).await.unwrap();
 
         let devices = Device::read(&pool).await.unwrap();
-        let updated_device =
-            Device::new(devices[0].id, "updated".to_string(), "updated".to_string());
+        let updated_device = Device {
+            id: devices[0].id,
+            name: "updated".to_string(),
+            location: "updated".to_string(),
+        };
         let result = update_device(State(pool.clone()), Json(updated_device)).await;
         assert!(result.is_ok());
 

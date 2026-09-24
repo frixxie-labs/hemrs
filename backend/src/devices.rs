@@ -23,10 +23,6 @@ pub struct Device {
 }
 
 impl Device {
-    pub fn new(id: i32, name: String, location: String) -> Self {
-        Self { id, name, location }
-    }
-
     pub async fn refresh_device_sensors_view(pool: &PgPool) -> Result<()> {
         debug!("Refreshing device_sensors materialized view");
         sqlx::query!("REFRESH MATERIALIZED VIEW device_sensors")
@@ -80,10 +76,6 @@ impl Device {
 }
 
 impl NewDevice {
-    pub fn new(name: String, location: String) -> Self {
-        Self { name, location }
-    }
-
     pub async fn insert(self, pool: &PgPool) -> Result<()> {
         info!(name = %self.name, location = %self.location, "Inserting new device");
         sqlx::query!(
@@ -105,25 +97,14 @@ mod tests {
 
     use crate::devices::{Device, NewDevice};
 
-    // ── quickcheck: pure constructor logic, no DB ─────────────────────────────
-
-    #[quickcheck_macros::quickcheck]
-    fn device_new_stores_all_fields(id: i32, name: String, location: String) -> bool {
-        let d = Device::new(id, name.clone(), location.clone());
-        d.id == id && d.name == name && d.location == location
-    }
-
-    #[quickcheck_macros::quickcheck]
-    fn new_device_new_stores_all_fields(name: String, location: String) -> bool {
-        let d = NewDevice::new(name.clone(), location.clone());
-        d.name == name && d.location == location
-    }
-
     // ── sqlx integration tests ────────────────────────────────────────────────
 
     #[sqlx::test]
     async fn insert(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
+        let device = NewDevice {
+            name: "test".to_string(),
+            location: "test".to_string(),
+        };
         device.insert(&pool).await.unwrap();
         let devices = Device::read(&pool).await.unwrap();
         assert!(!devices.is_empty());
@@ -133,7 +114,10 @@ mod tests {
 
     #[sqlx::test]
     async fn delete(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
+        let device = NewDevice {
+            name: "test".to_string(),
+            location: "test".to_string(),
+        };
         device.clone().insert(&pool).await.unwrap();
         let devices = Device::read(&pool).await.unwrap();
         let device = devices[0].clone().delete(&pool).await;
@@ -145,11 +129,18 @@ mod tests {
 
     #[sqlx::test]
     async fn update(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
+        let device = NewDevice {
+            name: "test".to_string(),
+            location: "test".to_string(),
+        };
         device.clone().insert(&pool).await.unwrap();
         let devices = Device::read(&pool).await.unwrap();
         let device = devices[0].clone();
-        let device = Device::new(device.id, "test2".to_string(), "test2".to_string());
+        let device = Device {
+            id: device.id,
+            name: "test2".to_string(),
+            location: "test2".to_string(),
+        };
         device.clone().update(&pool).await.unwrap();
 
         let devices = Device::read(&pool).await.unwrap();

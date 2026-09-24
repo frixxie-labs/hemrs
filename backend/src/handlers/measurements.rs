@@ -28,6 +28,11 @@ use crate::measurements::{
 use super::error::HandlerError;
 
 type ApplicationState = State<(PgPool, Cache<(i32, i32), Measurement>)>;
+type MeasurementStreamState = State<(
+    PgPool,
+    Cache<(i32, i32), Measurement>,
+    broadcast::Sender<MeasurementUpdate>,
+)>;
 
 const MEASUREMENT_STREAM_INTERVAL: Duration = Duration::from_secs(15);
 
@@ -44,11 +49,7 @@ const MEASUREMENT_STREAM_INTERVAL: Duration = Duration::from_secs(15);
 )]
 #[instrument(skip(pool, cache, updates))]
 pub async fn stream_measurements(
-    State((pool, cache, updates)): State<(
-        PgPool,
-        Cache<(i32, i32), Measurement>,
-        broadcast::Sender<MeasurementUpdate>,
-    )>,
+    State((pool, cache, updates)): MeasurementStreamState,
     Path((device_id, sensor_id)): Path<(i32, i32)>,
 ) -> Response {
     stream_measurements_with_interval(
@@ -485,7 +486,12 @@ mod tests {
     fn measurement_from_parts(
         (device, sensor, measurement, with_ts): MeasurementParts,
     ) -> NewMeasurement {
-        NewMeasurement::new(with_ts.then(fixed_timestamp), device, sensor, measurement)
+        NewMeasurement {
+            timestamp: with_ts.then(fixed_timestamp),
+            device,
+            sensor,
+            measurement,
+        }
     }
 
     fn measurements_match(actual: &NewMeasurement, expected: &NewMeasurement) -> bool {
@@ -639,10 +645,15 @@ mod tests {
     async fn stream_measurements_refreshes_latest_from_database(db: PgPool) {
         setup_device_and_sensor(&db).await;
         let timestamp = fixed_timestamp();
-        NewMeasurement::new(Some(timestamp), 1, 1, 12.5)
-            .insert(&db)
-            .await
-            .unwrap();
+        NewMeasurement {
+            timestamp: Some(timestamp),
+            device: 1,
+            sensor: 1,
+            measurement: 12.5,
+        }
+        .insert(&db)
+        .await
+        .unwrap();
         let cache = Cache::builder().max_capacity(8).build();
         let (updates, _) = broadcast::channel(8);
         let response = stream_measurements_with_interval(
@@ -663,10 +674,15 @@ mod tests {
                 .contains("\"value\":12.5")
         );
 
-        NewMeasurement::new(Some(timestamp + chrono::Duration::seconds(1)), 1, 1, 13.5)
-            .insert(&db)
-            .await
-            .unwrap();
+        NewMeasurement {
+            timestamp: Some(timestamp + chrono::Duration::seconds(1)),
+            device: 1,
+            sensor: 1,
+            measurement: 13.5,
+        }
+        .insert(&db)
+        .await
+        .unwrap();
 
         let refreshed = tokio::time::timeout(Duration::from_secs(1), body.next())
             .await
@@ -745,14 +761,20 @@ mod tests {
     }
 
     async fn setup_device_and_sensor(pool: &PgPool) {
-        NewDevice::new("test-device".to_string(), "test-location".to_string())
-            .insert(pool)
-            .await
-            .unwrap();
-        NewSensor::new("test-sensor".to_string(), "°C".to_string())
-            .insert(pool)
-            .await
-            .unwrap();
+        NewDevice {
+            name: "test-device".to_string(),
+            location: "test-location".to_string(),
+        }
+        .insert(pool)
+        .await
+        .unwrap();
+        NewSensor {
+            name: "test-sensor".to_string(),
+            unit: "°C".to_string(),
+        }
+        .insert(pool)
+        .await
+        .unwrap();
     }
 
     #[sqlx::test]
@@ -761,10 +783,15 @@ mod tests {
 
         let now = chrono::Utc::now();
         // Insert a measurement that falls inside the window
-        NewMeasurement::new(Some(now), 1, 1, 55.0)
-            .insert(&db)
-            .await
-            .unwrap();
+        NewMeasurement {
+            timestamp: Some(now),
+            device: 1,
+            sensor: 1,
+            measurement: 55.0,
+        }
+        .insert(&db)
+        .await
+        .unwrap();
 
         let state = make_app_state(db);
         let params = Query(DateRangeParams {
@@ -786,15 +813,25 @@ mod tests {
 
         let now = chrono::Utc::now();
         // Outside — 2 hours ago
-        NewMeasurement::new(Some(now - chrono::Duration::hours(2)), 1, 1, 99.0)
-            .insert(&db)
-            .await
-            .unwrap();
+        NewMeasurement {
+            timestamp: Some(now - chrono::Duration::hours(2)),
+            device: 1,
+            sensor: 1,
+            measurement: 99.0,
+        }
+        .insert(&db)
+        .await
+        .unwrap();
         // Inside
-        NewMeasurement::new(Some(now), 1, 1, 1.0)
-            .insert(&db)
-            .await
-            .unwrap();
+        NewMeasurement {
+            timestamp: Some(now),
+            device: 1,
+            sensor: 1,
+            measurement: 1.0,
+        }
+        .insert(&db)
+        .await
+        .unwrap();
 
         let state = make_app_state(db);
         let params = Query(DateRangeParams {
@@ -815,10 +852,15 @@ mod tests {
         setup_device_and_sensor(&db).await;
 
         let now = chrono::Utc::now();
-        NewMeasurement::new(Some(now), 1, 1, 3.0)
-            .insert(&db)
-            .await
-            .unwrap();
+        NewMeasurement {
+            timestamp: Some(now),
+            device: 1,
+            sensor: 1,
+            measurement: 3.0,
+        }
+        .insert(&db)
+        .await
+        .unwrap();
 
         let state = make_app_state(db);
         let params = Query(DateRangeParams {
@@ -838,10 +880,15 @@ mod tests {
         setup_device_and_sensor(&db).await;
 
         let now = chrono::Utc::now();
-        NewMeasurement::new(Some(now), 1, 1, 8.0)
-            .insert(&db)
-            .await
-            .unwrap();
+        NewMeasurement {
+            timestamp: Some(now),
+            device: 1,
+            sensor: 1,
+            measurement: 8.0,
+        }
+        .insert(&db)
+        .await
+        .unwrap();
 
         let state = make_app_state(db);
         let params = Query(DateRangeParams {

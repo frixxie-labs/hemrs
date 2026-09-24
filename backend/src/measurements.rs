@@ -14,15 +14,6 @@ pub struct NewMeasurement {
 }
 
 impl NewMeasurement {
-    pub fn new(ts: Option<DateTime<Utc>>, device: i32, sensor: i32, measurement: f32) -> Self {
-        Self {
-            timestamp: ts,
-            device,
-            sensor,
-            measurement,
-        }
-    }
-
     pub async fn insert(self, pool: &PgPool) -> Result<()> {
         match self.timestamp {
             Some(t) => {
@@ -224,21 +215,33 @@ mod tests {
     use crate::sensors::NewSensor;
     use crate::{devices::NewDevice, measurements::Measurement};
 
+    async fn setup_device_and_sensor(pool: &PgPool) {
+        NewDevice {
+            name: "test".to_string(),
+            location: "test".to_string(),
+        }
+        .insert(pool)
+        .await
+        .unwrap();
+        NewSensor {
+            name: "test".to_string(),
+            unit: "test".to_string(),
+        }
+        .insert(pool)
+        .await
+        .unwrap();
+    }
+
     // ── quickcheck: pure logic, no DB ────────────────────────────────────────
 
     #[quickcheck_macros::quickcheck]
-    fn new_measurement_fields_are_stored_correctly(device: i32, sensor: i32, value: f32) -> bool {
-        // NaN != NaN by IEEE 754, so skip it; the constructor itself is still tested.
-        if value.is_nan() {
-            return true;
-        }
-        let m = NewMeasurement::new(None, device, sensor, value);
-        m.device == device && m.sensor == sensor && m.measurement == value && m.timestamp.is_none()
-    }
-
-    #[quickcheck_macros::quickcheck]
     fn display_contains_device_sensor_and_value(device: i32, sensor: i32, value: f32) -> bool {
-        let m = NewMeasurement::new(None, device, sensor, value);
+        let m = NewMeasurement {
+            timestamp: None,
+            device,
+            sensor,
+            measurement: value,
+        };
         let s = format!("{m}");
         // Format is "{device},{sensor},{measurement}"
         let parts: Vec<&str> = s.splitn(3, ',').collect();
@@ -256,7 +259,12 @@ mod tests {
             return true;
         }
 
-        let original = NewMeasurement::new(None, device, sensor, value);
+        let original = NewMeasurement {
+            timestamp: None,
+            device,
+            sensor,
+            measurement: value,
+        };
         let json = serde_json::to_string(&original).expect("serialization failed");
         let parsed: Result<NewMeasurements, _> = serde_json::from_str(&json);
         match parsed {
@@ -271,7 +279,12 @@ mod tests {
 
         let measurements: Vec<NewMeasurement> = items
             .iter()
-            .map(|&(d, s)| NewMeasurement::new(None, d, s, 0.0))
+            .map(|&(device, sensor)| NewMeasurement {
+                timestamp: None,
+                device,
+                sensor,
+                measurement: 0.0,
+            })
             .collect();
 
         let json = serde_json::to_string(&measurements).expect("serialization failed");
@@ -289,36 +302,42 @@ mod tests {
 
     #[sqlx::test]
     async fn should_insert_measurements_without_ts(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
-        device.insert(&pool).await.unwrap();
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
-        sensor.insert(&pool).await.unwrap();
+        setup_device_and_sensor(&pool).await;
 
-        let measurement = NewMeasurement::new(None, 1, 1, 1.0);
+        let measurement = NewMeasurement {
+            timestamp: None,
+            device: 1,
+            sensor: 1,
+            measurement: 1.0,
+        };
         measurement.insert(&pool).await.unwrap();
     }
 
     #[sqlx::test]
     async fn should_insert_measurements_with_ts(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
-        device.insert(&pool).await.unwrap();
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
-        sensor.insert(&pool).await.unwrap();
+        setup_device_and_sensor(&pool).await;
 
         let ts = chrono::Utc::now();
 
-        let measurement = NewMeasurement::new(Some(ts), 1, 1, 1.0);
+        let measurement = NewMeasurement {
+            timestamp: Some(ts),
+            device: 1,
+            sensor: 1,
+            measurement: 1.0,
+        };
         measurement.insert(&pool).await.unwrap();
     }
 
     #[sqlx::test]
     async fn should_read_measurements(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
-        device.insert(&pool).await.unwrap();
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
-        sensor.insert(&pool).await.unwrap();
+        setup_device_and_sensor(&pool).await;
 
-        let measurement = NewMeasurement::new(None, 1, 1, 1.0);
+        let measurement = NewMeasurement {
+            timestamp: None,
+            device: 1,
+            sensor: 1,
+            measurement: 1.0,
+        };
         measurement.insert(&pool).await.unwrap();
 
         let measurements = Measurement::read_all(&pool).await.unwrap();
@@ -327,12 +346,14 @@ mod tests {
 
     #[sqlx::test]
     async fn should_read_latest_measurements(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
-        device.insert(&pool).await.unwrap();
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
-        sensor.insert(&pool).await.unwrap();
+        setup_device_and_sensor(&pool).await;
 
-        let measurement = NewMeasurement::new(None, 1, 1, 1.0);
+        let measurement = NewMeasurement {
+            timestamp: None,
+            device: 1,
+            sensor: 1,
+            measurement: 1.0,
+        };
         measurement.insert(&pool).await.unwrap();
 
         let measurement = Measurement::read_latest(&pool).await.unwrap();
@@ -341,12 +362,14 @@ mod tests {
 
     #[sqlx::test]
     async fn should_read_measurements_by_device_id(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
-        device.insert(&pool).await.unwrap();
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
-        sensor.insert(&pool).await.unwrap();
+        setup_device_and_sensor(&pool).await;
 
-        let measurement = NewMeasurement::new(None, 1, 1, 1.0);
+        let measurement = NewMeasurement {
+            timestamp: None,
+            device: 1,
+            sensor: 1,
+            measurement: 1.0,
+        };
         measurement.insert(&pool).await.unwrap();
 
         let measurements = Measurement::read_by_device_id(1, &pool).await.unwrap();
@@ -355,12 +378,14 @@ mod tests {
 
     #[sqlx::test]
     async fn should_read_measurements_by_device_id_and_sensor_id(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
-        device.insert(&pool).await.unwrap();
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
-        sensor.insert(&pool).await.unwrap();
+        setup_device_and_sensor(&pool).await;
 
-        let measurement = NewMeasurement::new(None, 1, 1, 1.0);
+        let measurement = NewMeasurement {
+            timestamp: None,
+            device: 1,
+            sensor: 1,
+            measurement: 1.0,
+        };
         measurement.insert(&pool).await.unwrap();
 
         let measurements = Measurement::read_by_device_id_and_sensor_id(1, 1, &pool)
@@ -371,12 +396,14 @@ mod tests {
 
     #[sqlx::test]
     async fn should_read_latest_measurements_by_device_id_and_sensor_id(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
-        device.insert(&pool).await.unwrap();
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
-        sensor.insert(&pool).await.unwrap();
+        setup_device_and_sensor(&pool).await;
 
-        let measurement = NewMeasurement::new(None, 1, 1, 1.0);
+        let measurement = NewMeasurement {
+            timestamp: None,
+            device: 1,
+            sensor: 1,
+            measurement: 1.0,
+        };
         measurement.insert(&pool).await.unwrap();
 
         let measurement = Measurement::read_latest_by_device_id_and_sensor_id(1, 1, &pool)
@@ -387,13 +414,15 @@ mod tests {
 
     #[sqlx::test]
     async fn should_read_measurements_within_date_range(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
-        device.insert(&pool).await.unwrap();
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
-        sensor.insert(&pool).await.unwrap();
+        setup_device_and_sensor(&pool).await;
 
         let ts = chrono::Utc::now();
-        let measurement = NewMeasurement::new(Some(ts), 1, 1, 42.0);
+        let measurement = NewMeasurement {
+            timestamp: Some(ts),
+            device: 1,
+            sensor: 1,
+            measurement: 42.0,
+        };
         measurement.insert(&pool).await.unwrap();
 
         let start = ts - chrono::Duration::seconds(10);
@@ -408,13 +437,15 @@ mod tests {
 
     #[sqlx::test]
     async fn should_return_empty_when_no_measurements_in_range(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
-        device.insert(&pool).await.unwrap();
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
-        sensor.insert(&pool).await.unwrap();
+        setup_device_and_sensor(&pool).await;
 
         let ts = chrono::Utc::now();
-        let measurement = NewMeasurement::new(Some(ts), 1, 1, 7.0);
+        let measurement = NewMeasurement {
+            timestamp: Some(ts),
+            device: 1,
+            sensor: 1,
+            measurement: 7.0,
+        };
         measurement.insert(&pool).await.unwrap();
 
         // Range is entirely in the future — nothing should match
@@ -429,27 +460,39 @@ mod tests {
 
     #[sqlx::test]
     async fn should_exclude_measurements_outside_range(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
-        device.insert(&pool).await.unwrap();
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
-        sensor.insert(&pool).await.unwrap();
+        setup_device_and_sensor(&pool).await;
 
         let now = chrono::Utc::now();
         // Inside the window
-        NewMeasurement::new(Some(now), 1, 1, 10.0)
-            .insert(&pool)
-            .await
-            .unwrap();
+        NewMeasurement {
+            timestamp: Some(now),
+            device: 1,
+            sensor: 1,
+            measurement: 10.0,
+        }
+        .insert(&pool)
+        .await
+        .unwrap();
         // Before the window
-        NewMeasurement::new(Some(now - chrono::Duration::hours(2)), 1, 1, 99.0)
-            .insert(&pool)
-            .await
-            .unwrap();
+        NewMeasurement {
+            timestamp: Some(now - chrono::Duration::hours(2)),
+            device: 1,
+            sensor: 1,
+            measurement: 99.0,
+        }
+        .insert(&pool)
+        .await
+        .unwrap();
         // After the window
-        NewMeasurement::new(Some(now + chrono::Duration::hours(2)), 1, 1, 99.0)
-            .insert(&pool)
-            .await
-            .unwrap();
+        NewMeasurement {
+            timestamp: Some(now + chrono::Duration::hours(2)),
+            device: 1,
+            sensor: 1,
+            measurement: 99.0,
+        }
+        .insert(&pool)
+        .await
+        .unwrap();
 
         let start = now - chrono::Duration::minutes(5);
         let end = now + chrono::Duration::minutes(5);
@@ -463,16 +506,18 @@ mod tests {
 
     #[sqlx::test]
     async fn should_read_measurements_without_explicit_end(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
-        device.insert(&pool).await.unwrap();
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
-        sensor.insert(&pool).await.unwrap();
+        setup_device_and_sensor(&pool).await;
 
         let ts = chrono::Utc::now();
-        NewMeasurement::new(Some(ts), 1, 1, 5.0)
-            .insert(&pool)
-            .await
-            .unwrap();
+        NewMeasurement {
+            timestamp: Some(ts),
+            device: 1,
+            sensor: 1,
+            measurement: 5.0,
+        }
+        .insert(&pool)
+        .await
+        .unwrap();
 
         // No end — should default to now and return the measurement
         let start = ts - chrono::Duration::seconds(10);
@@ -486,25 +531,37 @@ mod tests {
 
     #[sqlx::test]
     async fn should_return_measurements_ordered_by_timestamp(pool: PgPool) {
-        let device = NewDevice::new("test".to_string(), "test".to_string());
-        device.insert(&pool).await.unwrap();
-        let sensor = NewSensor::new("test".to_string(), "test".to_string());
-        sensor.insert(&pool).await.unwrap();
+        setup_device_and_sensor(&pool).await;
 
         let now = chrono::Utc::now();
         // Insert in reverse order
-        NewMeasurement::new(Some(now + chrono::Duration::seconds(2)), 1, 1, 3.0)
-            .insert(&pool)
-            .await
-            .unwrap();
-        NewMeasurement::new(Some(now + chrono::Duration::seconds(1)), 1, 1, 2.0)
-            .insert(&pool)
-            .await
-            .unwrap();
-        NewMeasurement::new(Some(now), 1, 1, 1.0)
-            .insert(&pool)
-            .await
-            .unwrap();
+        NewMeasurement {
+            timestamp: Some(now + chrono::Duration::seconds(2)),
+            device: 1,
+            sensor: 1,
+            measurement: 3.0,
+        }
+        .insert(&pool)
+        .await
+        .unwrap();
+        NewMeasurement {
+            timestamp: Some(now + chrono::Duration::seconds(1)),
+            device: 1,
+            sensor: 1,
+            measurement: 2.0,
+        }
+        .insert(&pool)
+        .await
+        .unwrap();
+        NewMeasurement {
+            timestamp: Some(now),
+            device: 1,
+            sensor: 1,
+            measurement: 1.0,
+        }
+        .insert(&pool)
+        .await
+        .unwrap();
 
         let start = now - chrono::Duration::seconds(1);
         let end = now + chrono::Duration::seconds(10);
