@@ -1,6 +1,6 @@
 """Tests for FastAPI endpoints in app.py."""
 
-from datetime import UTC
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 from requests.exceptions import ConnectionError, HTTPError
@@ -221,8 +221,10 @@ class TestPlotMeasurementsByRange:
             },
         )
         assert resp.status_code == 200
-        # End date should appear in title
-        assert "2025-06-30" in resp.text
+        mock_client.fetch_measurements_by_date_range.assert_called_once_with(
+            datetime(2025, 6, 1, tzinfo=UTC),
+            datetime(2025, 6, 30, 23, 59, 59, tzinfo=UTC),
+        )
 
     def test_empty_returns_404(self, test_app, mock_client: MagicMock):
         mock_client.fetch_measurements_by_date_range.return_value = []

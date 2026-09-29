@@ -95,6 +95,7 @@
   grid-template-columns: 1fr 1fr;
   gap: 20px;
   margin: 24px 0 30px;
+  align-items: start;
 }
 .monitor-plots > * {
   min-width: 0;
@@ -104,6 +105,64 @@
   border: 1px solid var(--color-dark-border);
   border-radius: 10px;
   background: var(--color-dark-card);
+}
+.monitor-plot-image {
+  overflow-x: auto;
+}
+.monitor-plot-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.monitor-plot-controls,
+.monitor-plot-controls form,
+.monitor-plot-paging {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.monitor-plot-controls {
+  justify-content: space-between;
+  margin-top: 24px;
+  font-size: 12px;
+}
+.monitor-plot-controls form {
+  min-width: 0;
+  max-width: 100%;
+}
+.monitor-plot-controls select,
+.monitor-plot-controls button {
+  padding: 8px 12px;
+  border: 1px solid var(--color-dark-border);
+  border-radius: 6px;
+  background: var(--color-dark-card);
+  color: var(--color-text-primary);
+}
+.monitor-plot-controls select {
+  max-width: 100%;
+}
+.monitor-plot-controls button {
+  cursor: pointer;
+  color: var(--color-accent-cyan);
+}
+.monitor-plot-controls button:disabled {
+  opacity: .5;
+  cursor: default;
+}
+.monitor-plot-paging a {
+  color: var(--color-accent-cyan);
+}
+.monitor-plot-note,
+.monitor-plot-paging span {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+.monitor-plot-note {
+  margin-top: 12px;
+}
+#overview-plots .monitor-plots {
+  margin-top: 16px;
 }
 .monitor-section-heading {
   display: flex;
@@ -242,6 +301,9 @@
   }
 }
 @media (max-width: 640px) {
+  #overview-plots .monitor-plot-image img {
+    min-width: 480px;
+  }
   .monitor-shell {
     padding-inline: 16px;
   }

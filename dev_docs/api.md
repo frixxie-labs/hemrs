@@ -194,8 +194,12 @@ The plotter binds to `0.0.0.0:8000` by default and returns SVG bytes for chart r
 | `GET` | `/plot/measurements` | Time-series for all measurements grouped by device/sensor/unit | None | `image/svg+xml` |
 | `GET` | `/plot/devices/{device_id}/measurements` | Time-series for one device grouped by sensor/unit | None | `image/svg+xml` |
 | `GET` | `/plot/devices/{device_id}/sensors/{sensor_id}/measurements` | Time-series for one device/sensor pair with polynomial regression when possible | Optional `start`, `end` | `image/svg+xml` |
-| `GET` | `/plot/measurements/range` | Time-series for measurements in a backend-filtered range | Required `start`, optional `end` | `image/svg+xml` |
-| `GET` | `/plot/measurements/latest/all` | Bar chart of latest values per device/sensor pair | None | `image/svg+xml` |
+| `GET` | `/plot/measurements/range` | Time-series comparison of up to six devices measuring the same sensor/unit in a backend-filtered range | Required `start`, optional `end`, `sensor`, `page` | `image/svg+xml` |
+| `GET` | `/plot/measurements/latest/all` | Horizontal bar comparison of latest readings for up to six devices measuring the same sensor/unit | Optional `sensor`, `page` | `image/svg+xml` |
+
+The overview comparison charts use a fixed 8 × 4.8 inch canvas, so the SVG does not grow with the number of sensors. `sensor` is the exact sensor name. Without it, the sensor/unit shared by the most devices is selected (ties sort by name and unit). `page` defaults to `1`, must be positive, and is clamped to the last device page. Devices sort by name and location; both charts use the latest-readings device list to keep their selections and colors aligned, including devices without readings in the requested history window. History falls back to the range data if no latest readings exist. An explicit `end` must be after `start`.
+
+The frontend overview exposes a sensor picker and previous/next device pages. History remains limited to the last 24 hours. Other sensor types and full latest-reading timestamps remain available in the table below the charts.
 
 Plotter backend failures are translated as follows:
 

@@ -1,5 +1,6 @@
 import {
   fetchPlotSvg,
+  getLatestAllPlot,
   getRecentMeasurementsPlot,
   getTodayDeviceSensorMeasurementsPlot,
 } from "../lib/plotter.ts";
@@ -44,6 +45,30 @@ Deno.test("fetchPlotSvg returns base64 data URI for valid SVG", async () => {
     }
   } finally {
     restore();
+  }
+});
+
+Deno.test("overview plots request the same sensor and device page", async () => {
+  const urls: URL[] = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = (input: string | URL | Request) => {
+    urls.push(new URL(input instanceof Request ? input.url : input.toString()));
+    return Promise.resolve(new Response("<svg/>"));
+  };
+  try {
+    const comparison = { sensor: "BTC/USD & price", page: 2 };
+    await getRecentMeasurementsPlot(24, Date.now(), comparison);
+    await getLatestAllPlot(comparison);
+    for (const url of urls) {
+      if (
+        url.searchParams.get("sensor") !== comparison.sensor ||
+        url.searchParams.get("page") !== "2"
+      ) {
+        throw new Error(`Missing comparison parameters: ${url}`);
+      }
+    }
+  } finally {
+    globalThis.fetch = original;
   }
 });
 
