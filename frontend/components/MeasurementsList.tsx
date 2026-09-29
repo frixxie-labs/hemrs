@@ -1,52 +1,59 @@
-import { Measurement } from "../lib/measurements.ts";
+import type { Measurement } from "../lib/measurements.ts";
 
-interface MeasuremetListProps {
+interface MeasurementsListProps {
   measurements: Measurement[];
+  showAllLink?: boolean;
 }
 
-export default function MeasuremetList({ measurements }: MeasuremetListProps) {
+function timestamp(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toISOString().slice(0, 19).replace("T", " ");
+}
+
+export default function MeasurementsList(
+  { measurements, showAllLink = false }: MeasurementsListProps,
+) {
   return (
-    <div class="bg-dark-card border border-dark-border rounded-xl p-6">
-      <h2 class="text-xl font-bold text-text-primary mb-4">
-        Measurements: {measurements.length}
-      </h2>
-      <div class="overflow-x-auto">
-        <table class="w-full">
+    <section>
+      <div class="monitor-section-heading">
+        <h2>Latest readings</h2>
+        {showAllLink
+          ? <a href="/measurements">All measurements ↗</a>
+          : <span>{measurements.length} readings</span>}
+      </div>
+      <div class="monitor-table-wrap">
+        <table class="monitor-table">
           <thead>
-            <tr class="border-b border-dark-border text-text-muted text-xs uppercase tracking-wider">
-              <th class="px-4 py-3 text-left font-medium">Timestamp</th>
-              <th class="px-4 py-3 text-left font-medium">Device name</th>
-              <th class="px-4 py-3 text-left font-medium">Sensor name</th>
-              <th class="px-4 py-3 text-left font-medium">Value</th>
-              <th class="px-4 py-3 text-left font-medium">Unit</th>
+            <tr>
+              <th scope="col">Device</th>
+              <th scope="col">Location</th>
+              <th scope="col">Sensor</th>
+              <th scope="col" class="monitor-numeric">Value</th>
+              <th scope="col">Recorded (UTC)</th>
             </tr>
           </thead>
           <tbody>
-            {measurements.map((measurement) => (
+            {measurements.map((reading, index) => (
               <tr
-                key={measurement.timestamp}
-                class="border-b border-dark-border hover:bg-table-row-hover transition-colors"
+                key={`${reading.device_name}-${reading.sensor_name}-${index}`}
               >
-                <td class="px-4 py-3 text-text-secondary">
-                  {new Date(measurement.timestamp).toLocaleString()}
+                <td>{reading.device_name}</td>
+                <td class="monitor-secondary">{reading.device_location}</td>
+                <td>{reading.sensor_name}</td>
+                <td class="monitor-numeric monitor-value">
+                  {reading.value} <span>{reading.unit}</span>
                 </td>
-                <td class="px-4 py-3 text-text-primary">
-                  {measurement.device_name}
-                </td>
-                <td class="px-4 py-3 text-text-primary">
-                  {measurement.sensor_name}
-                </td>
-                <td class="px-4 py-3 text-text-primary">
-                  {measurement.value}
-                </td>
-                <td class="px-4 py-3 text-text-secondary">
-                  {measurement.unit}
-                </td>
+                <td class="monitor-time">{timestamp(reading.timestamp)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </div>
+      {!measurements.length && (
+        <p class="monitor-empty">No readings available.</p>
+      )}
+    </section>
   );
 }

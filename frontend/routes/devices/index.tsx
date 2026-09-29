@@ -2,7 +2,7 @@ import { page } from "fresh";
 import { define } from "../../utils.ts";
 import Button from "../../components/Button.tsx";
 import { getDevices } from "../../lib/device.ts";
-import DeviceList from "../../components/DeviceList.tsx";
+import DeviceGroups from "../../islands/DeviceGroups.tsx";
 
 export const handler = define.handlers({
   async GET(_ctx) {
@@ -14,13 +14,13 @@ export const handler = define.handlers({
 export default define.page<typeof handler>(({ data }) => {
   return (
     <div class="space-y-4">
-      <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold text-text-primary">Devices</h1>
+      <div class="monitor-heading">
+        <h1>Devices</h1>
         <a href="/devices/new">
           <Button type="button">New Device</Button>
         </a>
       </div>
-      <DeviceList devices={data.devices} />
+      <DeviceGroups devices={data.devices} />
     </div>
   );
 });
