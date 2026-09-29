@@ -139,7 +139,7 @@ There is also an annotated handler path `api/sensors/device/{device_id}`, but th
 | --- | --- | --- | --- | --- |
 | `POST` | `/` | Direct measurement ingestion | `NewMeasurement` or `NewMeasurement[]` | `201` text |
 | `POST` | `/api/measurements` | Measurement ingestion | `NewMeasurement` or `NewMeasurement[]` | `201` text |
-| `GET` | `/api/measurements` | All measurements | None | `Measurement[]` |
+| `GET` | `/api/measurements` | Most recent measurements, chronological order | `limit` optional (default `1000`, clamped to `1..=10000`) | `Measurement[]` |
 | `GET` | `/api/measurements/latest` | Latest measurement globally | None | `Measurement` |
 | `GET` | `/api/measurements/latest/all` | Latest measurement per device/sensor pair | None | `Measurement[]` |
 | `GET` | `/api/measurements/count` | Total measurement count | None | JSON number |
@@ -149,6 +149,8 @@ There is also an annotated handler path `api/sensors/device/{device_id}`, but th
 | `GET` | `/api/devices/{device_id}/sensors/{sensor_id}/measurements/latest` | Latest measurement for a device/sensor pair | None | `Measurement` |
 | `GET` | `/api/devices/{device_id}/sensors/{sensor_id}/measurements/stats` | Aggregate stats for a device/sensor pair | None | `MeasurementStats` |
 | `GET` | `/api/devices/{device_id}/sensors/{sensor_id}/measurements/stream` | Live updates plus a database refresh of the latest value every 15 seconds for a device/sensor pair | None | `text/event-stream` |
+
+`/api/measurements` is intentionally bounded so it cannot load the whole table into memory; use `/api/measurements/range` for time windows.
 
 `/api/measurements/range` expects RFC 3339 / ISO 8601 timestamps, for example:
 

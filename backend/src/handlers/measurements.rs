@@ -296,20 +296,41 @@ pub async fn fetch_measurements_count(
     Ok(Json(count as usize))
 }
 
+/// Default number of measurements returned by `GET /api/measurements`.
+pub const DEFAULT_MEASUREMENTS_LIMIT: i64 = 1_000;
+/// Hard cap on `GET /api/measurements` to keep response memory bounded.
+pub const MAX_MEASUREMENTS_LIMIT: i64 = 10_000;
+
+#[derive(Debug, Deserialize, IntoParams)]
+pub struct MeasurementsLimitParams {
+    /// Number of most recent measurements to return (default 1000, clamped to 1..=10000)
+    pub limit: Option<i64>,
+}
+
+impl MeasurementsLimitParams {
+    fn effective_limit(&self) -> i64 {
+        self.limit
+            .unwrap_or(DEFAULT_MEASUREMENTS_LIMIT)
+            .clamp(1, MAX_MEASUREMENTS_LIMIT)
+    }
+}
+
 #[utoipa::path(
     get,
     path = "api/measurements",
+    params(MeasurementsLimitParams),
     responses(
-        (status = 200, description = "List of all measurements", body = [Measurement]),
+        (status = 200, description = "Most recent measurements in chronological order, bounded by `limit`", body = [Measurement]),
         (status = 500, description = "Internal server error"),
     )
 )]
 #[instrument]
 pub async fn fetch_all_measurements(
     State(app_state): ApplicationState,
+    Query(params): Query<MeasurementsLimitParams>,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
     let (pool, _cache) = app_state;
-    let entries = Measurement::read_all(&pool)
+    let entries = Measurement::read_all(&pool, params.effective_limit())
         .await
         .context("Failed to fetch data from database")?;
 
@@ -476,6 +497,16 @@ mod tests {
     use futures::StreamExt;
 
     use super::*;
+
+    #[test]
+    fn measurements_limit_defaults_and_clamps() {
+        let limit = |limit| MeasurementsLimitParams { limit }.effective_limit();
+        assert_eq!(limit(None), DEFAULT_MEASUREMENTS_LIMIT);
+        assert_eq!(limit(Some(50)), 50);
+        assert_eq!(limit(Some(0)), 1);
+        assert_eq!(limit(Some(-5)), 1);
+        assert_eq!(limit(Some(i64::MAX)), MAX_MEASUREMENTS_LIMIT);
+    }
 
     type MeasurementParts = (i32, i32, f32, bool);
 

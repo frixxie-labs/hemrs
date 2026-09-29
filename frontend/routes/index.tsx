@@ -5,7 +5,7 @@ import {
   getAllLatestMeasurements,
   getMeasurementCount,
 } from "../lib/measurements.ts";
-import { getAllMeasurementsPlot, getLatestAllPlot } from "../lib/plotter.ts";
+import { getLatestAllPlot, getRecentMeasurementsPlot } from "../lib/plotter.ts";
 import { getSensors } from "../lib/sensor.ts";
 import DeviceGroups from "../islands/DeviceGroups.tsx";
 import MeasurementsList from "../components/MeasurementsList.tsx";
@@ -25,7 +25,7 @@ export const handler = define.handlers({
       getSensors(),
       getMeasurementCount(),
       getAllLatestMeasurements(),
-      getAllMeasurementsPlot(),
+      getRecentMeasurementsPlot(),
       getLatestAllPlot(),
     ]);
     return page({
@@ -58,7 +58,7 @@ export default define.page<typeof handler>(({ data }) => {
         ))}
       </dl>
       <div class="monitor-plots">
-        <PlotCard title="Measurement history" svg={data.historyPlot} />
+        <PlotCard title="Measurement history (24h)" svg={data.historyPlot} />
         <PlotCard title="Latest measurements" svg={data.latestPlot} />
       </div>
       <MeasurementsList measurements={data.latest} showAllLink />
