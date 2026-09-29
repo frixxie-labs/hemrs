@@ -21,13 +21,14 @@ export const handler = define.handlers({
 export default define.page<typeof handler>(({ data }) => {
   return (
     <div class="space-y-4">
-      <div class="bg-dark-card border border-dark-border rounded-xl p-6">
-        <h1 class="text-2xl font-bold text-text-primary">
-          Device: {data.device.name}
-        </h1>
-        <p class="text-text-secondary mt-1">
-          Location: {data.device.location}
-        </p>
+      <div class="monitor-heading">
+        <div>
+          <h1>{data.device.name}</h1>
+          <p class="text-text-secondary text-sm mt-2">
+            {data.device.location || "Unassigned"} · #{data.device.id}
+          </p>
+        </div>
+        <a class="text-sm text-text-secondary" href="/devices">All devices ↗</a>
       </div>
       <SensorList
         device_id={data.device.id}

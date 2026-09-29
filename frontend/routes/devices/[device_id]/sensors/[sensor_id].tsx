@@ -37,13 +37,19 @@ export const handler = define.handlers({
 export default define.page<typeof handler>(({ data }) => {
   return (
     <div class="space-y-4">
-      <div class="bg-dark-card border border-dark-border rounded-xl p-6">
-        <h1 class="text-2xl font-bold text-text-primary">
-          {data.sensor.name}
-        </h1>
-        <p class="text-text-secondary mt-1">
-          Device: {data.device.name} (#{data.device.id})
-        </p>
+      <div class="monitor-heading">
+        <div>
+          <h1>{data.sensor.name}</h1>
+          <p class="text-text-secondary text-sm mt-2">
+            {data.device.name} · #{data.device.id}
+          </p>
+        </div>
+        <a
+          class="text-sm text-text-secondary"
+          href={`/devices/${data.device.id}`}
+        >
+          Device details ↗
+        </a>
       </div>
       <LiveMeasurementStatCard
         deviceId={data.device.id}
@@ -52,7 +58,7 @@ export default define.page<typeof handler>(({ data }) => {
         initialLatest={data.latest}
       />
       <PlotCard
-        title={`${data.sensor.name} Measurements Over Time`}
+        title={`${data.sensor.name} · last 24 hours`}
         svg={data.plot}
       />
     </div>

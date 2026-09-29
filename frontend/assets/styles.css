@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./monitor.css";
 
 @theme {
   /* Kanagawa Wave palette */

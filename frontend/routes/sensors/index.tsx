@@ -14,8 +14,8 @@ export const handler = define.handlers({
 export default define.page<typeof handler>(({ data }) => {
   return (
     <div class="space-y-4">
-      <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold text-text-primary">Sensors</h1>
+      <div class="monitor-heading">
+        <h1>Sensors</h1>
         <a href="/sensors/new">
           <Button type="button">New Sensor</Button>
         </a>

@@ -3,11 +3,11 @@ import { Partial } from "fresh/runtime";
 
 export default function App({ Component }: PageProps) {
   return (
-    <html>
+    <html lang="en">
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>HEMRS - Sensor Dashboard</title>
+        <title>HEMRS - Device &amp; sensor monitor</title>
         <link rel="stylesheet" href="/styles.css" />
       </head>
       <body f-client-nav class="bg-dark-bg text-text-primary">

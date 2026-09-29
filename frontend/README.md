@@ -1,16 +1,34 @@
-# Fresh project
+# HEMRS frontend
 
-Your new Fresh project is ready to go. You can follow the Fresh "Getting
-Started" guide here: https://fresh.deno.dev/docs/getting-started
+Device and sensor monitor built with Fresh, Deno and Preact.
 
-### Usage
+## Development
 
-Make sure to install Deno: https://deno.land/manual/getting_started/installation
+From this directory:
 
-Then start the project:
-
+```sh
+HEMRS_URL=http://localhost:65534/ PLOTTER_URL=http://localhost:8000/ deno task dev
 ```
+
+Open the URL printed by Vite. `HEMRS_URL` must include a trailing slash.
+
+The overview shows counts, measurement history, latest-value plots, latest
+readings, and searchable devices grouped by location. Readings on the overview
+are a snapshot at page load. Device sensor pages include live updates,
+statistics and 24-hour plots. Unavailable plots show a fallback message.
+
+The monitor layout combines location-grouped devices with compact measurement
+tables and uses the existing Kanagawa theme. It is the default UI; no preview
+parameters or sample data are used.
+
+## Checks and production
+
+```sh
+deno task check
+deno task test
+deno task build
 deno task start
 ```
 
-This will watch the project directory and restart as necessary.
+Production also requires `HEMRS_URL` and optionally `PLOTTER_URL` (defaults to
+`http://localhost:8000/`).
