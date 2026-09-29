@@ -229,7 +229,7 @@ mod tests {
         assert_eq!(update.measurement.device_name, "stream-device");
         assert_eq!(update.measurement.sensor_name, "stream-sensor");
         assert_eq!(cache.get(&(1, 1)).await.unwrap().value, 23.5);
-        assert_eq!(Measurement::read_all(&pool).await.unwrap().len(), 1);
+        assert_eq!(Measurement::read_all(&pool, 100).await.unwrap().len(), 1);
     }
 
     #[sqlx::test]
@@ -257,6 +257,6 @@ mod tests {
         drop(measurement_tx);
         worker.await.unwrap();
 
-        assert_eq!(Measurement::read_all(&pool).await.unwrap().len(), 1);
+        assert_eq!(Measurement::read_all(&pool, 100).await.unwrap().len(), 1);
     }
 }

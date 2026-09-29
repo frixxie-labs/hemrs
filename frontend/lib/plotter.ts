@@ -28,6 +28,24 @@ export function getAllMeasurementsPlot(): Promise<string | null> {
   return fetchPlotSvg("plot/measurements");
 }
 
+const MINUTE_MS = 60 * 1000;
+
+/**
+ * Plot of all measurements from the last `hours` hours. The start is floored
+ * to the minute so repeated page loads share the plotter cache entry.
+ */
+export function getRecentMeasurementsPlot(
+  hours = 24,
+  now = Date.now(),
+): Promise<string | null> {
+  const start = new Date(
+    Math.floor((now - hours * 60 * MINUTE_MS) / MINUTE_MS) * MINUTE_MS,
+  ).toISOString();
+  return fetchPlotSvg(
+    `plot/measurements/range?start=${encodeURIComponent(start)}`,
+  );
+}
+
 export function getDeviceMeasurementsPlot(
   deviceId: number,
 ): Promise<string | null> {

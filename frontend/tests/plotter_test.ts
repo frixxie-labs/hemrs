@@ -1,5 +1,6 @@
 import {
   fetchPlotSvg,
+  getRecentMeasurementsPlot,
   getTodayDeviceSensorMeasurementsPlot,
 } from "../lib/plotter.ts";
 
@@ -108,6 +109,29 @@ Deno.test("getTodayDeviceSensorMeasurementsPlot passes today start param", async
       throw new Error(
         `Expected start param ~24h ago, got: ${startParam}`,
       );
+    }
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+Deno.test("getRecentMeasurementsPlot requests a bounded range floored to the minute", async () => {
+  let capturedUrl = "";
+  const original = globalThis.fetch;
+  globalThis.fetch = (input: string | URL | Request) => {
+    capturedUrl = input instanceof Request ? input.url : input.toString();
+    return Promise.resolve(new Response("<svg/>", { status: 200 }));
+  };
+  try {
+    const now = Date.parse("2026-09-29T12:34:56.789Z");
+    await getRecentMeasurementsPlot(24, now);
+    const url = new URL(capturedUrl, "http://localhost");
+    if (!url.pathname.endsWith("/plot/measurements/range")) {
+      throw new Error(`Unexpected URL path: ${capturedUrl}`);
+    }
+    const start = url.searchParams.get("start");
+    if (start !== "2026-09-28T12:34:00.000Z") {
+      throw new Error(`Unexpected start param: ${start}`);
     }
   } finally {
     globalThis.fetch = original;

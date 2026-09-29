@@ -157,10 +157,19 @@ impl Measurement {
         Ok(res)
     }
 
-    pub async fn read_all(pool: &PgPool) -> Result<Vec<Self>> {
+    /// Reads the `limit` most recent measurements, returned in chronological order.
+    pub async fn read_all(pool: &PgPool, limit: i64) -> Result<Vec<Self>> {
         let measurements = sqlx::query_as!(
             Measurement,
-            "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id ORDER BY ts"
+            "SELECT timestamp AS \"timestamp!\", value AS \"value!\", unit AS \"unit!\", device_name AS \"device_name!\", device_location AS \"device_location!\", sensor_name AS \"sensor_name!\" \
+             FROM (SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name \
+                   FROM measurements m \
+                   JOIN devices d ON d.id = m.device_id \
+                   JOIN sensors s ON s.id = m.sensor_id \
+                   ORDER BY m.ts DESC \
+                   LIMIT $1) recent \
+             ORDER BY timestamp",
+            limit
         )
         .fetch_all(pool)
         .await?;
@@ -340,8 +349,29 @@ mod tests {
         };
         measurement.insert(&pool).await.unwrap();
 
-        let measurements = Measurement::read_all(&pool).await.unwrap();
+        let measurements = Measurement::read_all(&pool, 100).await.unwrap();
         assert!(!measurements.is_empty());
+    }
+
+    #[sqlx::test]
+    async fn should_read_only_most_recent_measurements_in_order(pool: PgPool) {
+        setup_device_and_sensor(&pool).await;
+        let base = chrono::Utc::now();
+        for i in 0..5 {
+            NewMeasurement {
+                timestamp: Some(base + chrono::Duration::seconds(i)),
+                device: 1,
+                sensor: 1,
+                measurement: i as f32,
+            }
+            .insert(&pool)
+            .await
+            .unwrap();
+        }
+
+        let measurements = Measurement::read_all(&pool, 3).await.unwrap();
+        let values: Vec<f32> = measurements.iter().map(|m| m.value).collect();
+        assert_eq!(values, vec![2.0, 3.0, 4.0]);
     }
 
     #[sqlx::test]
