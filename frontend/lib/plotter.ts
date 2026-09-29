@@ -20,8 +20,21 @@ export async function fetchPlotSvg(path: string): Promise<string | null> {
   }
 }
 
-export function getLatestAllPlot(): Promise<string | null> {
-  return fetchPlotSvg("plot/measurements/latest/all");
+export interface PlotComparison {
+  sensor: string;
+  page: number;
+}
+
+export function getLatestAllPlot(
+  comparison?: PlotComparison,
+): Promise<string | null> {
+  const params = comparison
+    ? `?${new URLSearchParams({
+      sensor: comparison.sensor,
+      page: String(comparison.page),
+    })}`
+    : "";
+  return fetchPlotSvg(`plot/measurements/latest/all${params}`);
 }
 
 export function getAllMeasurementsPlot(): Promise<string | null> {
@@ -31,19 +44,23 @@ export function getAllMeasurementsPlot(): Promise<string | null> {
 const MINUTE_MS = 60 * 1000;
 
 /**
- * Plot of all measurements from the last `hours` hours. The start is floored
+ * Compare devices for one sensor over the last `hours` hours. The start is floored
  * to the minute so repeated page loads share the plotter cache entry.
  */
 export function getRecentMeasurementsPlot(
   hours = 24,
   now = Date.now(),
+  comparison?: PlotComparison,
 ): Promise<string | null> {
   const start = new Date(
     Math.floor((now - hours * 60 * MINUTE_MS) / MINUTE_MS) * MINUTE_MS,
   ).toISOString();
-  return fetchPlotSvg(
-    `plot/measurements/range?start=${encodeURIComponent(start)}`,
-  );
+  const params = new URLSearchParams({ start });
+  if (comparison) {
+    params.set("sensor", comparison.sensor);
+    params.set("page", String(comparison.page));
+  }
+  return fetchPlotSvg(`plot/measurements/range?${params}`);
 }
 
 export function getDeviceMeasurementsPlot(

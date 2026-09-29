@@ -11,8 +11,8 @@ export default function PlotCard({ title, svg }: PlotCardProps) {
       </div>
       {svg
         ? (
-          <div class="w-full overflow-x-auto">
-            <img src={svg} alt={title} class="w-full" />
+          <div class="monitor-plot-image">
+            <img src={svg} alt={title} />
           </div>
         )
         : <p class="monitor-empty">Plot unavailable.</p>}

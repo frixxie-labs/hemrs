@@ -73,7 +73,7 @@ def make_stats(
 @pytest.fixture()
 def mock_client() -> MagicMock:
     """A MagicMock that stands in for BackendClient."""
-    return MagicMock(
+    client = MagicMock(
         spec_set=[
             "fetch_devices",
             "fetch_device_by_id",
@@ -91,6 +91,8 @@ def mock_client() -> MagicMock:
             "fetch_stats_by_device_and_sensor",
         ]
     )
+    client.fetch_all_latest_measurements.return_value = []
+    return client
 
 
 @pytest.fixture()

@@ -1,6 +1,7 @@
 import io
 import os
 from datetime import datetime
+from textwrap import shorten, wrap
 from typing import Annotated
 
 import matplotlib
@@ -11,6 +12,7 @@ from backend_client import BackendClient
 from cachetools import TTLCache
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import Response
+from models import Measurement
 from requests.exceptions import ConnectionError, HTTPError
 
 matplotlib.use("svg")
@@ -91,10 +93,10 @@ def ping():
     return {"ping": "pong"}
 
 
-def _fig_to_svg(fig: plt.Figure) -> bytes:
+def _fig_to_svg(fig: plt.Figure, *, tight: bool = True) -> bytes:
     """Render a matplotlib figure to SVG bytes and close it."""
     buf = io.BytesIO()
-    fig.savefig(buf, format="svg", bbox_inches="tight")
+    fig.savefig(buf, format="svg", bbox_inches="tight" if tight else None)
     plt.close(fig)
     buf.seek(0)
     return buf.read()
@@ -106,6 +108,56 @@ def _handle_backend_error(exc: Exception):
     if isinstance(exc, HTTPError):
         raise HTTPException(status_code=exc.response.status_code, detail=str(exc))
     raise exc
+
+
+# Keep the overview legible at card width, regardless of sensor/device count.
+OVERVIEW_PAGE_SIZE = 6
+
+
+def _comparison_page(
+    measurements: list[Measurement], sensor: str | None, page: int
+) -> list[Measurement]:
+    """Choose one sensor/unit and a stable, bounded page of devices."""
+    groups: dict[tuple[str, str], dict[tuple[str, str], Measurement]] = {}
+    for m in measurements:
+        if sensor is None or m.sensor_name == sensor:
+            devices = groups.setdefault((m.sensor_name, m.unit), {})
+            key = (m.device_name, m.device_location)
+            if key not in devices or devices[key].timestamp < m.timestamp:
+                devices[key] = m
+    if not groups:
+        raise HTTPException(status_code=404, detail="No measurements for this sensor")
+    # Default to the sensor shared by the most devices, with a stable tie-break.
+    key = min(groups, key=lambda key: (-len(groups[key]), key))
+    devices = groups[key]
+    last_page = (len(devices) - 1) // OVERVIEW_PAGE_SIZE + 1
+    offset = (min(page, last_page) - 1) * OVERVIEW_PAGE_SIZE
+    return [
+        devices[key] for key in sorted(devices)[offset : offset + OVERVIEW_PAGE_SIZE]
+    ]
+
+
+def _series_key(m: Measurement) -> tuple[str, str, str, str]:
+    return m.device_name, m.device_location, m.sensor_name, m.unit
+
+
+def _device_label(m: Measurement) -> str:
+    label = (
+        f"{m.device_name} / {m.device_location}" if m.device_location else m.device_name
+    )
+    return "\n".join(wrap(label, width=28, max_lines=2, placeholder="…"))
+
+
+def _comparison_axes(measurement: Measurement) -> tuple[plt.Figure, plt.Axes]:
+    fig, ax = plt.subplots(figsize=(8, 4.8))
+    _apply_kanagawa(fig, ax)
+    ax.set_title(
+        shorten(measurement.sensor_name, width=52, placeholder="…"), fontsize=12, pad=14
+    )
+    ax.tick_params(labelsize=10)
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.set_axisbelow(True)
+    return fig, ax
 
 
 @app.get("/plot/measurements", response_class=Response)
@@ -281,14 +333,22 @@ def plot_measurements_by_range(
     request: Request,
     start: Annotated[datetime, Query()],
     end: Annotated[datetime | None, Query()] = None,
+    sensor: Annotated[str | None, Query()] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
 ):
-    """Plot measurements within a date range as a time-series SVG."""
+    """Compare a page of devices for one sensor within a date range."""
     cache_key = _cache_key(request)
     if cache_key in _plot_cache:
         return Response(content=_plot_cache[cache_key], media_type=SVG_MEDIA_TYPE)
 
+    if end is not None and end <= start:
+        raise HTTPException(status_code=422, detail="End must be after start")
+
     try:
         measurements = client.fetch_measurements_by_date_range(start, end)
+        # Use the same device selection as the latest chart, even when a device
+        # has no history in this window. Fall back for historical-only data.
+        latest = client.fetch_all_latest_measurements()
     except (ConnectionError, HTTPError) as exc:
         _handle_backend_error(exc)
 
@@ -298,44 +358,65 @@ def plot_measurements_by_range(
             detail="No measurements found in the given range",
         )
 
-    groups: dict[str, list] = {}
+    selected = _comparison_page(latest or measurements, sensor, page)
+    groups = {_series_key(m): [] for m in selected}
     for m in measurements:
-        key = f"{m.device_name} / {m.sensor_name} ({m.unit})"
-        groups.setdefault(key, []).append(m)
+        if _series_key(m) in groups:
+            groups[_series_key(m)].append(m)
 
-    fig, ax = plt.subplots(figsize=(12, 6))
-    for i, (label, items) in enumerate(groups.items()):
-        items.sort(key=lambda m: m.timestamp)
-        timestamps = [m.timestamp for m in items]
-        values = [m.value for m in items]
+    fig, ax = _comparison_axes(selected[0])
+    fig.subplots_adjust(left=0.13, right=0.96, bottom=0.35, top=0.9)
+    for i, m in enumerate(selected):
+        items = sorted(groups[_series_key(m)], key=lambda item: item.timestamp)
         ax.plot(
-            timestamps,
-            values,
-            label=label,
-            marker=".",
-            markersize=3,
+            [item.timestamp for item in items],
+            [item.value for item in items],
+            label=_device_label(m),
+            marker="." if len(items) < 50 else None,
+            markersize=4,
+            linewidth=1.8,
             color=_kanagawa_color(i),
         )
 
-    ax.set_xlabel("Time")
-    ax.set_ylabel("Value")
-    title = f"Measurements from {start.strftime('%Y-%m-%d %H:%M')}"
-    if end:
-        title += f" to {end.strftime('%Y-%m-%d %H:%M')}"
-    ax.set_title(title)
-    ax.legend(fontsize="small", loc="best")
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d %H:%M"))
-    fig.autofmt_xdate()
-    _apply_kanagawa(fig, ax)
+    if not any(groups.values()):
+        ax.text(
+            0.5,
+            0.5,
+            "No readings in this time window",
+            transform=ax.transAxes,
+            ha="center",
+            color=_KANAGAWA_FG,
+        )
+        ax.set_yticks([])
 
-    svg = _fig_to_svg(fig)
+    ax.set_ylabel(selected[0].unit)
+    ax.set_xlabel("Time (UTC)", fontsize=10)
+    ax.set_xlim(start, end or datetime.now(start.tzinfo))
+    locator = mdates.AutoDateLocator(minticks=3, maxticks=5)
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
+    fig.legend(
+        *ax.get_legend_handles_labels(),
+        loc="lower center",
+        bbox_to_anchor=(0.5, 0.005),
+        ncol=2,
+        fontsize=9,
+        frameon=False,
+        labelcolor=_KANAGAWA_FG,
+    )
+
+    svg = _fig_to_svg(fig, tight=False)
     _plot_cache[cache_key] = svg
     return Response(content=svg, media_type=SVG_MEDIA_TYPE)
 
 
 @app.get("/plot/measurements/latest/all", response_class=Response)
-def plot_all_latest_measurements(request: Request):
-    """Bar chart of the latest measurement per device/sensor pair as SVG."""
+def plot_all_latest_measurements(
+    request: Request,
+    sensor: Annotated[str | None, Query()] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+):
+    """Horizontal comparison of up to six devices measuring the same sensor/unit."""
     cache_key = _cache_key(request)
     if cache_key in _plot_cache:
         return Response(content=_plot_cache[cache_key], media_type=SVG_MEDIA_TYPE)
@@ -348,31 +429,41 @@ def plot_all_latest_measurements(request: Request):
     if not measurements:
         raise HTTPException(status_code=404, detail="No measurements found")
 
-    labels = [f"{m.device_name}\n{m.sensor_name}\n({m.unit})" for m in measurements]
-    values = [m.value for m in measurements]
+    selected = _comparison_page(measurements, sensor, page)
+    values = [m.value for m in selected]
+    fig, ax = _comparison_axes(selected[0])
+    fig.subplots_adjust(left=0.32, right=0.83, bottom=0.16, top=0.9)
+    ax.barh(
+        range(len(selected)),
+        values,
+        height=0.5,
+        color=[_kanagawa_color(i) for i in range(len(selected))],
+    )
+    ax.set_yticks(
+        range(len(selected)), [_device_label(m) for m in selected], fontsize=9
+    )
+    ax.set_ylim(OVERVIEW_PAGE_SIZE - 0.5, -0.5)
+    ax.set_xlabel(selected[0].unit)
+    ax.yaxis.grid(False)
+    ax.axvline(0, color=_KANAGAWA_GRID, linewidth=0.8)
+    ax.margins(x=0.12)
+    ax.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(4))
 
-    fig, ax = plt.subplots(figsize=(max(6, len(labels) * 1.2), 6))
-    bar_colors = [_kanagawa_color(i) for i in range(len(labels))]
-    bars = ax.bar(range(len(labels)), values, color=bar_colors)
-    ax.set_xticks(range(len(labels)))
-    ax.set_xticklabels(labels, fontsize="small")
-    ax.set_ylabel("Value")
-    ax.set_title("Latest Measurements (per device/sensor)")
-
-    for bar, val in zip(bars, values):
+    for i, val in enumerate(values):
+        label = (
+            f"{val:.3g}" if abs(val) >= 1e6 or 0 < abs(val) < 0.01 else f"{val:,.2f}"
+        )
         ax.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height(),
-            f"{val:.2f}",
-            ha="center",
-            va="bottom",
-            fontsize="small",
+            1.04,
+            i,
+            label,
+            transform=ax.get_yaxis_transform(),
+            ha="left",
+            va="center",
+            fontsize=10,
             color=_KANAGAWA_FG,
         )
 
-    _apply_kanagawa(fig, ax)
-    fig.tight_layout()
-
-    svg = _fig_to_svg(fig)
+    svg = _fig_to_svg(fig, tight=False)
     _plot_cache[cache_key] = svg
     return Response(content=svg, media_type=SVG_MEDIA_TYPE)
