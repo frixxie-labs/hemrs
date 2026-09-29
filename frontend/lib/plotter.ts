@@ -2,7 +2,9 @@ const PLOTTER_URL = Deno.env.get("PLOTTER_URL") || "http://localhost:8000/";
 
 export async function fetchPlotSvg(path: string): Promise<string | null> {
   try {
-    const response = await fetch(`${PLOTTER_URL}${path}`);
+    const response = await fetch(`${PLOTTER_URL}${path}`, {
+      signal: AbortSignal.timeout(45_000),
+    });
     if (!response.ok) {
       console.error(`Plotter request failed: ${response.status} for ${path}`);
       return null;
