@@ -52,7 +52,7 @@ pub struct Opts {
     /// Host address and port to bind the HTTP server to.
     ///
     /// Defaults to "0.0.0.0:65534" to listen on all interfaces on port 65534.
-    #[arg(short, long, default_value = "0.0.0.0:65534")]
+    #[arg(short = 'H', long, default_value = "0.0.0.0:65534")]
     host: String,
 
     /// PostgreSQL database connection URL.
@@ -63,7 +63,7 @@ pub struct Opts {
         short,
         long,
         env = "DATABASE_URL",
-        default_value = "postgres://postgres:example@localhost:5432/postgres"
+        default_value = "postgres://postgres:admin@localhost:5432/postgres"
     )]
     db_url: String,
 
