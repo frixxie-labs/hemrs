@@ -25,9 +25,9 @@ class Measurement(BaseModel):
 
 
 class MeasurementStats(BaseModel):
-    min: float
-    max: float
+    min: float | None
+    max: float | None
     count: int
-    avg: float
-    stddev: float
-    variance: float
+    avg: float | None
+    stddev: float | None
+    variance: float | None

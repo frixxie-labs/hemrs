@@ -1,16 +1,15 @@
+use anyhow::Context;
 use clap::Parser;
-use measurements::Measurement;
 use metrics_exporter_prometheus::PrometheusBuilder;
-use moka::future::Cache;
 use sqlx::postgres::PgPoolOptions;
 use tokio::{net::TcpListener, sync::mpsc::channel};
-use tracing::{Level, error, info};
+use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use crate::{
     background_tasks::{handle_insert_measurement_bg_thread, refresh_views, update_metrics},
     handlers::create_router,
-    measurements::NewMeasurement,
+    measurements::{NewMeasurement, latest::LatestMeasurements},
 };
 
 mod background_tasks;
@@ -102,13 +101,13 @@ async fn main() -> Result<(), anyhow::Error> {
         .install_recorder()
         .expect("failed to install recorder/exporter");
 
-    info!("Connecting to DB at {}", opts.db_url);
-    let connection = PgPoolOptions::new().connect(&opts.db_url).await.unwrap();
+    info!("Connecting to database");
+    let connection = PgPoolOptions::new()
+        .connect(&opts.db_url)
+        .await
+        .context("Connecting to database")?;
 
-    let measurement_cache: Cache<(i32, i32), Measurement> = Cache::builder()
-        .max_capacity(512)
-        .time_to_live(std::time::Duration::from_secs(60))
-        .build();
+    let measurement_cache = LatestMeasurements::new(512, std::time::Duration::from_secs(60));
 
     let bg_pool = connection.clone();
     let measurement_cache_bg = measurement_cache.clone();
@@ -129,32 +128,70 @@ async fn main() -> Result<(), anyhow::Error> {
         measurement_updates.clone(),
     );
 
-    let listener = TcpListener::bind(&opts.host).await.unwrap();
+    let listener = TcpListener::bind(&opts.host)
+        .await
+        .context("Binding HTTP listener")?;
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+    let mut server = tokio::spawn(async move {
+        axum::serve(listener, app)
+            .with_graceful_shutdown(async move {
+                let _ = shutdown_rx.await;
+            })
+            .await
+    });
+    let mut worker = tokio::spawn(handle_insert_measurement_bg_thread(
+        rx,
+        insert_pool,
+        insert_cache,
+        measurement_updates,
+    ));
 
     tokio::select! {
+        result = shutdown_signal() => {
+            result?;
+            info!("Shutting down HTTP server and draining accepted measurements");
+        }
         _ = update_metrics(&bg_pool, &measurement_cache_bg) => {
-            error!("update_metrics task exited unexpectedly");
+            anyhow::bail!("Metrics task exited unexpectedly");
         }
-        _ = handle_insert_measurement_bg_thread(rx, insert_pool, insert_cache, measurement_updates) => {
-            error!("insert_measurement background task exited unexpectedly");
+        result = &mut worker => {
+            result?;
+            anyhow::bail!("Measurement worker exited unexpectedly");
         }
-        result = refresh_views(&refresh_pool) => {
-            match result {
-                Ok(()) => error!("refresh_views task exited unexpectedly"),
-                Err(e) => error!("refresh_views task failed: {e:#}"),
-            }
+        _ = refresh_views(&refresh_pool) => {
+            anyhow::bail!("View refresh task exited unexpectedly");
         }
-        result = axum::serve(listener, app) => {
-            match result {
-                Ok(()) => info!("server shut down gracefully"),
-                Err(e) => error!("server error: {e:#}"),
-            }
+        result = &mut server => {
+            result??;
+            anyhow::bail!("HTTP server exited unexpectedly");
         }
     }
 
+    let _ = shutdown_tx.send(());
+    tokio::time::timeout(std::time::Duration::from_secs(30), async {
+        server.await??;
+        worker.await?;
+        Ok::<(), anyhow::Error>(())
+    })
+    .await
+    .context("Timed out draining HTTP connections and measurement queue")??;
     Ok(())
 }
 
+async fn shutdown_signal() -> anyhow::Result<()> {
+    #[cfg(unix)]
+    {
+        let mut terminate =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+        tokio::select! {
+            result = tokio::signal::ctrl_c() => result?,
+            _ = terminate.recv() => {},
+        }
+    }
+    #[cfg(not(unix))]
+    tokio::signal::ctrl_c().await?;
+    Ok(())
+}
 #[cfg(test)]
 mod tests {
     use super::LogLevel;

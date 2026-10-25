@@ -34,6 +34,7 @@ pub async fn fetch_devices(State(pool): State<PgPool>) -> Result<Json<Vec<Device
     ),
     responses(
         (status = 200, description = "Device found", body = Device),
+        (status = 404, description = "Device not found"),
         (status = 500, description = "Internal server error"),
     )
 )]
@@ -64,7 +65,7 @@ pub async fn insert_device(
     Json(device): Json<NewDevice>,
 ) -> Result<String, HandlerError> {
     if device.name.is_empty() || device.location.is_empty() {
-        return Err(HandlerError::new(400, "Invalid input".to_string()));
+        return Err(HandlerError::InvalidInput("Invalid input"));
     }
     device
         .insert(&pool)
@@ -89,7 +90,7 @@ pub async fn delete_device(
     Json(device): Json<Device>,
 ) -> Result<String, HandlerError> {
     if device.name.is_empty() || device.location.is_empty() {
-        return Err(HandlerError::new(400, "Invalid input".to_string()));
+        return Err(HandlerError::InvalidInput("Invalid input"));
     }
     device
         .delete(&pool)
@@ -114,7 +115,7 @@ pub async fn update_device(
     Json(device): Json<Device>,
 ) -> Result<String, HandlerError> {
     if device.name.is_empty() || device.location.is_empty() {
-        return Err(HandlerError::new(400, "Invalid input".to_string()));
+        return Err(HandlerError::InvalidInput("Invalid input"));
     }
     device
         .update(&pool)

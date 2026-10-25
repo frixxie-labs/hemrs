@@ -15,7 +15,6 @@ use measurements::{
 };
 use metrics::histogram;
 use metrics_exporter_prometheus::PrometheusHandle;
-use moka::future::Cache;
 use ping::ping;
 use sensors::fetch_sensors_by_device_id;
 use sensors::{delete_sensor, fetch_sensors, insert_sensor, update_sensor};
@@ -31,7 +30,7 @@ use utoipa::OpenApi;
 
 use crate::{
     handlers::{devices::fetch_devices_by_id, sensors::fetch_sensor_by_sensor_id},
-    measurements::{Measurement, MeasurementUpdate, NewMeasurement},
+    measurements::{MeasurementUpdate, NewMeasurement, latest::LatestMeasurements},
 };
 
 mod devices;
@@ -72,7 +71,7 @@ pub async fn profile_endpoint(request: Request, next: Next) -> Response {
 pub fn create_router(
     connection: Pool<sqlx::Postgres>,
     metrics_handler: PrometheusHandle,
-    cache: Cache<(i32, i32), Measurement>,
+    cache: LatestMeasurements,
     tx: Sender<NewMeasurement>,
     measurement_updates: broadcast::Sender<MeasurementUpdate>,
 ) -> Router {

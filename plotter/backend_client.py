@@ -14,6 +14,7 @@ class BackendClient:
         self.session = requests.Session()
 
     def _get(self, path: str, **kwargs) -> requests.Response:
+        kwargs.setdefault("timeout", (5, 30))
         resp = self.session.get(f"{self.base_url}{path}", **kwargs)
         resp.raise_for_status()
         return resp

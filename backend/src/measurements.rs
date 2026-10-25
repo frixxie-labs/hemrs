@@ -5,6 +5,9 @@ use sqlx::{FromRow, PgPool};
 use std::fmt;
 use utoipa::ToSchema;
 
+pub mod date_range;
+pub mod latest;
+
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct NewMeasurement {
     pub timestamp: Option<DateTime<Utc>>,
@@ -14,32 +17,41 @@ pub struct NewMeasurement {
 }
 
 impl NewMeasurement {
-    pub async fn insert(self, pool: &PgPool) -> Result<()> {
-        match self.timestamp {
-            Some(t) => {
-                sqlx::query!(
-                    "INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES ($1, $2, $3, $4)",
-                    t,
-                    self.device,
-                    self.sensor,
-                    self.measurement
-                )
-                .execute(pool)
-                .await?;
-                Ok(())
-            }
-            None => {
-                sqlx::query!(
-                    "INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES (CURRENT_TIMESTAMP, $1, $2, $3)",
-                    self.device,
-                    self.sensor,
-                    self.measurement
-                )
-                .execute(pool)
-                .await?;
-                Ok(())
-            }
+    pub fn resolve_timestamp(self, now: DateTime<Utc>) -> ResolvedMeasurement {
+        ResolvedMeasurement {
+            timestamp: self.timestamp.unwrap_or(now),
+            device: self.device,
+            sensor: self.sensor,
+            measurement: self.measurement,
         }
+    }
+
+    #[cfg(test)]
+    pub async fn insert(self, pool: &PgPool) -> Result<()> {
+        self.resolve_timestamp(Utc::now()).insert(pool).await
+    }
+}
+
+/// Internal ingestion command: the database row and published event share one timestamp.
+pub struct ResolvedMeasurement {
+    pub timestamp: DateTime<Utc>,
+    pub device: i32,
+    pub sensor: i32,
+    pub measurement: f32,
+}
+
+impl ResolvedMeasurement {
+    pub async fn insert(self, pool: &PgPool) -> Result<()> {
+        sqlx::query!(
+            "INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES ($1, $2, $3, $4)",
+            self.timestamp,
+            self.device,
+            self.sensor,
+            self.measurement
+        )
+        .execute(pool)
+        .await?;
+        Ok(())
     }
 }
 
@@ -75,12 +87,12 @@ pub struct MeasurementUpdate {
 
 #[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
 pub struct MeasurementStats {
-    min: f32,
-    max: f32,
+    min: Option<f32>,
+    max: Option<f32>,
     count: i64,
-    avg: f64,
-    stddev: f64,
-    variance: f64,
+    avg: Option<f64>,
+    stddev: Option<f64>,
+    variance: Option<f64>,
 }
 
 impl Measurement {
@@ -105,7 +117,7 @@ impl Measurement {
     ) -> Result<MeasurementStats> {
         let res = sqlx::query_as!(
             MeasurementStats,
-            "SELECT min(value) as \"min!\", max(value) as \"max!\", count(value) as \"count!\", avg(value) as \"avg!\", stddev(value) as \"stddev!\", variance(value) as \"variance!\" FROM measurements WHERE device_id = ($1) AND sensor_id = ($2)",
+            "SELECT min(value) as \"min?\", max(value) as \"max?\", count(value) as \"count!\", avg(value) as \"avg?\", stddev(value) as \"stddev?\", variance(value) as \"variance?\" FROM measurements WHERE device_id = ($1) AND sensor_id = ($2)",
             device_id,
             sensor_id
         )
@@ -195,10 +207,8 @@ impl Measurement {
 
     pub async fn read_by_date_range(
         pool: &PgPool,
-        start: DateTime<Utc>,
-        end: Option<DateTime<Utc>>,
+        range: date_range::DateRange,
     ) -> Result<Vec<Self>> {
-        let end = end.unwrap_or_else(Utc::now);
         let measurements = sqlx::query_as!(
             Measurement,
             "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name \
@@ -207,8 +217,8 @@ impl Measurement {
              JOIN sensors s ON s.id = m.sensor_id \
              WHERE m.ts >= $1 AND m.ts <= $2 \
              ORDER BY m.ts",
-            start,
-            end
+            range.start(),
+            range.end()
         )
         .fetch_all(pool)
         .await?;
@@ -218,6 +228,7 @@ impl Measurement {
 
 #[cfg(test)]
 mod tests {
+    use super::date_range::DateRange;
     use sqlx::PgPool;
 
     use crate::measurements::NewMeasurement;
@@ -239,6 +250,67 @@ mod tests {
         .insert(pool)
         .await
         .unwrap();
+    }
+
+    #[sqlx::test]
+    async fn statistics_represent_empty_and_single_sample_datasets(pool: PgPool) {
+        let empty = serde_json::to_value(
+            Measurement::read_stats_by_device_id_and_sensor_id(&pool, 1, 1)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(empty["count"], 0);
+        for field in ["min", "max", "avg", "stddev", "variance"] {
+            assert!(
+                empty[field].is_null(),
+                "{field} is undefined for an empty dataset"
+            );
+        }
+        setup_device_and_sensor(&pool).await;
+        NewMeasurement {
+            timestamp: None,
+            device: 1,
+            sensor: 1,
+            measurement: 12.5,
+        }
+        .insert(&pool)
+        .await
+        .unwrap();
+        let single = serde_json::to_value(
+            Measurement::read_stats_by_device_id_and_sensor_id(&pool, 1, 1)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(single["count"], 1);
+        assert_eq!(single["min"], 12.5);
+        assert_eq!(single["max"], 12.5);
+        assert_eq!(single["avg"], 12.5);
+        assert!(single["stddev"].is_null());
+        assert!(single["variance"].is_null());
+    }
+
+    #[test]
+    fn timestamp_resolution_preserves_explicit_values_and_defaults_once() {
+        let now = chrono::Utc::now();
+        let explicit = now - chrono::Duration::hours(1);
+        let measurement = NewMeasurement {
+            timestamp: None,
+            device: 1,
+            sensor: 2,
+            measurement: 3.0,
+        };
+        assert_eq!(measurement.clone().resolve_timestamp(now).timestamp, now);
+        assert_eq!(
+            NewMeasurement {
+                timestamp: Some(explicit),
+                ..measurement
+            }
+            .resolve_timestamp(now)
+            .timestamp,
+            explicit
+        );
     }
 
     // ── quickcheck: pure logic, no DB ────────────────────────────────────────
@@ -457,7 +529,7 @@ mod tests {
 
         let start = ts - chrono::Duration::seconds(10);
         let end = ts + chrono::Duration::seconds(10);
-        let results = Measurement::read_by_date_range(&pool, start, Some(end))
+        let results = Measurement::read_by_date_range(&pool, DateRange::new(start, end).unwrap())
             .await
             .unwrap();
 
@@ -481,7 +553,7 @@ mod tests {
         // Range is entirely in the future — nothing should match
         let start = ts + chrono::Duration::hours(1);
         let end = ts + chrono::Duration::hours(2);
-        let results = Measurement::read_by_date_range(&pool, start, Some(end))
+        let results = Measurement::read_by_date_range(&pool, DateRange::new(start, end).unwrap())
             .await
             .unwrap();
 
@@ -526,7 +598,7 @@ mod tests {
 
         let start = now - chrono::Duration::minutes(5);
         let end = now + chrono::Duration::minutes(5);
-        let results = Measurement::read_by_date_range(&pool, start, Some(end))
+        let results = Measurement::read_by_date_range(&pool, DateRange::new(start, end).unwrap())
             .await
             .unwrap();
 
@@ -535,7 +607,7 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn should_read_measurements_without_explicit_end(pool: PgPool) {
+    async fn should_read_measurements_up_to_current_time(pool: PgPool) {
         setup_device_and_sensor(&pool).await;
 
         let ts = chrono::Utc::now();
@@ -549,11 +621,14 @@ mod tests {
         .await
         .unwrap();
 
-        // No end — should default to now and return the measurement
+        // The HTTP boundary resolves an omitted end to the current time.
         let start = ts - chrono::Duration::seconds(10);
-        let results = Measurement::read_by_date_range(&pool, start, None)
-            .await
-            .unwrap();
+        let results = Measurement::read_by_date_range(
+            &pool,
+            DateRange::new(start, chrono::Utc::now()).unwrap(),
+        )
+        .await
+        .unwrap();
 
         assert!(!results.is_empty());
         assert_eq!(results[0].value, 5.0);
@@ -595,7 +670,7 @@ mod tests {
 
         let start = now - chrono::Duration::seconds(1);
         let end = now + chrono::Duration::seconds(10);
-        let results = Measurement::read_by_date_range(&pool, start, Some(end))
+        let results = Measurement::read_by_date_range(&pool, DateRange::new(start, end).unwrap())
             .await
             .unwrap();
 

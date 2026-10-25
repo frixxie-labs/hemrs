@@ -32,7 +32,7 @@ Use this file as the first stop before modifying HEMRS.
 - Add a backend endpoint: update the handler module, route registration in `backend/src/handlers/mod.rs`, OpenAPI paths/components if relevant, domain query functions, tests, and frontend/plotter clients if they consume it.
 - Change measurement response shape: update Rust `Measurement`, SQL queries, OpenAPI schema, frontend `Measurement` interface, plotter `Measurement` Pydantic model, and tests.
 - Add a frontend page: add a route under `frontend/routes`, fetch data through `frontend/lib`, compose existing components where possible, and use existing Tailwind theme tokens.
-- Add a chart: add/extend a `BackendClient` method, add a plotter route in `plotter/app.py`, use `_cache_key`, `_fig_to_svg`, `_apply_kanagawa`, and expose a frontend helper in `frontend/lib/plotter.ts` if the UI needs it.
+- Add a chart: add/extend a `BackendClient` method, prepare data in `plotter/chart_data.py`, render SVG with the theme helpers in `plotter/rendering.py`, and add a cached route in `plotter/app.py`. Expose a frontend helper in `frontend/lib/plotter.ts` if the UI needs it.
 - Change database schema: add a migration, update SQLx query code, refresh SQLx offline metadata, and update `dev_docs/database.md`.
 
 ## Things To Preserve
@@ -40,7 +40,7 @@ Use this file as the first stop before modifying HEMRS.
 - Backend data access is implemented as inherent methods on domain structs rather than a repository trait layer.
 - Backend handlers are thin: validate request data, call domain methods, map errors through `HandlerError`, and return Axum responses.
 - Measurement ingestion should remain non-blocking at the HTTP boundary: handlers enqueue work through `Sender<NewMeasurement>`.
-- Latest device/sensor measurements use the Moka cache keyed by `(device_id, sensor_id)`.
+- Latest device/sensor measurements use `LatestMeasurements`, which owns the Moka cache keyed by `MeasurementKey` and preserves timestamp order.
 - Fresh pages fetch server-side in route handlers and pass typed data into page components.
 - The plotter returns SVG bytes directly and caches by path plus query string.
 
@@ -55,7 +55,7 @@ Use this file as the first stop before modifying HEMRS.
 ## Environment Variables
 
 - Backend: `DATABASE_URL` or `--db-url`; default is `postgres://postgres:example@localhost:5432/postgres`.
-- Frontend: `HEMRS_URL` should point at the backend base URL and include the trailing slash, for example `http://localhost:65534/`.
+- Frontend: `HEMRS_URL` points at the backend base URL; the shared client normalizes the trailing slash and defaults to `http://localhost:65534/`.
 - Frontend plotter client: `PLOTTER_URL`, default `http://localhost:8000/`.
 - Plotter: `BACKEND_URL`, default `http://localhost:65534`.
 - Plotter cache: `PLOT_CACHE_TTL`, default `60`; `PLOT_CACHE_MAXSIZE`, default `128`.
@@ -63,7 +63,7 @@ Use this file as the first stop before modifying HEMRS.
 ## Known Sharp Edges
 
 - `MeasurementStats` fields in Rust are private but serialized; preserve names unless updating all consumers.
-- Several frontend helpers return `null` in catch paths despite non-null Promise return types. Be careful when relying on strict type guarantees.
-- `HEMRS_URL` is interpolated directly with `api/...`; missing trailing slash creates invalid URLs.
+- Frontend backend helpers propagate errors; optional device/sensor lookups return `null` only for missing IDs or HTTP 404.
+- Undefined measurement aggregates serialize as `null`; frontend and plotter models must remain nullable.
 - `device_sensors` is a materialized view; after direct DB writes, refresh it with `Device::refresh_device_sensors_view` or wait for the background refresh.
 - SQLx offline mode is used in Docker and CI. Query changes usually require regenerating `.sqlx` metadata.

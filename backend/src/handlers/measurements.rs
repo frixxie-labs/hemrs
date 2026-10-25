@@ -10,7 +10,6 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use futures::{Stream, stream};
-use moka::future::Cache;
 use serde::Deserialize;
 use sqlx::PgPool;
 use std::{convert::Infallible, future::Future, time::Duration};
@@ -23,14 +22,16 @@ use utoipa::IntoParams;
 
 use crate::measurements::{
     Measurement, MeasurementStats, MeasurementUpdate, NewMeasurement, NewMeasurements,
+    date_range::DateRange,
+    latest::{LatestMeasurements, MeasurementKey},
 };
 
 use super::error::HandlerError;
 
-type ApplicationState = State<(PgPool, Cache<(i32, i32), Measurement>)>;
+type ApplicationState = State<(PgPool, LatestMeasurements)>;
 type MeasurementStreamState = State<(
     PgPool,
-    Cache<(i32, i32), Measurement>,
+    LatestMeasurements,
     broadcast::Sender<MeasurementUpdate>,
 )>;
 
@@ -65,30 +66,22 @@ pub async fn stream_measurements(
 
 async fn stream_measurements_with_interval(
     pool: PgPool,
-    cache: Cache<(i32, i32), Measurement>,
+    cache: LatestMeasurements,
     updates: broadcast::Sender<MeasurementUpdate>,
     device_id: i32,
     sensor_id: i32,
     repeat_interval: Duration,
 ) -> Response {
     let receiver = updates.subscribe();
-    let measurement = match cache.get(&(device_id, sensor_id)).await {
-        Some(measurement) => Some(measurement),
-        None => {
-            match Measurement::read_latest_by_device_id_and_sensor_id(device_id, sensor_id, &pool)
-                .await
-            {
-                Ok(measurement) => {
-                    cache
-                        .insert((device_id, sensor_id), measurement.clone())
-                        .await;
-                    Some(measurement)
-                }
-                Err(error) => {
-                    warn!(%error, device_id, sensor_id, "Failed to load latest measurement for stream");
-                    None
-                }
-            }
+    let key = MeasurementKey {
+        device_id,
+        sensor_id,
+    };
+    let measurement = match cache.read(&pool, key).await {
+        Ok(measurement) => Some(measurement),
+        Err(error) => {
+            warn!(%error, device_id, sensor_id, "Failed to load latest measurement for stream");
+            None
         }
     };
     let latest = measurement.map(|measurement| MeasurementUpdate {
@@ -100,19 +93,12 @@ async fn stream_measurements_with_interval(
         let pool = pool.clone();
         let cache = cache.clone();
         async move {
-            match Measurement::read_latest_by_device_id_and_sensor_id(device_id, sensor_id, &pool)
-                .await
-            {
-                Ok(measurement) => {
-                    cache
-                        .insert((device_id, sensor_id), measurement.clone())
-                        .await;
-                    Some(MeasurementUpdate {
-                        device_id,
-                        sensor_id,
-                        measurement,
-                    })
-                }
+            match cache.refresh(&pool, key).await {
+                Ok(measurement) => Some(MeasurementUpdate {
+                    device_id,
+                    sensor_id,
+                    measurement,
+                }),
                 Err(error) => {
                     warn!(%error, device_id, sensor_id, "Failed to refresh latest measurement for stream");
                     None
@@ -187,7 +173,7 @@ where
                 tokio::select! {
                     result = receiver.recv() => match result {
                         Ok(update) if update.device_id == device_id && update.sensor_id == sensor_id => {
-                            latest = Some(update.clone());
+                            latest = Some(newest_update(latest, update.clone()));
                             match Event::default().event("measurement").json_data(update) {
                                 Ok(event) => return Some((Ok(event), (receiver, latest, interval, refresh_latest))),
                                 Err(error) => warn!(%error, "Failed to serialize measurement update"),
@@ -201,7 +187,7 @@ where
                     },
                     _ = interval.tick() => {
                         if let Some(update) = refresh_latest().await {
-                            latest = Some(update);
+                            latest = Some(newest_update(latest, update));
                         }
                         if let Some(update) = latest.clone() {
                             match Event::default().event("measurement").json_data(update) {
@@ -216,12 +202,23 @@ where
     )
 }
 
+fn newest_update(
+    current: Option<MeasurementUpdate>,
+    candidate: MeasurementUpdate,
+) -> MeasurementUpdate {
+    match current {
+        Some(current) if current.measurement.timestamp > candidate.measurement.timestamp => current,
+        _ => candidate,
+    }
+}
+
 #[utoipa::path(
     post,
     path = "api/measurements",
     request_body = NewMeasurements,
     responses(
         (status = 201, description = "Measurement(s) inserted successfully"),
+        (status = 503, description = "Measurement ingestion unavailable"),
         (status = 500, description = "Internal server error"),
     )
 )]
@@ -237,13 +234,13 @@ where
         NewMeasurements::Measurement(new_measurement) => {
             tx.send(new_measurement)
                 .await
-                .context("Failed to send measurement to background thread")?;
+                .map_err(|_| HandlerError::Unavailable("Measurement ingestion unavailable"))?;
         }
         NewMeasurements::Measurements(new_measurements) => {
             for measurement in new_measurements {
                 tx.send(measurement)
                     .await
-                    .context("Failed to send measurement to background thread")?;
+                    .map_err(|_| HandlerError::Unavailable("Measurement ingestion unavailable"))?;
             }
         }
     };
@@ -261,6 +258,7 @@ where
     path = "api/measurements/latest",
     responses(
         (status = 200, description = "Latest measurement", body = Measurement),
+        (status = 404, description = "No measurements found"),
         (status = 500, description = "Internal server error"),
     )
 )]
@@ -369,6 +367,7 @@ pub async fn fetch_measurement_by_device_id(
     ),
     responses(
         (status = 200, description = "Latest measurement for device and sensor", body = Measurement),
+        (status = 404, description = "No measurements found for device and sensor"),
         (status = 500, description = "Internal server error"),
     )
 )]
@@ -378,18 +377,16 @@ pub async fn fetch_latest_measurement_by_device_id_and_sensor_id(
     Path((device_id, sensor_id)): Path<(i32, i32)>,
 ) -> Result<Json<Measurement>, HandlerError> {
     let (pool, cache) = app_state;
-    // Check cache first
-    if let Some(measurement) = cache.get(&(device_id, sensor_id)).await {
-        return Ok(Json(measurement));
-    }
-    let measurement =
-        Measurement::read_latest_by_device_id_and_sensor_id(device_id, sensor_id, &pool)
-            .await
-            .context("Failed to fetch data from database")?;
-    // Insert into cache
-    cache
-        .insert((device_id, sensor_id), measurement.clone())
-        .await;
+    let measurement = cache
+        .read(
+            &pool,
+            MeasurementKey {
+                device_id,
+                sensor_id,
+            },
+        )
+        .await
+        .context("Failed to fetch data from database")?;
     Ok(Json(measurement))
 }
 
@@ -433,7 +430,6 @@ pub async fn fetch_all_latest_measurements(
     let measurements = Measurement::read_all_latest_measurements(&pool)
         .await
         .context("Failed to fetch data from database")?;
-    // Insert all latest measurements into cache
     Ok(Json(measurements))
 }
 
@@ -485,7 +481,9 @@ pub async fn fetch_measurements_by_date_range(
     Query(params): Query<DateRangeParams>,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
     let (pool, _cache) = app_state;
-    let measurements = Measurement::read_by_date_range(&pool, params.start, params.end)
+    let range = DateRange::new(params.start, params.end.unwrap_or_else(Utc::now))
+        .map_err(HandlerError::InvalidInput)?;
+    let measurements = Measurement::read_by_date_range(&pool, range)
         .await
         .context("Failed to fetch data from database")?;
     Ok(Json(measurements))
@@ -633,6 +631,76 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn stream_does_not_repeat_backfill_as_latest() {
+        let (updates, _) = broadcast::channel(8);
+        let response = measurement_stream_response(
+            updates.subscribe(),
+            1,
+            2,
+            Some(measurement_update(1, 2, 20.0)),
+            Duration::from_millis(10),
+            || std::future::ready(None),
+        );
+        let mut body = response.into_body().into_data_stream();
+        body.next().await.unwrap().unwrap();
+        let mut historical = measurement_update(1, 2, 10.0);
+        historical.measurement.timestamp -= chrono::Duration::hours(1);
+        updates.send(historical).unwrap();
+        // Backfilled inserts are still broadcast, but must not become the periodic snapshot.
+        body.next().await.unwrap().unwrap();
+        let repeated = tokio::time::timeout(Duration::from_secs(1), body.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(
+            String::from_utf8(repeated.to_vec())
+                .unwrap()
+                .contains("\"value\":20.0")
+        );
+    }
+
+    #[tokio::test]
+    async fn reversed_date_range_is_rejected_before_accessing_database() {
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgresql://unused:unused@localhost/unused")
+            .unwrap();
+        pool.close().await;
+        let now = Utc::now();
+        let result = fetch_measurements_by_date_range(
+            make_app_state(pool),
+            Query(DateRangeParams {
+                start: now,
+                end: Some(now - chrono::Duration::seconds(1)),
+            }),
+        )
+        .await;
+        assert_eq!(
+            result.unwrap_err().into_response().status(),
+            axum::http::StatusCode::BAD_REQUEST
+        );
+    }
+
+    #[tokio::test]
+    async fn closed_ingestion_queue_reports_service_unavailable() {
+        let (tx, rx) = tokio::sync::mpsc::channel(1);
+        drop(rx);
+        let measurement = NewMeasurement {
+            timestamp: None,
+            device: 1,
+            sensor: 1,
+            measurement: 1.0,
+        };
+        let error = store_measurements(State(tx), Json(NewMeasurements::Measurement(measurement)))
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.into_response().status(),
+            axum::http::StatusCode::SERVICE_UNAVAILABLE
+        );
+    }
+
+    #[tokio::test]
     async fn stream_measurements_periodically_repeats_latest_update() {
         let (updates, _) = broadcast::channel(8);
         let response = measurement_stream_response(
@@ -685,7 +753,7 @@ mod tests {
         .insert(&db)
         .await
         .unwrap();
-        let cache = Cache::builder().max_capacity(8).build();
+        let cache = LatestMeasurements::new(8, Duration::from_secs(60));
         let (updates, _) = broadcast::channel(8);
         let response = stream_measurements_with_interval(
             db.clone(),
@@ -725,7 +793,20 @@ mod tests {
                 .unwrap()
                 .contains("\"value\":13.5")
         );
-        assert_eq!(cache.get(&(1, 1)).await.unwrap().value, 13.5);
+        assert_eq!(
+            cache
+                .read(
+                    &db,
+                    MeasurementKey {
+                        device_id: 1,
+                        sensor_id: 1
+                    }
+                )
+                .await
+                .unwrap()
+                .value,
+            13.5
+        );
     }
 
     fn store_measurements_queues_expected(
@@ -786,8 +867,7 @@ mod tests {
     }
 
     fn make_app_state(pool: PgPool) -> ApplicationState {
-        let cache: Cache<(i32, i32), Measurement> =
-            moka::future::Cache::builder().max_capacity(128).build();
+        let cache = LatestMeasurements::new(128, Duration::from_secs(60));
         State((pool, cache))
     }
 

@@ -3,8 +3,8 @@
 import xml.etree.ElementTree as ET
 from unittest.mock import patch
 
-import app
 import pytest
+import rendering
 
 from tests.conftest import make_measurement, make_measurements
 
@@ -29,7 +29,7 @@ def test_dense_overview_has_bounded_dimensions_and_same_unit(
 ):
     mock_client.fetch_all_latest_measurements.return_value = dense_readings
     mock_client.fetch_measurements_by_date_range.return_value = dense_readings
-    with patch.object(app, "_fig_to_svg", wraps=app._fig_to_svg) as render:
+    with patch.object(rendering, "_fig_to_svg", wraps=rendering._fig_to_svg) as render:
         response = test_app.get(path, params={"start": "2025-06-01T00:00:00Z"})
         assert response.status_code == 200
         root = ET.fromstring(response.content)
@@ -57,7 +57,7 @@ def test_page_selection_and_colors_match_with_missing_history(
         3, device_name="room-07"
     )
     params = {"sensor": "temperature", "page": 2, "start": "2025-06-01T00:00:00Z"}
-    with patch.object(app, "_fig_to_svg", wraps=app._fig_to_svg) as render:
+    with patch.object(rendering, "_fig_to_svg", wraps=rendering._fig_to_svg) as render:
         history = test_app.get("/plot/measurements/range", params=params)
         history_ax = render.call_args.args[0].axes[0]
         latest = test_app.get("/plot/measurements/latest/all", params=params)
@@ -65,10 +65,10 @@ def test_page_selection_and_colors_match_with_missing_history(
     assert history.status_code == latest.status_code == 200
     assert not len(history_ax.lines[0].get_xdata())
     assert len(history_ax.lines[1].get_xdata()) == 3
-    assert history_ax.lines[1].get_color() == app._kanagawa_color(1)
+    assert history_ax.lines[1].get_color() == rendering._kanagawa_color(1)
     from matplotlib.colors import to_rgba
 
-    assert latest_ax.patches[1].get_facecolor() == to_rgba(app._kanagawa_color(1))
+    assert latest_ax.patches[1].get_facecolor() == to_rgba(rendering._kanagawa_color(1))
     for response in [history, latest]:
         assert "room-06" in response.text
         assert "room-11" in response.text

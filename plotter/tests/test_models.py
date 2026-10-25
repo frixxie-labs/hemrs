@@ -138,6 +138,19 @@ class TestMeasurementStats:
         )
         assert s.count == 0
 
+    def test_undefined_aggregates_are_nullable(self):
+        s = MeasurementStats(
+            min=None, max=None, count=0, avg=None, stddev=None, variance=None
+        )
+        assert s.model_dump() == {
+            "min": None,
+            "max": None,
+            "count": 0,
+            "avg": None,
+            "stddev": None,
+            "variance": None,
+        }
+
     def test_missing_field_raises(self):
         with pytest.raises(ValidationError):
             MeasurementStats(min=0.0, max=1.0, count=5)  # missing avg, stddev, variance

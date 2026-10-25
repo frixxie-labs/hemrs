@@ -1,5 +1,6 @@
 """Tests for the _fig_to_svg helper and _handle_backend_error."""
 
+import warnings
 import xml.etree.ElementTree as ET
 from unittest.mock import MagicMock
 
@@ -7,11 +8,14 @@ import matplotlib
 import matplotlib.pyplot as plt
 import pytest
 from fastapi import HTTPException
-from requests.exceptions import ConnectionError, HTTPError
+from requests.exceptions import ConnectionError, HTTPError, Timeout
 
 matplotlib.use("svg")
 
-from app import _fig_to_svg, _handle_backend_error
+from app import _handle_backend_error
+from rendering import _fig_to_svg, render_sensor_history
+
+from tests.conftest import make_measurements
 
 
 class TestFigToSvg:
@@ -42,6 +46,25 @@ class TestFigToSvg:
         assert len(result) > 0
         assert b"<svg" in result
 
+    def test_sensor_regression_requires_three_distinct_samples(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            two = render_sensor_history(make_measurements(2))
+            three = render_sensor_history(make_measurements(3))
+        assert b"Polynomial regression" not in two
+        assert b"Polynomial regression" in three
+
+    def test_figure_is_closed_when_rendering_fails(self, monkeypatch):
+        fig, _ = plt.subplots()
+
+        def fail(*args, **kwargs):
+            raise OSError("Rendering failed")
+
+        monkeypatch.setattr(fig, "savefig", fail)
+        with pytest.raises(OSError, match="Rendering failed"):
+            _fig_to_svg(fig)
+        assert fig.number not in plt.get_fignums()
+
     def test_multiple_subplots(self):
         fig, (ax1, ax2) = plt.subplots(1, 2)
         ax1.plot([1, 2], [3, 4])
@@ -57,6 +80,11 @@ class TestFigToSvg:
 
 
 class TestHandleBackendError:
+    def test_timeout_raises_504(self):
+        with pytest.raises(HTTPException) as exc_info:
+            _handle_backend_error(Timeout("Backend timed out"))
+        assert exc_info.value.status_code == 504
+
     def test_connection_error_raises_502(self):
         with pytest.raises(HTTPException) as exc_info:
             _handle_backend_error(ConnectionError("refused"))

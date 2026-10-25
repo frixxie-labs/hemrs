@@ -34,6 +34,7 @@ pub async fn fetch_sensors(State(pool): State<PgPool>) -> Result<Json<Vec<Sensor
     ),
     responses(
         (status = 200, description = "Sensor found", body = Sensor),
+        (status = 404, description = "Sensor not found"),
         (status = 500, description = "Internal server error"),
     )
 )]
@@ -64,7 +65,7 @@ pub async fn insert_sensor(
     Json(sensor): Json<NewSensor>,
 ) -> Result<String, HandlerError> {
     if sensor.name.is_empty() || sensor.unit.is_empty() {
-        return Err(HandlerError::new(400, "Invalid input".to_string()));
+        return Err(HandlerError::InvalidInput("Invalid input"));
     }
     sensor
         .insert(&pool)
@@ -89,7 +90,7 @@ pub async fn delete_sensor(
     Json(sensor): Json<Sensor>,
 ) -> Result<String, HandlerError> {
     if sensor.name.is_empty() || sensor.unit.is_empty() {
-        return Err(HandlerError::new(400, "Invalid input".to_string()));
+        return Err(HandlerError::InvalidInput("Invalid input"));
     }
     sensor
         .delete(&pool)
@@ -114,7 +115,7 @@ pub async fn update_sensor(
     Json(sensor): Json<Sensor>,
 ) -> Result<String, HandlerError> {
     if sensor.name.is_empty() || sensor.unit.is_empty() {
-        return Err(HandlerError::new(400, "Invalid input".to_string()));
+        return Err(HandlerError::InvalidInput("Invalid input"));
     }
     sensor
         .update(&pool)

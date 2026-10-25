@@ -1,3 +1,5 @@
+import { backendJson, backendRequest } from "./backend_client.ts";
+
 export interface Measurement {
   timestamp: string;
   value: number;
@@ -7,77 +9,25 @@ export interface Measurement {
   sensor_name: string;
 }
 
-export async function getLatestMeasurement(): Promise<Measurement> {
-  const measurement: Measurement = await fetch(
-    `${Deno.env.get("HEMRS_URL")}api/measurements/latest`,
-  ).then(
-    (response) => {
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-      return response.json();
-    },
-  ).catch((error) => {
-    console.error("There has been a problem with your fetch operation:", error);
-    return null;
-  });
-  return measurement;
+export function getLatestMeasurement(): Promise<Measurement> {
+  return backendJson<Measurement>("api/measurements/latest");
 }
 
-export async function getLatestMeasurementByDeviceAndSensorId(
-  device_id: number,
-  sensor_id: number,
+export function getLatestMeasurementByDeviceAndSensorId(
+  deviceId: number,
+  sensorId: number,
 ): Promise<Measurement> {
-  const measurement: Measurement = await fetch(
-    `${
-      Deno.env.get("HEMRS_URL")
-    }api/devices/${device_id}/sensors/${sensor_id}/measurements/latest`,
-  ).then(
-    (response) => {
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-      return response.json();
-    },
-  ).catch((error) => {
-    console.error("There has been a problem with your fetch operation:", error);
-    return null;
-  });
-  return measurement;
+  return backendJson<Measurement>(
+    `api/devices/${deviceId}/sensors/${sensorId}/measurements/latest`,
+  );
 }
 
-export async function getAllLatestMeasurements(): Promise<Measurement[]> {
-  const measurements: Measurement[] = await fetch(
-    `${Deno.env.get("HEMRS_URL")}api/measurements/latest/all`,
-  ).then(
-    (response) => {
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-      return response.json();
-    },
-  ).catch((error) => {
-    console.error("There has been a problem with your fetch operation:", error);
-    return [];
-  });
-  return measurements;
+export function getAllLatestMeasurements(): Promise<Measurement[]> {
+  return backendJson<Measurement[]>("api/measurements/latest/all");
 }
 
-export async function getMeasurementCount(): Promise<number> {
-  const count: number = await fetch(
-    `${Deno.env.get("HEMRS_URL")}api/measurements/count`,
-  ).then(
-    (response) => {
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-      return response.json();
-    },
-  ).catch((error) => {
-    console.error("There has been a problem with your fetch operation:", error);
-    return 0;
-  });
-  return count;
+export function getMeasurementCount(): Promise<number> {
+  return backendJson<number>("api/measurements/count");
 }
 
 export async function createMeasurement(
@@ -85,18 +35,10 @@ export async function createMeasurement(
   sensor: number,
   measurement: number,
 ) {
-  const response = await fetch(
-    `${Deno.env.get("HEMRS_URL")}api/measurements`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ device, sensor, measurement }),
-    },
-  );
-  if (!response.ok) {
-    throw new Error("Network response was not ok");
-  }
+  const response = await backendRequest("api/measurements", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ device, sensor, measurement }),
+  });
   await response.text();
 }

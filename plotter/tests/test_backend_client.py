@@ -41,6 +41,13 @@ def _mock_error_response(status_code: int) -> MagicMock:
 
 
 class TestFetchDevices:
+    def test_backend_requests_have_a_finite_timeout(self, client: BackendClient):
+        with patch.object(
+            client.session, "get", return_value=_mock_response([])
+        ) as get:
+            client.fetch_devices()
+        assert get.call_args.kwargs["timeout"] == (5, 30)
+
     def test_returns_list_of_devices(self, client: BackendClient):
         data = [
             {"id": 1, "name": "lr", "location": "Home"},
@@ -241,7 +248,9 @@ class TestUrlConstruction:
             client.session, "get", return_value=_mock_response([])
         ) as mock_get:
             client.fetch_devices()
-        mock_get.assert_called_once_with("http://test-backend:65534/api/devices")
+        mock_get.assert_called_once_with(
+            "http://test-backend:65534/api/devices", timeout=(5, 30)
+        )
 
     def test_correct_url_for_device_sensor_measurements(self, client: BackendClient):
         with patch.object(
@@ -249,5 +258,6 @@ class TestUrlConstruction:
         ) as mock_get:
             client.fetch_measurements_by_device_and_sensor(3, 7)
         mock_get.assert_called_once_with(
-            "http://test-backend:65534/api/devices/3/sensors/7/measurements"
+            "http://test-backend:65534/api/devices/3/sensors/7/measurements",
+            timeout=(5, 30),
         )

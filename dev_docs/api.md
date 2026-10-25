@@ -48,7 +48,7 @@ OpenAPI JSON is available at `/openapi` and is generated with `utoipa` from rout
 
 ### NewMeasurement
 
-`timestamp` is optional. If omitted or `null`, the backend inserts `CURRENT_TIMESTAMP` in the database and uses `Utc::now()` for cache metadata.
+`timestamp` is optional. If omitted or `null`, the ingestion worker resolves it once to current UTC time, using the same timestamp for the database row and published event.
 
 ```json
 {
@@ -84,6 +84,9 @@ Measurement responses are denormalized and include names/units instead of IDs.
 ```
 
 ### MeasurementStats
+
+`count` is always a number. `min`, `max`, and `avg` are `null` for an empty dataset;
+sample `stddev` and `variance` are `null` with fewer than two samples.
 
 ```json
 {
@@ -158,7 +161,12 @@ There is also an annotated handler path `api/sensors/device/{device_id}`, but th
 /api/measurements/range?start=2026-05-11T00:00:00Z&end=2026-05-12T00:00:00Z
 ```
 
-If `end` is absent, the backend defaults it to current UTC time.
+If `end` is absent, the backend defaults it to current UTC time. Ranges are inclusive;
+an end before the start returns `400` before querying the database.
+
+Latest-measurement cache updates preserve timestamp ordering, including backfilled
+inserts into a cold cache. Live events still include backfills, but periodic stream
+snapshots do not regress to an older timestamp.
 
 The measurement stream emits named `measurement` events after measurements have been persisted:
 
@@ -171,10 +179,12 @@ The stream sends keepalive comments every 15 seconds when no measurement is avai
 
 ## Error Behavior
 
-- Domain/data-access errors are wrapped with `anyhow::Context` and converted to `HandlerError` with status `500`.
+- Unexpected errors are logged with their causes and return `500 Internal server error`, without exposing database details.
 - `HandlerError` responses are plain text, not JSON.
-- Explicit validation failures use `HandlerError::new(400, ...)`.
-- Fetching missing rows through SQLx `fetch_one` currently becomes a `500`, not a `404`, unless a frontend route maps a `null` client response to `HttpError(404)`.
+- Explicit validation failures return `400`.
+- Missing SQLx `fetch_one` rows return `404 Resource not found`.
+- A closed measurement ingestion queue returns `503 Measurement ingestion unavailable`.
+- Frontend backend helpers propagate HTTP/transport/JSON errors. Optional device/sensor lookups return `null` only for absent IDs or `404`; valid empty lists and zero counts are preserved.
 
 ## Plotter API
 
@@ -204,5 +214,6 @@ The frontend overview exposes a sensor picker and previous/next device pages. Hi
 Plotter backend failures are translated as follows:
 
 - Backend connection failure: `502 Backend unavailable`.
+- Backend timeout: `504 Backend timed out` (HTTP client uses 5-second connect and 30-second read timeouts).
 - Backend HTTP error: same status code as the backend response.
 - No measurements for a chart: `404`.

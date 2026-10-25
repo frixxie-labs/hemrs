@@ -1,6 +1,7 @@
 import type { Device } from "./device.ts";
 import type { Measurement } from "./measurements.ts";
 import type { Sensor } from "./sensor.ts";
+import { backendJson } from "./backend_client.ts";
 
 export interface OverviewResources {
   devices: Device[];
@@ -26,12 +27,5 @@ export async function getOverviewResource<K extends keyof OverviewResources>(
   resource: K,
   signal: AbortSignal,
 ): Promise<OverviewResources[K]> {
-  const response = await fetch(
-    `${Deno.env.get("HEMRS_URL")}${paths[resource]}`,
-    { signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]) },
-  );
-  if (!response.ok) {
-    throw new Error(`Backend request failed: ${response.status}`);
-  }
-  return await response.json();
+  return await backendJson<OverviewResources[K]>(paths[resource], signal);
 }

@@ -30,7 +30,15 @@ HEMRS monitors environmental measurements from distributed devices. The system i
 - `backend/src/handlers/mod.rs`: owns Axum routing, middleware, metrics endpoint, OpenAPI document registration, and route state wiring.
 - `backend/src/handlers/*.rs`: HTTP handlers for devices, sensors, measurements, ping, and errors.
 - `backend/src/devices.rs`, `backend/src/sensors.rs`, `backend/src/measurements.rs`: serializable models plus SQLx data-access methods.
+- `backend/src/measurements/latest.rs`: owns cache-first reads, forced refreshes, and atomic timestamp-ordered updates, keyed by a named `MeasurementKey`.
+- `backend/src/measurements/date_range.rs`: validated inclusive date ranges, independent of HTTP and SQL.
 - `backend/src/background_tasks.rs`: metrics loop, asynchronous insert worker, and materialized-view refresh loop.
+
+Maintenance database failures are logged and retried rather than terminating the API.
+Metrics retry at their next 10-second interval; failed view refreshes retry after 10 seconds
+(successful refreshes retain the 6000-second interval). HTTP server and ingestion worker
+failures are fatal. SIGINT/SIGTERM stops HTTP intake, then drains accepted measurements,
+with a 30-second overall shutdown deadline.
 
 ## Frontend Layers
 
@@ -40,13 +48,16 @@ HEMRS monitors environmental measurements from distributed devices. The system i
 - `frontend/routes/**`: server-side route handlers and page components.
 - `frontend/islands/**`: hydrated components for browser-side behavior such as live measurement updates.
 - `frontend/lib/*.ts`: backend and plotter client helpers.
+- `frontend/lib/backend_client.ts`: normalizes backend base URLs and centralizes status checking, cancellation, and finite request timeouts. Feature helpers retain their own operations and types.
 - `frontend/components/*.tsx`: reusable presentational UI components.
 - `frontend/assets/styles.css`: Tailwind v4 import and custom theme tokens.
 
 ## Plotter Layers
 
 - `plotter/main.py`: Uvicorn entry point.
-- `plotter/app.py`: FastAPI app, route handlers, Matplotlib rendering, theme helpers, cache, and error translation.
+- `plotter/app.py`: FastAPI routes, HTTP error translation, fetching, and SVG response caching.
+- `plotter/chart_data.py`: pure selection, filtering, grouping, and sorting without mutating input collections.
+- `plotter/rendering.py`: Matplotlib rendering and Kanagawa theme helpers; renderers accept prepared data and return SVG bytes.
 - `plotter/backend_client.py`: typed HTTP client for backend endpoints.
 - `plotter/models.py`: Pydantic models mirroring backend JSON responses.
 

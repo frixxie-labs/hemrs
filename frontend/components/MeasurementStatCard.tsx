@@ -42,7 +42,7 @@ export default function MeasurementsStatsCard(
             <span class="text-sm text-text-muted">Minimum</span>
           </div>
           <div class="text-3xl font-bold text-red-400 mb-1">
-            {stats.measurement_stats.min}
+            {stats.measurement_stats.min ?? "—"}
           </div>
           <div class="text-xs text-text-muted">Lowest measurement recorded</div>
         </div>
@@ -56,7 +56,7 @@ export default function MeasurementsStatsCard(
             <span class="text-sm text-text-muted">Maximum</span>
           </div>
           <div class="text-3xl font-bold text-green-400 mb-1">
-            {stats.measurement_stats.max}
+            {stats.measurement_stats.max ?? "—"}
           </div>
           <div class="text-xs text-text-muted">
             Highest measurement recorded
@@ -72,7 +72,7 @@ export default function MeasurementsStatsCard(
             <span class="text-sm text-text-muted">Average</span>
           </div>
           <div class="text-3xl font-bold text-purple-400 mb-1">
-            {stats.measurement_stats.avg}
+            {stats.measurement_stats.avg ?? "—"}
           </div>
           <div class="text-xs text-text-muted">
             Average of all measurements
@@ -105,7 +105,7 @@ export default function MeasurementsStatsCard(
                 Standard Deviation
               </span>
               <span class="text-sm text-text-primary font-medium">
-                {stats.measurement_stats.stddev}
+                {stats.measurement_stats.stddev ?? "—"}
               </span>
             </div>
             <div class="flex justify-between items-center">
@@ -116,7 +116,7 @@ export default function MeasurementsStatsCard(
                 Variance
               </span>
               <span class="text-sm text-text-primary font-medium">
-                {stats.measurement_stats.variance}
+                {stats.measurement_stats.variance ?? "—"}
               </span>
             </div>
           </div>
