@@ -55,7 +55,7 @@ impl LatestMeasurements {
     /// Bypass cached reads, but do not let an in-flight query overwrite a newer insert.
     pub async fn refresh(&self, pool: &PgPool, key: MeasurementKey) -> Result<Measurement> {
         let measurement =
-            Measurement::read_latest_by_device_id_and_sensor_id(key.device_id, key.sensor_id, pool)
+            Measurement::read_latest_by_device_id_and_sensor_id(pool, key.device_id, key.sensor_id)
                 .await?;
         Ok(self.remember(key, measurement).await)
     }
@@ -75,9 +75,9 @@ impl LatestMeasurements {
                     Some(_) => Op::Put(measurement),
                     None => Op::Put(
                         Measurement::read_latest_by_device_id_and_sensor_id(
+                            pool,
                             key.device_id,
                             key.sensor_id,
-                            pool,
                         )
                         .await?,
                     ),

@@ -163,7 +163,7 @@ pub async fn fetch_measurement_by_device_id(
     Path(device_id): Path<DeviceId>,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
     let (pool, _cache) = app_state;
-    let measurements = Measurement::read_by_device_id(device_id, &pool)
+    let measurements = Measurement::read_by_device_id(&pool, device_id)
         .await
         .context("Failed to fetch data from database")?;
     Ok(Json(measurements))
@@ -219,7 +219,7 @@ pub async fn fetch_measurement_by_device_id_and_sensor_id(
     Path((device_id, sensor_id)): Path<(DeviceId, SensorId)>,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
     let (pool, _cache) = app_state;
-    let measurements = Measurement::read_by_device_id_and_sensor_id(device_id, sensor_id, &pool)
+    let measurements = Measurement::read_by_device_id_and_sensor_id(&pool, device_id, sensor_id)
         .await
         .context("Failed to fetch data from database")?;
     Ok(Json(measurements))

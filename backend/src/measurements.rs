@@ -129,9 +129,9 @@ impl Measurement {
     }
 
     pub async fn read_by_device_id_and_sensor_id(
+        pool: &PgPool,
         device_id: DeviceId,
         sensor_id: SensorId,
-        pool: &PgPool,
     ) -> Result<Vec<Self>> {
         let res = sqlx::query_as!(
             Measurement,
@@ -145,9 +145,9 @@ impl Measurement {
     }
 
     pub async fn read_latest_by_device_id_and_sensor_id(
+        pool: &PgPool,
         device_id: DeviceId,
         sensor_id: SensorId,
-        pool: &PgPool,
     ) -> Result<Self> {
         let res = sqlx::query_as!(
             Measurement,
@@ -160,7 +160,7 @@ impl Measurement {
         Ok(res)
     }
 
-    pub async fn read_by_device_id(device_id: DeviceId, pool: &PgPool) -> Result<Vec<Self>> {
+    pub async fn read_by_device_id(pool: &PgPool, device_id: DeviceId) -> Result<Vec<Self>> {
         let res = sqlx::query_as!(
             Measurement,
             "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id where m.device_id = ($1) ORDER BY ts",
@@ -479,7 +479,7 @@ mod tests {
         };
         measurement.insert(&pool).await.unwrap();
 
-        let measurements = Measurement::read_by_device_id(DeviceId(1), &pool)
+        let measurements = Measurement::read_by_device_id(&pool, DeviceId(1))
             .await
             .unwrap();
         assert!(!measurements.is_empty());
@@ -498,7 +498,7 @@ mod tests {
         measurement.insert(&pool).await.unwrap();
 
         let measurements =
-            Measurement::read_by_device_id_and_sensor_id(DeviceId(1), SensorId(1), &pool)
+            Measurement::read_by_device_id_and_sensor_id(&pool, DeviceId(1), SensorId(1))
                 .await
                 .unwrap();
         assert!(!measurements.is_empty());
@@ -517,7 +517,7 @@ mod tests {
         measurement.insert(&pool).await.unwrap();
 
         let measurement =
-            Measurement::read_latest_by_device_id_and_sensor_id(DeviceId(1), SensorId(1), &pool)
+            Measurement::read_latest_by_device_id_and_sensor_id(&pool, DeviceId(1), SensorId(1))
                 .await
                 .unwrap();
         assert_eq!(measurement.value, 1.0);
