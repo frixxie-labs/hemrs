@@ -23,24 +23,32 @@ pub async fn update_metrics(pool: &PgPool, cache: &LatestMeasurements) {
     }
 }
 
+/// Gauges are only published for measurements newer than this, so silent sensors drop out.
+const METRICS_FRESHNESS: chrono::Duration = chrono::Duration::seconds(300);
+
+type GaugeLabels = [(&'static str, String); 4];
+
+fn measurement_gauge(
+    now: chrono::DateTime<chrono::Utc>,
+    measurement: Measurement,
+) -> Option<(GaugeLabels, f32)> {
+    (now - measurement.timestamp <= METRICS_FRESHNESS).then(|| {
+        let labels = [
+            ("device_name", measurement.device_name),
+            ("device_location", measurement.device_location),
+            ("sensor_name", measurement.sensor_name),
+            ("unit", measurement.unit),
+        ];
+        (labels, measurement.value)
+    })
+}
+
 async fn update_metrics_once(pool: &PgPool, cache: &LatestMeasurements) -> anyhow::Result<()> {
     let now = chrono::Utc::now();
-    for device in Device::read(pool).await? {
-        for sensor in Sensor::read_by_device_id(pool, device.id).await? {
-            let key = MeasurementKey {
-                device_id: device.id,
-                sensor_id: sensor.id,
-            };
-            let measurement = cache.read(pool, key).await?;
-            if measurement.timestamp >= now - chrono::Duration::seconds(300) {
-                let labels = [
-                    ("device_name", measurement.device_name),
-                    ("device_location", measurement.device_location),
-                    ("sensor_name", measurement.sensor_name),
-                    ("unit", measurement.unit),
-                ];
-                gauge!("measurements", &labels).set(measurement.value);
-            }
+    for key in MeasurementKey::read_all(pool).await? {
+        let measurement = cache.read(pool, key).await?;
+        if let Some((labels, value)) = measurement_gauge(now, measurement) {
+            gauge!("measurements", &labels).set(value);
         }
     }
     counter!("hemrs_pg_pool_size").absolute(pool.size() as u64);
@@ -192,6 +200,41 @@ mod tests {
         .insert(pool)
         .await
         .unwrap();
+    }
+
+    fn measurement_at(timestamp: chrono::DateTime<chrono::Utc>) -> Measurement {
+        Measurement {
+            timestamp,
+            value: 1.0,
+            unit: "C".to_string(),
+            device_name: "device".to_string(),
+            device_location: "location".to_string(),
+            sensor_name: "sensor".to_string(),
+        }
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn gauge_is_emitted_only_for_measurements_within_freshness_window(age_seconds: i32) -> bool {
+        let now = chrono::DateTime::from_timestamp(1_700_000_000, 0).unwrap();
+        let age = chrono::Duration::seconds(i64::from(age_seconds));
+        let gauge = measurement_gauge(now, measurement_at(now - age));
+        gauge.is_some() == (age <= METRICS_FRESHNESS)
+    }
+
+    #[test]
+    fn gauge_labels_describe_the_measurement_source() {
+        let now = chrono::DateTime::from_timestamp(1_700_000_000, 0).unwrap();
+        let (labels, value) = measurement_gauge(now, measurement_at(now)).unwrap();
+        assert_eq!(value, 1.0);
+        assert_eq!(
+            labels,
+            [
+                ("device_name", "device".to_string()),
+                ("device_location", "location".to_string()),
+                ("sensor_name", "sensor".to_string()),
+                ("unit", "C".to_string()),
+            ]
+        );
     }
 
     #[sqlx::test]

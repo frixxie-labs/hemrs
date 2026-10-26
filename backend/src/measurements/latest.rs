@@ -12,6 +12,19 @@ pub struct MeasurementKey {
     pub sensor_id: i32,
 }
 
+impl MeasurementKey {
+    /// Every device/sensor pair with recorded measurements, as of the last view refresh.
+    pub async fn read_all(pool: &PgPool) -> Result<Vec<Self>> {
+        let keys = sqlx::query_as!(
+            MeasurementKey,
+            "SELECT device_id AS \"device_id!\", sensor_id AS \"sensor_id!\" FROM device_sensors ORDER BY device_id, sensor_id"
+        )
+        .fetch_all(pool)
+        .await?;
+        Ok(keys)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct LatestMeasurements {
     cache: Cache<MeasurementKey, Measurement>,
@@ -94,6 +107,56 @@ impl LatestMeasurements {
 mod tests {
     use super::*;
     use crate::{devices::NewDevice, measurements::NewMeasurement, sensors::NewSensor};
+
+    #[sqlx::test]
+    async fn read_all_keys_lists_each_device_sensor_pair_once(pool: PgPool) {
+        for name in ["a", "b"] {
+            NewDevice {
+                name: name.to_string(),
+                location: name.to_string(),
+            }
+            .insert(&pool)
+            .await
+            .unwrap();
+        }
+        NewSensor {
+            name: "s".to_string(),
+            unit: "C".to_string(),
+        }
+        .insert(&pool)
+        .await
+        .unwrap();
+        for (device, value) in [(1, 1.0), (1, 2.0), (2, 3.0)] {
+            NewMeasurement {
+                timestamp: None,
+                device,
+                sensor: 1,
+                measurement: value,
+            }
+            .insert(&pool)
+            .await
+            .unwrap();
+        }
+        crate::devices::Device::refresh_device_sensors_view(&pool)
+            .await
+            .unwrap();
+
+        let keys = MeasurementKey::read_all(&pool).await.unwrap();
+
+        assert_eq!(
+            keys,
+            vec![
+                MeasurementKey {
+                    device_id: 1,
+                    sensor_id: 1
+                },
+                MeasurementKey {
+                    device_id: 2,
+                    sensor_id: 1
+                },
+            ]
+        );
+    }
 
     #[tokio::test]
     async fn concurrent_updates_never_replace_newer_cached_values() {
