@@ -6,12 +6,12 @@ use axum::{
     routing::{delete, get, post, put},
 };
 use devices::{delete_device, fetch_devices, insert_device, update_device};
+use measurement_stream::stream_measurements;
 use measurements::{
     fetch_all_latest_measurements, fetch_all_measurements, fetch_latest_measurement,
     fetch_latest_measurement_by_device_id_and_sensor_id, fetch_measurement_by_device_id,
     fetch_measurement_by_device_id_and_sensor_id, fetch_measurements_by_date_range,
     fetch_measurements_count, fetch_stats_by_device_id_and_sensor_id, store_measurements,
-    stream_measurements,
 };
 use metrics::histogram;
 use metrics_exporter_prometheus::PrometheusHandle;
@@ -35,6 +35,7 @@ use crate::{
 
 mod devices;
 mod error;
+mod measurement_stream;
 mod measurements;
 mod ping;
 mod sensors;
@@ -195,7 +196,7 @@ async fn metrics(State(handle): State<PrometheusHandle>) -> String {
         measurements::fetch_all_latest_measurements,
         measurements::fetch_stats_by_device_id_and_sensor_id,
         measurements::fetch_measurements_by_date_range,
-        measurements::stream_measurements,
+        measurement_stream::stream_measurements,
     ),
     components(
         schemas(
