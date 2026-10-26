@@ -1,4 +1,4 @@
-"""Tests for the _fig_to_svg helper and _handle_backend_error."""
+"""Tests for the _fig_to_svg helper and _backend_http_error."""
 
 import warnings
 import xml.etree.ElementTree as ET
@@ -7,12 +7,11 @@ from unittest.mock import MagicMock
 import matplotlib
 import matplotlib.pyplot as plt
 import pytest
-from fastapi import HTTPException
 from requests.exceptions import ConnectionError, HTTPError, Timeout
 
 matplotlib.use("svg")
 
-from app import _handle_backend_error
+from app import _backend_http_error
 from rendering import _fig_to_svg, render_sensor_history
 
 from tests.conftest import make_measurements
@@ -79,34 +78,18 @@ class TestFigToSvg:
         assert b"<svg" in result
 
 
-class TestHandleBackendError:
-    def test_timeout_raises_504(self):
-        with pytest.raises(HTTPException) as exc_info:
-            _handle_backend_error(Timeout("Backend timed out"))
-        assert exc_info.value.status_code == 504
+class TestBackendHttpError:
+    def test_timeout_maps_to_504(self):
+        assert _backend_http_error(Timeout("Backend timed out")).status_code == 504
 
-    def test_connection_error_raises_502(self):
-        with pytest.raises(HTTPException) as exc_info:
-            _handle_backend_error(ConnectionError("refused"))
-        assert exc_info.value.status_code == 502
-        assert "Backend unavailable" in exc_info.value.detail
+    def test_connection_error_maps_to_502(self):
+        error = _backend_http_error(ConnectionError("refused"))
+        assert error.status_code == 502
+        assert "Backend unavailable" in error.detail
 
-    def test_http_error_preserves_status_code(self):
+    @pytest.mark.parametrize("status_code", [404, 500])
+    def test_http_error_preserves_status_code(self, status_code):
         mock_response = MagicMock()
-        mock_response.status_code = 404
-        exc = HTTPError(response=mock_response)
-        with pytest.raises(HTTPException) as exc_info:
-            _handle_backend_error(exc)
-        assert exc_info.value.status_code == 404
-
-    def test_http_500_error(self):
-        mock_response = MagicMock()
-        mock_response.status_code = 500
-        exc = HTTPError(response=mock_response)
-        with pytest.raises(HTTPException) as exc_info:
-            _handle_backend_error(exc)
-        assert exc_info.value.status_code == 500
-
-    def test_unknown_error_re_raised(self):
-        with pytest.raises(ValueError):
-            _handle_backend_error(ValueError("something unexpected"))
+        mock_response.status_code = status_code
+        error = _backend_http_error(HTTPError(response=mock_response))
+        assert error.status_code == status_code
