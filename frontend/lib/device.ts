@@ -1,7 +1,7 @@
 import {
   backendJson,
-  backendRequest,
   optionalBackendJson,
+  sendBackendCommand,
 } from "./backend_client.ts";
 
 export interface Device {
@@ -20,24 +20,20 @@ export function getDevices(): Promise<Device[]> {
   return backendJson<Device[]>("api/devices");
 }
 
-export async function createDevice(name: string, location: string) {
-  const response = await backendRequest("api/devices", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, location }),
-  });
-  if (await response.text() !== "OK") {
-    throw new Error("Failed to create device");
-  }
+export function createDevice(name: string, location: string): Promise<void> {
+  return sendBackendCommand(
+    "api/devices",
+    "POST",
+    { name, location },
+    "Failed to create device",
+  );
 }
 
-export async function deleteDevice(device: Device) {
-  const response = await backendRequest("api/devices", {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(device),
-  });
-  if (await response.text() !== "OK") {
-    throw new Error("Failed to delete device");
-  }
+export function deleteDevice(device: Device): Promise<void> {
+  return sendBackendCommand(
+    "api/devices",
+    "DELETE",
+    device,
+    "Failed to delete device",
+  );
 }

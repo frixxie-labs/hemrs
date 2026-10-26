@@ -41,3 +41,20 @@ export async function optionalBackendJson<T>(path: string): Promise<T | null> {
     throw error;
   }
 }
+
+/** Mutating endpoints acknowledge success with a plain-text `OK` body. */
+export async function sendBackendCommand(
+  path: string,
+  method: "POST" | "PUT" | "DELETE",
+  body: unknown,
+  failureMessage: string,
+): Promise<void> {
+  const response = await backendRequest(path, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (await response.text() !== "OK") {
+    throw new Error(failureMessage);
+  }
+}

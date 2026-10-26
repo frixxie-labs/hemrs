@@ -7,7 +7,7 @@ import {
   getMeasurementCount,
 } from "../lib/measurements.ts";
 import { installMockFetch } from "./mock_fetch.ts";
-import { backendJson } from "../lib/backend_client.ts";
+import { backendJson, sendBackendCommand } from "../lib/backend_client.ts";
 
 Deno.test("backend helpers propagate HTTP failures instead of successful fallback data", async () => {
   const restore = installMockFetch({
@@ -127,6 +127,45 @@ Deno.test("backend requests honor caller cancellation", async () => {
     if (!(error instanceof DOMException) || error.name !== "AbortError") {
       throw new Error("Expected cancellation to propagate");
     }
+  } finally {
+    restore();
+  }
+});
+
+Deno.test("sendBackendCommand sends JSON with the given method", async () => {
+  let received: RequestInit | undefined;
+  const restore = installMockFetch({
+    "PUT api/things": (_url: string, init?: RequestInit) => {
+      received = init;
+      return new Response("OK");
+    },
+  });
+  try {
+    await sendBackendCommand("api/things", "PUT", { id: 1 }, "Failed");
+    if (received?.body !== JSON.stringify({ id: 1 })) {
+      throw new Error("Expected JSON body");
+    }
+    const headers = new Headers(received?.headers);
+    if (headers.get("Content-Type") !== "application/json") {
+      throw new Error("Expected JSON content type");
+    }
+  } finally {
+    restore();
+  }
+});
+
+Deno.test("sendBackendCommand rejects responses other than OK", async () => {
+  const restore = installMockFetch({
+    "POST api/things": () => new Response("NOPE"),
+  });
+  try {
+    let message = "";
+    try {
+      await sendBackendCommand("api/things", "POST", {}, "Failed to save");
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    if (message !== "Failed to save") throw new Error(`Got "${message}"`);
   } finally {
     restore();
   }

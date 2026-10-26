@@ -1,7 +1,7 @@
 import {
   backendJson,
-  backendRequest,
   optionalBackendJson,
+  sendBackendCommand,
 } from "./backend_client.ts";
 
 export interface Sensor {
@@ -24,24 +24,20 @@ export function getSensorsByDeviceId(deviceId: number): Promise<Sensor[]> {
   return backendJson<Sensor[]>(`api/devices/${deviceId}/sensors`);
 }
 
-export async function createSensor(name: string, unit: string) {
-  const response = await backendRequest("api/sensors", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, unit }),
-  });
-  if (await response.text() !== "OK") {
-    throw new Error("Failed to create sensor");
-  }
+export function createSensor(name: string, unit: string): Promise<void> {
+  return sendBackendCommand(
+    "api/sensors",
+    "POST",
+    { name, unit },
+    "Failed to create sensor",
+  );
 }
 
-export async function deleteSensor(sensor: Sensor) {
-  const response = await backendRequest("api/sensors", {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(sensor),
-  });
-  if (await response.text() !== "OK") {
-    throw new Error("Failed to delete sensor");
-  }
+export function deleteSensor(sensor: Sensor): Promise<void> {
+  return sendBackendCommand(
+    "api/sensors",
+    "DELETE",
+    sensor,
+    "Failed to delete sensor",
+  );
 }
