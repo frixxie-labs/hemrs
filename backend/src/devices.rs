@@ -1,8 +1,35 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
+use std::fmt;
 use tracing::{debug, info};
 use utoipa::ToSchema;
+
+/// Identifies a device; serialized and stored as a plain integer.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    sqlx::Type,
+    ToSchema,
+)]
+#[serde(transparent)]
+#[sqlx(transparent)]
+#[schema(value_type = i32)]
+pub struct DeviceId(pub i32);
+
+impl fmt::Display for DeviceId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct NewDevice {
@@ -15,7 +42,7 @@ pub struct NewDevice {
 #[derive(Clone, Debug, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Device {
     /// Unique identifier for the device
-    pub id: i32,
+    pub id: DeviceId,
     /// The human-readable name of the device
     pub name: String,
     /// The physical location where the device is deployed
@@ -33,17 +60,20 @@ impl Device {
     }
 
     pub async fn read(pool: &PgPool) -> Result<Vec<Device>> {
-        let devices = sqlx::query_as!(Device, "SELECT id, name, location FROM devices")
-            .fetch_all(pool)
-            .await?;
+        let devices = sqlx::query_as!(
+            Device,
+            "SELECT id AS \"id: DeviceId\", name, location FROM devices"
+        )
+        .fetch_all(pool)
+        .await?;
         Ok(devices)
     }
 
-    pub async fn read_by_id(pool: &PgPool, device_id: i32) -> Result<Device> {
+    pub async fn read_by_id(pool: &PgPool, device_id: DeviceId) -> Result<Device> {
         let device = sqlx::query_as!(
             Device,
-            "SELECT id, name, location FROM devices WHERE id = $1",
-            device_id
+            "SELECT id AS \"id: DeviceId\", name, location FROM devices WHERE id = $1",
+            device_id.0
         )
         .fetch_one(pool)
         .await?;
@@ -51,26 +81,26 @@ impl Device {
     }
 
     pub async fn delete(self, pool: &PgPool) -> Result<()> {
-        info!(device_id = self.id, device_name = %self.name, "Deleting device");
-        sqlx::query!("DELETE FROM devices WHERE id = $1", self.id)
+        info!(device_id = %self.id, device_name = %self.name, "Deleting device");
+        sqlx::query!("DELETE FROM devices WHERE id = $1", self.id.0)
             .execute(pool)
             .await?;
-        info!(device_id = self.id, "Device deleted");
+        info!(device_id = %self.id, "Device deleted");
         Ok(())
     }
 
     pub async fn update(self, pool: &PgPool) -> Result<()> {
-        info!(device_id = self.id, name = %self.name, location = %self.location, "Updating device");
+        info!(device_id = %self.id, name = %self.name, location = %self.location, "Updating device");
         sqlx::query!(
             "UPDATE devices SET name = $1,location = $2 WHERE id = $3",
             self.name,
             self.location,
-            self.id
+            self.id.0
         )
         .execute(pool)
         .await?;
         Self::refresh_device_sensors_view(pool).await?;
-        info!(device_id = self.id, "Device updated");
+        info!(device_id = %self.id, "Device updated");
         Ok(())
     }
 }
@@ -93,6 +123,13 @@ impl NewDevice {
 
 #[cfg(test)]
 mod tests {
+    #[quickcheck_macros::quickcheck]
+    fn device_id_serializes_as_plain_integer(raw: i32) -> bool {
+        let json = serde_json::to_string(&super::DeviceId(raw)).unwrap();
+        json == raw.to_string()
+            && serde_json::from_str::<super::DeviceId>(&json).unwrap() == super::DeviceId(raw)
+    }
+
     use sqlx::PgPool;
 
     use crate::devices::{Device, NewDevice};

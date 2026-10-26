@@ -11,11 +11,13 @@ use tokio::sync::mpsc::Sender;
 use tracing::instrument;
 use utoipa::IntoParams;
 
+use crate::devices::DeviceId;
 use crate::measurements::{
     Measurement, MeasurementStats, NewMeasurement, NewMeasurements,
     date_range::DateRange,
     latest::{LatestMeasurements, MeasurementKey},
 };
+use crate::sensors::SensorId;
 
 use super::error::HandlerError;
 
@@ -158,7 +160,7 @@ pub async fn fetch_all_measurements(
 #[instrument]
 pub async fn fetch_measurement_by_device_id(
     State(app_state): ApplicationState,
-    Path(device_id): Path<i32>,
+    Path(device_id): Path<DeviceId>,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
     let (pool, _cache) = app_state;
     let measurements = Measurement::read_by_device_id(device_id, &pool)
@@ -183,7 +185,7 @@ pub async fn fetch_measurement_by_device_id(
 #[instrument]
 pub async fn fetch_latest_measurement_by_device_id_and_sensor_id(
     State(app_state): ApplicationState,
-    Path((device_id, sensor_id)): Path<(i32, i32)>,
+    Path((device_id, sensor_id)): Path<(DeviceId, SensorId)>,
 ) -> Result<Json<Measurement>, HandlerError> {
     let (pool, cache) = app_state;
     let measurement = cache
@@ -214,7 +216,7 @@ pub async fn fetch_latest_measurement_by_device_id_and_sensor_id(
 #[instrument]
 pub async fn fetch_measurement_by_device_id_and_sensor_id(
     State(app_state): ApplicationState,
-    Path((device_id, sensor_id)): Path<(i32, i32)>,
+    Path((device_id, sensor_id)): Path<(DeviceId, SensorId)>,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
     let (pool, _cache) = app_state;
     let measurements = Measurement::read_by_device_id_and_sensor_id(device_id, sensor_id, &pool)
@@ -257,7 +259,7 @@ pub async fn fetch_all_latest_measurements(
 #[instrument]
 pub async fn fetch_stats_by_device_id_and_sensor_id(
     State(app_state): ApplicationState,
-    Path((device_id, sensor_id)): Path<(i32, i32)>,
+    Path((device_id, sensor_id)): Path<(DeviceId, SensorId)>,
 ) -> Result<Json<MeasurementStats>, HandlerError> {
     let (pool, _cache) = app_state;
     let stats = Measurement::read_stats_by_device_id_and_sensor_id(&pool, device_id, sensor_id)
@@ -300,6 +302,7 @@ pub async fn fetch_measurements_by_date_range(
 
 #[cfg(test)]
 mod tests {
+    use crate::{devices::DeviceId, sensors::SensorId};
     use std::time::Duration;
 
     use crate::{devices::NewDevice, measurements::NewMeasurement, sensors::NewSensor};
@@ -327,8 +330,8 @@ mod tests {
     ) -> NewMeasurement {
         NewMeasurement {
             timestamp: with_ts.then(fixed_timestamp),
-            device,
-            sensor,
+            device: DeviceId(device),
+            sensor: SensorId(sensor),
             measurement,
         }
     }
@@ -367,8 +370,8 @@ mod tests {
         drop(rx);
         let measurement = NewMeasurement {
             timestamp: None,
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 1.0,
         };
         let error = store_measurements(State(tx), Json(NewMeasurements::Measurement(measurement)))
@@ -467,8 +470,8 @@ mod tests {
         // Insert a measurement that falls inside the window
         NewMeasurement {
             timestamp: Some(now),
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 55.0,
         }
         .insert(&db)
@@ -497,8 +500,8 @@ mod tests {
         // Outside — 2 hours ago
         NewMeasurement {
             timestamp: Some(now - chrono::Duration::hours(2)),
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 99.0,
         }
         .insert(&db)
@@ -507,8 +510,8 @@ mod tests {
         // Inside
         NewMeasurement {
             timestamp: Some(now),
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 1.0,
         }
         .insert(&db)
@@ -536,8 +539,8 @@ mod tests {
         let now = chrono::Utc::now();
         NewMeasurement {
             timestamp: Some(now),
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 3.0,
         }
         .insert(&db)
@@ -564,8 +567,8 @@ mod tests {
         let now = chrono::Utc::now();
         NewMeasurement {
             timestamp: Some(now),
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 8.0,
         }
         .insert(&db)

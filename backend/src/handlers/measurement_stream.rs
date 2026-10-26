@@ -15,10 +15,12 @@ use tokio::{
 };
 use tracing::{instrument, warn};
 
+use crate::devices::DeviceId;
 use crate::measurements::{
     MeasurementUpdate,
     latest::{LatestMeasurements, MeasurementKey},
 };
+use crate::sensors::SensorId;
 
 type MeasurementStreamState = State<(
     PgPool,
@@ -42,7 +44,7 @@ const MEASUREMENT_STREAM_INTERVAL: Duration = Duration::from_secs(15);
 #[instrument(skip(pool, cache, updates))]
 pub async fn stream_measurements(
     State((pool, cache, updates)): MeasurementStreamState,
-    Path((device_id, sensor_id)): Path<(i32, i32)>,
+    Path((device_id, sensor_id)): Path<(DeviceId, SensorId)>,
 ) -> Response {
     stream_measurements_with_interval(
         pool,
@@ -59,8 +61,8 @@ async fn stream_measurements_with_interval(
     pool: PgPool,
     cache: LatestMeasurements,
     updates: broadcast::Sender<MeasurementUpdate>,
-    device_id: i32,
-    sensor_id: i32,
+    device_id: DeviceId,
+    sensor_id: SensorId,
     repeat_interval: Duration,
 ) -> Response {
     let receiver = updates.subscribe();
@@ -71,7 +73,7 @@ async fn stream_measurements_with_interval(
     let measurement = match cache.read(&pool, key).await {
         Ok(measurement) => Some(measurement),
         Err(error) => {
-            warn!(%error, device_id, sensor_id, "Failed to load latest measurement for stream");
+            warn!(%error, %device_id, %sensor_id, "Failed to load latest measurement for stream");
             None
         }
     };
@@ -91,7 +93,7 @@ async fn stream_measurements_with_interval(
                     measurement,
                 }),
                 Err(error) => {
-                    warn!(%error, device_id, sensor_id, "Failed to refresh latest measurement for stream");
+                    warn!(%error, %device_id, %sensor_id, "Failed to refresh latest measurement for stream");
                     None
                 }
             }
@@ -109,8 +111,8 @@ async fn stream_measurements_with_interval(
 
 fn measurement_stream_response<Refresh, RefreshFuture>(
     receiver: broadcast::Receiver<MeasurementUpdate>,
-    device_id: i32,
-    sensor_id: i32,
+    device_id: DeviceId,
+    sensor_id: SensorId,
     latest: Option<MeasurementUpdate>,
     repeat_interval: Duration,
     refresh_latest: Refresh,
@@ -143,8 +145,8 @@ where
 
 fn measurement_stream<Refresh, RefreshFuture>(
     receiver: broadcast::Receiver<MeasurementUpdate>,
-    device_id: i32,
-    sensor_id: i32,
+    device_id: DeviceId,
+    sensor_id: SensorId,
     latest: Option<MeasurementUpdate>,
     repeat_interval: Duration,
     refresh_latest: Refresh,
@@ -172,7 +174,7 @@ where
                         }
                         Ok(_) => {}
                         Err(broadcast::error::RecvError::Lagged(skipped)) => {
-                            warn!(skipped, device_id, sensor_id, "Measurement stream lagged");
+                            warn!(skipped, %device_id, %sensor_id, "Measurement stream lagged");
                         }
                         Err(broadcast::error::RecvError::Closed) => return None,
                     },
@@ -205,6 +207,7 @@ fn newest_update(
 
 #[cfg(test)]
 mod tests {
+    use crate::{devices::DeviceId, sensors::SensorId};
     use chrono::{DateTime, Utc};
     use futures::StreamExt;
 
@@ -222,8 +225,8 @@ mod tests {
 
     fn measurement_update(device_id: i32, sensor_id: i32, value: f32) -> MeasurementUpdate {
         MeasurementUpdate {
-            device_id,
-            sensor_id,
+            device_id: DeviceId(device_id),
+            sensor_id: SensorId(sensor_id),
             measurement: Measurement {
                 timestamp: fixed_timestamp(),
                 value,
@@ -240,8 +243,8 @@ mod tests {
         let (updates, _) = broadcast::channel(8);
         let response = measurement_stream_response(
             updates.subscribe(),
-            1,
-            2,
+            DeviceId(1),
+            SensorId(2),
             None,
             MEASUREMENT_STREAM_INTERVAL,
             || std::future::ready(None),
@@ -274,8 +277,8 @@ mod tests {
         let (updates, _) = broadcast::channel(8);
         let response = measurement_stream_response(
             updates.subscribe(),
-            1,
-            2,
+            DeviceId(1),
+            SensorId(2),
             None,
             MEASUREMENT_STREAM_INTERVAL,
             || std::future::ready(None),
@@ -300,8 +303,8 @@ mod tests {
         let (updates, _) = broadcast::channel(1);
         let response = measurement_stream_response(
             updates.subscribe(),
-            1,
-            2,
+            DeviceId(1),
+            SensorId(2),
             None,
             MEASUREMENT_STREAM_INTERVAL,
             || std::future::ready(None),
@@ -325,8 +328,8 @@ mod tests {
         let (updates, _) = broadcast::channel(8);
         let response = measurement_stream_response(
             updates.subscribe(),
-            1,
-            2,
+            DeviceId(1),
+            SensorId(2),
             Some(measurement_update(1, 2, 20.0)),
             Duration::from_millis(10),
             || std::future::ready(None),
@@ -355,8 +358,8 @@ mod tests {
         let (updates, _) = broadcast::channel(8);
         let response = measurement_stream_response(
             updates.subscribe(),
-            1,
-            2,
+            DeviceId(1),
+            SensorId(2),
             Some(measurement_update(1, 2, 12.5)),
             Duration::from_millis(10),
             || std::future::ready(None),
@@ -396,8 +399,8 @@ mod tests {
         let timestamp = fixed_timestamp();
         NewMeasurement {
             timestamp: Some(timestamp),
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 12.5,
         }
         .insert(&db)
@@ -409,8 +412,8 @@ mod tests {
             db.clone(),
             cache.clone(),
             updates.clone(),
-            1,
-            1,
+            DeviceId(1),
+            SensorId(1),
             Duration::from_millis(10),
         )
         .await;
@@ -425,8 +428,8 @@ mod tests {
 
         NewMeasurement {
             timestamp: Some(timestamp + chrono::Duration::seconds(1)),
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 13.5,
         }
         .insert(&db)
@@ -448,8 +451,8 @@ mod tests {
                 .read(
                     &db,
                     MeasurementKey {
-                        device_id: 1,
-                        sensor_id: 1
+                        device_id: DeviceId(1),
+                        sensor_id: SensorId(1)
                     }
                 )
                 .await

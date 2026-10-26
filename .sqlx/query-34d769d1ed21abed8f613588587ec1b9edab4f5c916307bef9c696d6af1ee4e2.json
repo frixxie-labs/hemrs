@@ -1,15 +1,15 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, location FROM devices",
+  "query": "SELECT id AS \"id: SensorId\", name, unit FROM sensors WHERE id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
+        "name": "id: SensorId",
         "type_info": "Int4",
         "origin": {
           "Table": {
-            "table": "devices",
+            "table": "sensors",
             "name": "id"
           }
         }
@@ -20,25 +20,27 @@
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "devices",
+            "table": "sensors",
             "name": "name"
           }
         }
       },
       {
         "ordinal": 2,
-        "name": "location",
+        "name": "unit",
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "devices",
-            "name": "location"
+            "table": "sensors",
+            "name": "unit"
           }
         }
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Int4"
+      ]
     },
     "nullable": [
       false,
@@ -46,5 +48,5 @@
       false
     ]
   },
-  "hash": "07e854cd48155edb21f832fe19d436c8c3b6a4b71a703f30cfe3127c051bd2a5"
+  "hash": "34d769d1ed21abed8f613588587ec1b9edab4f5c916307bef9c696d6af1ee4e2"
 }

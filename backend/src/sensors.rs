@@ -1,10 +1,37 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
+use std::fmt;
 use tracing::info;
 use utoipa::ToSchema;
 
-use crate::devices::Device;
+use crate::devices::{Device, DeviceId};
+
+/// Identifies a sensor; serialized and stored as a plain integer.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    sqlx::Type,
+    ToSchema,
+)]
+#[serde(transparent)]
+#[sqlx(transparent)]
+#[schema(value_type = i32)]
+pub struct SensorId(pub i32);
+
+impl fmt::Display for SensorId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct NewSensor {
@@ -14,24 +41,27 @@ pub struct NewSensor {
 
 #[derive(Clone, Debug, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Sensor {
-    pub id: i32,
+    pub id: SensorId,
     pub name: String,
     pub unit: String,
 }
 
 impl Sensor {
     pub async fn read(pool: &PgPool) -> Result<Vec<Sensor>> {
-        let sensors = sqlx::query_as!(Sensor, "SELECT id, name, unit FROM sensors")
-            .fetch_all(pool)
-            .await?;
+        let sensors = sqlx::query_as!(
+            Sensor,
+            "SELECT id AS \"id: SensorId\", name, unit FROM sensors"
+        )
+        .fetch_all(pool)
+        .await?;
         Ok(sensors)
     }
 
-    pub async fn read_by_id(pool: &PgPool, sensor_id: i32) -> Result<Sensor> {
+    pub async fn read_by_id(pool: &PgPool, sensor_id: SensorId) -> Result<Sensor> {
         let sensors = sqlx::query_as!(
             Sensor,
-            "SELECT id, name, unit FROM sensors WHERE id = $1",
-            sensor_id
+            "SELECT id AS \"id: SensorId\", name, unit FROM sensors WHERE id = $1",
+            sensor_id.0
         )
         .fetch_one(pool)
         .await?;
@@ -39,34 +69,34 @@ impl Sensor {
     }
 
     pub async fn delete(self, pool: &PgPool) -> Result<()> {
-        info!(sensor_id = self.id, sensor_name = %self.name, "Deleting sensor");
-        sqlx::query!("DELETE FROM sensors WHERE id = $1", self.id)
+        info!(sensor_id = %self.id, sensor_name = %self.name, "Deleting sensor");
+        sqlx::query!("DELETE FROM sensors WHERE id = $1", self.id.0)
             .execute(pool)
             .await?;
-        info!(sensor_id = self.id, "Sensor deleted");
+        info!(sensor_id = %self.id, "Sensor deleted");
         Ok(())
     }
 
     pub async fn update(self, pool: &PgPool) -> anyhow::Result<()> {
-        info!(sensor_id = self.id, name = %self.name, unit = %self.unit, "Updating sensor");
+        info!(sensor_id = %self.id, name = %self.name, unit = %self.unit, "Updating sensor");
         sqlx::query!(
             "UPDATE sensors SET name = $1,unit = $2 WHERE id = $3",
             self.name,
             self.unit,
-            self.id
+            self.id.0
         )
         .execute(pool)
         .await?;
         Device::refresh_device_sensors_view(pool).await?;
-        info!(sensor_id = self.id, "Sensor updated");
+        info!(sensor_id = %self.id, "Sensor updated");
         Ok(())
     }
 
-    pub async fn read_by_device_id(pool: &PgPool, device_id: i32) -> Result<Vec<Sensor>> {
+    pub async fn read_by_device_id(pool: &PgPool, device_id: DeviceId) -> Result<Vec<Sensor>> {
         let sensors = sqlx::query_as!(
             Sensor,
-            "SELECT ds.sensor_id as \"id!\", ds.name as \"name!\", ds.unit as \"unit!\" from device_sensors ds WHERE ds.device_id = $1 order by ds.sensor_id",
-            device_id
+            "SELECT ds.sensor_id as \"id!: SensorId\", ds.name as \"name!\", ds.unit as \"unit!\" from device_sensors ds WHERE ds.device_id = $1 order by ds.sensor_id",
+            device_id.0
         )
         .fetch_all(pool)
         .await?;
@@ -92,6 +122,14 @@ impl NewSensor {
 
 #[cfg(test)]
 mod tests {
+    use crate::{devices::DeviceId, sensors::SensorId};
+    #[quickcheck_macros::quickcheck]
+    fn sensor_id_serializes_as_plain_integer(raw: i32) -> bool {
+        let json = serde_json::to_string(&super::SensorId(raw)).unwrap();
+        json == raw.to_string()
+            && serde_json::from_str::<super::SensorId>(&json).unwrap() == super::SensorId(raw)
+    }
+
     use sqlx::PgPool;
 
     use crate::{
@@ -169,29 +207,29 @@ mod tests {
 
         let measurement = NewMeasurement {
             timestamp: None,
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 1.0,
         };
         measurement.insert(&pool).await.unwrap();
         let measurement2 = NewMeasurement {
             timestamp: None,
-            device: 1,
-            sensor: 2,
+            device: DeviceId(1),
+            sensor: SensorId(2),
             measurement: 1.0,
         };
         measurement2.insert(&pool).await.unwrap();
         let measurement3 = NewMeasurement {
             timestamp: None,
-            device: 1,
-            sensor: 2,
+            device: DeviceId(1),
+            sensor: SensorId(2),
             measurement: 1.0,
         };
         measurement3.insert(&pool).await.unwrap();
 
         Device::refresh_device_sensors_view(&pool).await.unwrap();
 
-        let sensors = Sensor::read_by_device_id(&pool, 1).await.unwrap();
+        let sensors = Sensor::read_by_device_id(&pool, DeviceId(1)).await.unwrap();
         assert!(!sensors.is_empty());
         assert_eq!(sensors.len(), 2);
     }

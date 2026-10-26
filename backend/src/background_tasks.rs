@@ -66,8 +66,8 @@ pub async fn handle_insert_measurement_bg_thread(
     while let Some(measurement) = rx.recv().await {
         let queue_size = rx.len();
         info!(
-            device_id = measurement.device,
-            sensor_id = measurement.sensor,
+            device_id = %measurement.device,
+            sensor_id = %measurement.sensor,
             value = measurement.measurement,
             queue_size = queue_size,
             "Received new measurement"
@@ -104,8 +104,8 @@ async fn insert_measurement(
     cache: &LatestMeasurements,
 ) -> anyhow::Result<MeasurementUpdate> {
     debug!(
-        device_id = measurement.device,
-        sensor_id = measurement.sensor,
+        device_id = %measurement.device,
+        sensor_id = %measurement.sensor,
         "Looking up device and sensor"
     );
 
@@ -151,7 +151,7 @@ async fn insert_measurement(
         .await
     {
         // Persistence succeeded: a cache refresh failure must not suppress its event.
-        warn!(%error, device_id = device.id, sensor_id = sensor.id, "Measurement persisted but latest cache update failed");
+        warn!(%error, device_id = %device.id, sensor_id = %sensor.id, "Measurement persisted but latest cache update failed");
     }
     histogram!("cache_insert_duration_seconds").record(cache_insert_start.elapsed());
 
@@ -182,6 +182,7 @@ pub async fn refresh_views(pool: &PgPool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{devices::DeviceId, sensors::SensorId};
     use crate::{devices::NewDevice, sensors::NewSensor};
     use std::time::Duration;
 
@@ -254,8 +255,8 @@ mod tests {
         measurement_tx
             .send(NewMeasurement {
                 timestamp: Some(timestamp),
-                device: 1,
-                sensor: 1,
+                device: DeviceId(1),
+                sensor: SensorId(1),
                 measurement: 23.5,
             })
             .await
@@ -268,8 +269,8 @@ mod tests {
             .unwrap();
         worker.await.unwrap();
 
-        assert_eq!(update.device_id, 1);
-        assert_eq!(update.sensor_id, 1);
+        assert_eq!(update.device_id, DeviceId(1));
+        assert_eq!(update.sensor_id, SensorId(1));
         assert_eq!(update.measurement.timestamp, timestamp);
         assert_eq!(update.measurement.value, 23.5);
         assert_eq!(update.measurement.device_name, "stream-device");
@@ -279,8 +280,8 @@ mod tests {
                 .read(
                     &pool,
                     MeasurementKey {
-                        device_id: 1,
-                        sensor_id: 1
+                        device_id: DeviceId(1),
+                        sensor_id: SensorId(1)
                     }
                 )
                 .await
@@ -300,8 +301,8 @@ mod tests {
             insert_measurement(
                 NewMeasurement {
                     timestamp: Some(timestamp),
-                    device: 1,
-                    sensor: 1,
+                    device: DeviceId(1),
+                    sensor: SensorId(1),
                     measurement: value,
                 },
                 &pool,
@@ -315,8 +316,8 @@ mod tests {
                 .read(
                     &pool,
                     MeasurementKey {
-                        device_id: 1,
-                        sensor_id: 1
+                        device_id: DeviceId(1),
+                        sensor_id: SensorId(1)
                     }
                 )
                 .await
@@ -333,8 +334,8 @@ mod tests {
         let now = chrono::Utc::now();
         NewMeasurement {
             timestamp: Some(now),
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 23.5,
         }
         .insert(&pool)
@@ -344,8 +345,8 @@ mod tests {
         insert_measurement(
             NewMeasurement {
                 timestamp: Some(now - chrono::Duration::hours(1)),
-                device: 1,
-                sensor: 1,
+                device: DeviceId(1),
+                sensor: SensorId(1),
                 measurement: 8.0,
             },
             &pool,
@@ -358,8 +359,8 @@ mod tests {
                 .read(
                     &pool,
                     MeasurementKey {
-                        device_id: 1,
-                        sensor_id: 1
+                        device_id: DeviceId(1),
+                        sensor_id: SensorId(1)
                     }
                 )
                 .await
@@ -413,8 +414,8 @@ mod tests {
         measurement_tx
             .send(NewMeasurement {
                 timestamp: None,
-                device: 1,
-                sensor: 1,
+                device: DeviceId(1),
+                sensor: SensorId(1),
                 measurement: 8.0,
             })
             .await

@@ -6,7 +6,10 @@ use axum::{
 use sqlx::PgPool;
 use tracing::instrument;
 
-use crate::sensors::{NewSensor, Sensor};
+use crate::{
+    devices::DeviceId,
+    sensors::{NewSensor, Sensor, SensorId},
+};
 
 use super::error::HandlerError;
 
@@ -41,7 +44,7 @@ pub async fn fetch_sensors(State(pool): State<PgPool>) -> Result<Json<Vec<Sensor
 #[instrument]
 pub async fn fetch_sensor_by_sensor_id(
     State(pool): State<PgPool>,
-    Path(sensor_id): Path<i32>,
+    Path(sensor_id): Path<SensorId>,
 ) -> Result<Json<Sensor>, HandlerError> {
     let sensor = Sensor::read_by_id(&pool, sensor_id)
         .await
@@ -138,7 +141,7 @@ pub async fn update_sensor(
 #[instrument]
 pub async fn fetch_sensors_by_device_id(
     State(pool): State<PgPool>,
-    Path(device_id): Path<i32>,
+    Path(device_id): Path<DeviceId>,
 ) -> Result<Json<Vec<Sensor>>, HandlerError> {
     let sensors = Sensor::read_by_device_id(&pool, device_id)
         .await

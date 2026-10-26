@@ -5,14 +5,16 @@ use sqlx::{FromRow, PgPool};
 use std::fmt;
 use utoipa::ToSchema;
 
+use crate::{devices::DeviceId, sensors::SensorId};
+
 pub mod date_range;
 pub mod latest;
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct NewMeasurement {
     pub timestamp: Option<DateTime<Utc>>,
-    pub device: i32,
-    pub sensor: i32,
+    pub device: DeviceId,
+    pub sensor: SensorId,
     pub measurement: f32,
 }
 
@@ -35,8 +37,8 @@ impl NewMeasurement {
 /// Internal ingestion command: the database row and published event share one timestamp.
 pub struct ResolvedMeasurement {
     pub timestamp: DateTime<Utc>,
-    pub device: i32,
-    pub sensor: i32,
+    pub device: DeviceId,
+    pub sensor: SensorId,
     pub measurement: f32,
 }
 
@@ -45,8 +47,8 @@ impl ResolvedMeasurement {
         sqlx::query!(
             "INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES ($1, $2, $3, $4)",
             self.timestamp,
-            self.device,
-            self.sensor,
+            self.device.0,
+            self.sensor.0,
             self.measurement
         )
         .execute(pool)
@@ -80,8 +82,8 @@ pub struct Measurement {
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MeasurementUpdate {
-    pub device_id: i32,
-    pub sensor_id: i32,
+    pub device_id: DeviceId,
+    pub sensor_id: SensorId,
     pub measurement: Measurement,
 }
 
@@ -112,14 +114,14 @@ impl Measurement {
 
     pub async fn read_stats_by_device_id_and_sensor_id(
         pool: &PgPool,
-        device_id: i32,
-        sensor_id: i32,
+        device_id: DeviceId,
+        sensor_id: SensorId,
     ) -> Result<MeasurementStats> {
         let res = sqlx::query_as!(
             MeasurementStats,
             "SELECT min(value) as \"min?\", max(value) as \"max?\", count(value) as \"count!\", avg(value) as \"avg?\", stddev(value) as \"stddev?\", variance(value) as \"variance?\" FROM measurements WHERE device_id = ($1) AND sensor_id = ($2)",
-            device_id,
-            sensor_id
+            device_id.0,
+            sensor_id.0
         )
         .fetch_one(pool)
         .await?;
@@ -127,15 +129,15 @@ impl Measurement {
     }
 
     pub async fn read_by_device_id_and_sensor_id(
-        device_id: i32,
-        sensor_id: i32,
+        device_id: DeviceId,
+        sensor_id: SensorId,
         pool: &PgPool,
     ) -> Result<Vec<Self>> {
         let res = sqlx::query_as!(
             Measurement,
             "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id where m.device_id = ($1) AND m.sensor_id = ($2) ORDER BY ts",
-            device_id,
-            sensor_id
+            device_id.0,
+            sensor_id.0
         )
         .fetch_all(pool)
         .await?;
@@ -143,26 +145,26 @@ impl Measurement {
     }
 
     pub async fn read_latest_by_device_id_and_sensor_id(
-        device_id: i32,
-        sensor_id: i32,
+        device_id: DeviceId,
+        sensor_id: SensorId,
         pool: &PgPool,
     ) -> Result<Self> {
         let res = sqlx::query_as!(
             Measurement,
             "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id where m.device_id = ($1) AND m.sensor_id = ($2) ORDER BY ts desc LIMIT 1",
-            device_id,
-            sensor_id
+            device_id.0,
+            sensor_id.0
         )
         .fetch_one(pool)
         .await?;
         Ok(res)
     }
 
-    pub async fn read_by_device_id(device_id: i32, pool: &PgPool) -> Result<Vec<Self>> {
+    pub async fn read_by_device_id(device_id: DeviceId, pool: &PgPool) -> Result<Vec<Self>> {
         let res = sqlx::query_as!(
             Measurement,
             "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id where m.device_id = ($1) ORDER BY ts",
-            device_id
+            device_id.0
         )
         .fetch_all(pool)
         .await?;
@@ -229,6 +231,7 @@ impl Measurement {
 #[cfg(test)]
 mod tests {
     use super::date_range::DateRange;
+    use crate::{devices::DeviceId, sensors::SensorId};
     use sqlx::PgPool;
 
     use crate::measurements::NewMeasurement;
@@ -255,7 +258,7 @@ mod tests {
     #[sqlx::test]
     async fn statistics_represent_empty_and_single_sample_datasets(pool: PgPool) {
         let empty = serde_json::to_value(
-            Measurement::read_stats_by_device_id_and_sensor_id(&pool, 1, 1)
+            Measurement::read_stats_by_device_id_and_sensor_id(&pool, DeviceId(1), SensorId(1))
                 .await
                 .unwrap(),
         )
@@ -270,15 +273,15 @@ mod tests {
         setup_device_and_sensor(&pool).await;
         NewMeasurement {
             timestamp: None,
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 12.5,
         }
         .insert(&pool)
         .await
         .unwrap();
         let single = serde_json::to_value(
-            Measurement::read_stats_by_device_id_and_sensor_id(&pool, 1, 1)
+            Measurement::read_stats_by_device_id_and_sensor_id(&pool, DeviceId(1), SensorId(1))
                 .await
                 .unwrap(),
         )
@@ -297,8 +300,8 @@ mod tests {
         let explicit = now - chrono::Duration::hours(1);
         let measurement = NewMeasurement {
             timestamp: None,
-            device: 1,
-            sensor: 2,
+            device: DeviceId(1),
+            sensor: SensorId(2),
             measurement: 3.0,
         };
         assert_eq!(measurement.clone().resolve_timestamp(now).timestamp, now);
@@ -319,8 +322,8 @@ mod tests {
     fn display_contains_device_sensor_and_value(device: i32, sensor: i32, value: f32) -> bool {
         let m = NewMeasurement {
             timestamp: None,
-            device,
-            sensor,
+            device: DeviceId(device),
+            sensor: SensorId(sensor),
             measurement: value,
         };
         let s = format!("{m}");
@@ -342,14 +345,16 @@ mod tests {
 
         let original = NewMeasurement {
             timestamp: None,
-            device,
-            sensor,
+            device: DeviceId(device),
+            sensor: SensorId(sensor),
             measurement: value,
         };
         let json = serde_json::to_string(&original).expect("serialization failed");
         let parsed: Result<NewMeasurements, _> = serde_json::from_str(&json);
         match parsed {
-            Ok(NewMeasurements::Measurement(m)) => m.device == device && m.sensor == sensor,
+            Ok(NewMeasurements::Measurement(m)) => {
+                m.device == DeviceId(device) && m.sensor == SensorId(sensor)
+            }
             _ => false,
         }
     }
@@ -362,8 +367,8 @@ mod tests {
             .iter()
             .map(|&(device, sensor)| NewMeasurement {
                 timestamp: None,
-                device,
-                sensor,
+                device: DeviceId(device),
+                sensor: SensorId(sensor),
                 measurement: 0.0,
             })
             .collect();
@@ -387,8 +392,8 @@ mod tests {
 
         let measurement = NewMeasurement {
             timestamp: None,
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 1.0,
         };
         measurement.insert(&pool).await.unwrap();
@@ -402,8 +407,8 @@ mod tests {
 
         let measurement = NewMeasurement {
             timestamp: Some(ts),
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 1.0,
         };
         measurement.insert(&pool).await.unwrap();
@@ -415,8 +420,8 @@ mod tests {
 
         let measurement = NewMeasurement {
             timestamp: None,
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 1.0,
         };
         measurement.insert(&pool).await.unwrap();
@@ -432,8 +437,8 @@ mod tests {
         for i in 0..5 {
             NewMeasurement {
                 timestamp: Some(base + chrono::Duration::seconds(i)),
-                device: 1,
-                sensor: 1,
+                device: DeviceId(1),
+                sensor: SensorId(1),
                 measurement: i as f32,
             }
             .insert(&pool)
@@ -452,8 +457,8 @@ mod tests {
 
         let measurement = NewMeasurement {
             timestamp: None,
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 1.0,
         };
         measurement.insert(&pool).await.unwrap();
@@ -468,13 +473,15 @@ mod tests {
 
         let measurement = NewMeasurement {
             timestamp: None,
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 1.0,
         };
         measurement.insert(&pool).await.unwrap();
 
-        let measurements = Measurement::read_by_device_id(1, &pool).await.unwrap();
+        let measurements = Measurement::read_by_device_id(DeviceId(1), &pool)
+            .await
+            .unwrap();
         assert!(!measurements.is_empty());
     }
 
@@ -484,15 +491,16 @@ mod tests {
 
         let measurement = NewMeasurement {
             timestamp: None,
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 1.0,
         };
         measurement.insert(&pool).await.unwrap();
 
-        let measurements = Measurement::read_by_device_id_and_sensor_id(1, 1, &pool)
-            .await
-            .unwrap();
+        let measurements =
+            Measurement::read_by_device_id_and_sensor_id(DeviceId(1), SensorId(1), &pool)
+                .await
+                .unwrap();
         assert!(!measurements.is_empty());
     }
 
@@ -502,15 +510,16 @@ mod tests {
 
         let measurement = NewMeasurement {
             timestamp: None,
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 1.0,
         };
         measurement.insert(&pool).await.unwrap();
 
-        let measurement = Measurement::read_latest_by_device_id_and_sensor_id(1, 1, &pool)
-            .await
-            .unwrap();
+        let measurement =
+            Measurement::read_latest_by_device_id_and_sensor_id(DeviceId(1), SensorId(1), &pool)
+                .await
+                .unwrap();
         assert_eq!(measurement.value, 1.0);
     }
 
@@ -521,8 +530,8 @@ mod tests {
         let ts = chrono::Utc::now();
         let measurement = NewMeasurement {
             timestamp: Some(ts),
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 42.0,
         };
         measurement.insert(&pool).await.unwrap();
@@ -544,8 +553,8 @@ mod tests {
         let ts = chrono::Utc::now();
         let measurement = NewMeasurement {
             timestamp: Some(ts),
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 7.0,
         };
         measurement.insert(&pool).await.unwrap();
@@ -568,8 +577,8 @@ mod tests {
         // Inside the window
         NewMeasurement {
             timestamp: Some(now),
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 10.0,
         }
         .insert(&pool)
@@ -578,8 +587,8 @@ mod tests {
         // Before the window
         NewMeasurement {
             timestamp: Some(now - chrono::Duration::hours(2)),
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 99.0,
         }
         .insert(&pool)
@@ -588,8 +597,8 @@ mod tests {
         // After the window
         NewMeasurement {
             timestamp: Some(now + chrono::Duration::hours(2)),
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 99.0,
         }
         .insert(&pool)
@@ -613,8 +622,8 @@ mod tests {
         let ts = chrono::Utc::now();
         NewMeasurement {
             timestamp: Some(ts),
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 5.0,
         }
         .insert(&pool)
@@ -642,8 +651,8 @@ mod tests {
         // Insert in reverse order
         NewMeasurement {
             timestamp: Some(now + chrono::Duration::seconds(2)),
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 3.0,
         }
         .insert(&pool)
@@ -651,8 +660,8 @@ mod tests {
         .unwrap();
         NewMeasurement {
             timestamp: Some(now + chrono::Duration::seconds(1)),
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 2.0,
         }
         .insert(&pool)
@@ -660,8 +669,8 @@ mod tests {
         .unwrap();
         NewMeasurement {
             timestamp: Some(now),
-            device: 1,
-            sensor: 1,
+            device: DeviceId(1),
+            sensor: SensorId(1),
             measurement: 1.0,
         }
         .insert(&pool)

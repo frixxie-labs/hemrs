@@ -5,11 +5,12 @@ use moka::{future::Cache, ops::compute::Op};
 use sqlx::PgPool;
 
 use super::Measurement;
+use crate::{devices::DeviceId, sensors::SensorId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MeasurementKey {
-    pub device_id: i32,
-    pub sensor_id: i32,
+    pub device_id: DeviceId,
+    pub sensor_id: SensorId,
 }
 
 impl MeasurementKey {
@@ -17,7 +18,7 @@ impl MeasurementKey {
     pub async fn read_all(pool: &PgPool) -> Result<Vec<Self>> {
         let keys = sqlx::query_as!(
             MeasurementKey,
-            "SELECT device_id AS \"device_id!\", sensor_id AS \"sensor_id!\" FROM device_sensors ORDER BY device_id, sensor_id"
+            "SELECT device_id AS \"device_id!: DeviceId\", sensor_id AS \"sensor_id!: SensorId\" FROM device_sensors ORDER BY device_id, sensor_id"
         )
         .fetch_all(pool)
         .await?;
@@ -106,6 +107,7 @@ impl LatestMeasurements {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{devices::DeviceId, sensors::SensorId};
     use crate::{devices::NewDevice, measurements::NewMeasurement, sensors::NewSensor};
 
     #[sqlx::test]
@@ -129,8 +131,8 @@ mod tests {
         for (device, value) in [(1, 1.0), (1, 2.0), (2, 3.0)] {
             NewMeasurement {
                 timestamp: None,
-                device,
-                sensor: 1,
+                device: DeviceId(device),
+                sensor: SensorId(1),
                 measurement: value,
             }
             .insert(&pool)
@@ -147,12 +149,12 @@ mod tests {
             keys,
             vec![
                 MeasurementKey {
-                    device_id: 1,
-                    sensor_id: 1
+                    device_id: DeviceId(1),
+                    sensor_id: SensorId(1)
                 },
                 MeasurementKey {
-                    device_id: 2,
-                    sensor_id: 1
+                    device_id: DeviceId(2),
+                    sensor_id: SensorId(1)
                 },
             ]
         );
@@ -162,8 +164,8 @@ mod tests {
     async fn concurrent_updates_never_replace_newer_cached_values() {
         let latest = LatestMeasurements::new(8, Duration::from_secs(60));
         let key = MeasurementKey {
-            device_id: 1,
-            sensor_id: 1,
+            device_id: DeviceId(1),
+            sensor_id: SensorId(1),
         };
         let now = chrono::Utc::now();
         let candidates = (0..100).rev().map(|offset| {
@@ -206,15 +208,15 @@ mod tests {
         .unwrap();
         let latest = LatestMeasurements::new(8, Duration::from_secs(60));
         let key = MeasurementKey {
-            device_id: 1,
-            sensor_id: 1,
+            device_id: DeviceId(1),
+            sensor_id: SensorId(1),
         };
         let now = chrono::Utc::now();
         for (offset, value) in [(0, 10.0), (1, 20.0)] {
             NewMeasurement {
                 timestamp: Some(now + chrono::Duration::seconds(offset)),
-                device: 1,
-                sensor: 1,
+                device: DeviceId(1),
+                sensor: SensorId(1),
                 measurement: value,
             }
             .insert(&pool)

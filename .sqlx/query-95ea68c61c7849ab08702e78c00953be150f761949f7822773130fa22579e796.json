@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT device_id AS \"device_id!\", sensor_id AS \"sensor_id!\" FROM device_sensors ORDER BY device_id, sensor_id",
+  "query": "SELECT device_id AS \"device_id!: DeviceId\", sensor_id AS \"sensor_id!: SensorId\" FROM device_sensors ORDER BY device_id, sensor_id",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "device_id!",
+        "name": "device_id!: DeviceId",
         "type_info": "Int4",
         "origin": {
           "Table": {
@@ -16,7 +16,7 @@
       },
       {
         "ordinal": 1,
-        "name": "sensor_id!",
+        "name": "sensor_id!: SensorId",
         "type_info": "Int4",
         "origin": {
           "Table": {
@@ -34,5 +34,5 @@
       true
     ]
   },
-  "hash": "d3d797320409fdd3cf5087930daf179740e595d6b0a35abf50bdb6937cba9b72"
+  "hash": "95ea68c61c7849ab08702e78c00953be150f761949f7822773130fa22579e796"
 }

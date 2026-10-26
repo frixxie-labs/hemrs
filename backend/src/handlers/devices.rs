@@ -6,7 +6,7 @@ use axum::{
 use sqlx::PgPool;
 use tracing::instrument;
 
-use crate::devices::{Device, NewDevice};
+use crate::devices::{Device, DeviceId, NewDevice};
 
 use super::error::HandlerError;
 
@@ -41,7 +41,7 @@ pub async fn fetch_devices(State(pool): State<PgPool>) -> Result<Json<Vec<Device
 #[instrument]
 pub async fn fetch_devices_by_id(
     State(pool): State<PgPool>,
-    Path(device_id): Path<i32>,
+    Path(device_id): Path<DeviceId>,
 ) -> Result<Json<Device>, HandlerError> {
     let device = Device::read_by_id(&pool, device_id)
         .await
