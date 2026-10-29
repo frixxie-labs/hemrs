@@ -22,11 +22,12 @@ use crate::measurements::{
 };
 use crate::sensors::SensorId;
 
-type MeasurementStreamState = State<(
-    PgPool,
-    LatestMeasurements,
-    broadcast::Sender<MeasurementUpdate>,
-)>;
+#[derive(Clone, Debug)]
+pub struct MeasurementStreamState {
+    pub pool: PgPool,
+    pub cache: LatestMeasurements,
+    pub updates: broadcast::Sender<MeasurementUpdate>,
+}
 
 const MEASUREMENT_STREAM_INTERVAL: Duration = Duration::from_secs(15);
 
@@ -43,7 +44,11 @@ const MEASUREMENT_STREAM_INTERVAL: Duration = Duration::from_secs(15);
 )]
 #[instrument(skip(pool, cache, updates))]
 pub async fn stream_measurements(
-    State((pool, cache, updates)): MeasurementStreamState,
+    State(MeasurementStreamState {
+        pool,
+        cache,
+        updates,
+    }): State<MeasurementStreamState>,
     Path((device_id, sensor_id)): Path<(DeviceId, SensorId)>,
 ) -> Response {
     stream_measurements_with_interval(

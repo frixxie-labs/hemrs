@@ -6,12 +6,13 @@ use axum::{
     routing::{delete, get, post, put},
 };
 use devices::{delete_device, fetch_devices, insert_device, update_device};
-use measurement_stream::stream_measurements;
+use measurement_stream::{MeasurementStreamState, stream_measurements};
 use measurements::{
-    fetch_all_latest_measurements, fetch_all_measurements, fetch_latest_measurement,
-    fetch_latest_measurement_by_device_id_and_sensor_id, fetch_measurement_by_device_id,
-    fetch_measurement_by_device_id_and_sensor_id, fetch_measurements_by_date_range,
-    fetch_measurements_count, fetch_stats_by_device_id_and_sensor_id, store_measurements,
+    MeasurementState, fetch_all_latest_measurements, fetch_all_measurements,
+    fetch_latest_measurement, fetch_latest_measurement_by_device_id_and_sensor_id,
+    fetch_measurement_by_device_id, fetch_measurement_by_device_id_and_sensor_id,
+    fetch_measurements_by_date_range, fetch_measurements_count,
+    fetch_stats_by_device_id_and_sensor_id, store_measurements,
 };
 use metrics::histogram;
 use metrics_exporter_prometheus::PrometheusHandle;
@@ -76,6 +77,11 @@ pub fn create_router(
     tx: Sender<NewMeasurement>,
     measurement_updates: broadcast::Sender<MeasurementUpdate>,
 ) -> Router {
+    let measurement_state = MeasurementState {
+        pool: connection.clone(),
+        cache: cache.clone(),
+    };
+
     let measurements = Router::new()
         .route("/measurements", get(fetch_all_measurements))
         .route("/measurements/latest", get(fetch_latest_measurement))
@@ -85,7 +91,7 @@ pub fn create_router(
         )
         .route("/measurements/count", get(fetch_measurements_count))
         .route("/measurements/range", get(fetch_measurements_by_date_range))
-        .with_state((connection.clone(), cache.clone()))
+        .with_state(measurement_state.clone())
         .route("/measurements", post(store_measurements))
         .with_state(tx.clone());
 
@@ -116,7 +122,7 @@ pub fn create_router(
             "/devices/{device_id}/sensors/{sensor_id}/measurements/stats",
             get(fetch_stats_by_device_id_and_sensor_id),
         )
-        .with_state((connection.clone(), cache.clone()));
+        .with_state(measurement_state.clone());
 
     let sensors = Router::new()
         .route("/sensors", get(fetch_sensors))
@@ -131,7 +137,11 @@ pub fn create_router(
             "/devices/{device_id}/sensors/{sensor_id}/measurements/stream",
             get(stream_measurements),
         )
-        .with_state((connection.clone(), cache.clone(), measurement_updates));
+        .with_state(MeasurementStreamState {
+            pool: connection.clone(),
+            cache,
+            updates: measurement_updates,
+        });
 
     Router::new()
         .nest("/api", measurements)

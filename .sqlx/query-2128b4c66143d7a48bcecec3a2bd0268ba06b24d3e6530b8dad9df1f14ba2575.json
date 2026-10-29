@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id where m.device_id = ($1) ORDER BY ts",
+  "query": "SELECT timestamp AS \"timestamp!\", value AS \"value!\", unit AS \"unit!\", device_name AS \"device_name!\", device_location AS \"device_location!\", sensor_name AS \"sensor_name!\" FROM (SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id WHERE m.device_id = $1 AND m.sensor_id = $2 ORDER BY m.ts DESC LIMIT $3) recent ORDER BY timestamp",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "timestamp",
+        "name": "timestamp!",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -16,7 +16,7 @@
       },
       {
         "ordinal": 1,
-        "name": "value",
+        "name": "value!",
         "type_info": "Float4",
         "origin": {
           "Table": {
@@ -27,7 +27,7 @@
       },
       {
         "ordinal": 2,
-        "name": "unit",
+        "name": "unit!",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -38,7 +38,7 @@
       },
       {
         "ordinal": 3,
-        "name": "device_name",
+        "name": "device_name!",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -49,7 +49,7 @@
       },
       {
         "ordinal": 4,
-        "name": "device_location",
+        "name": "device_location!",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -60,7 +60,7 @@
       },
       {
         "ordinal": 5,
-        "name": "sensor_name",
+        "name": "sensor_name!",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -72,7 +72,9 @@
     ],
     "parameters": {
       "Left": [
-        "Int4"
+        "Int4",
+        "Int4",
+        "Int8"
       ]
     },
     "nullable": [
@@ -84,5 +86,5 @@
       false
     ]
   },
-  "hash": "18058a5ac8bdc40eaa97c05c07461fe5e472968d5c5262e1b708a4eb5f9a6c09"
+  "hash": "2128b4c66143d7a48bcecec3a2bd0268ba06b24d3e6530b8dad9df1f14ba2575"
 }

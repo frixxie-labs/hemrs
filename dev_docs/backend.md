@@ -161,7 +161,7 @@ Main methods:
 
 ## Measurement Ingestion
 
-`store_measurements` does not insert into PostgreSQL directly. It sends each `NewMeasurement` through `Sender<NewMeasurement>` and returns `201` once enqueueing succeeds.
+`store_measurements` does not insert into PostgreSQL directly. It sends each `NewMeasurement` through `Sender<NewMeasurement>` and returns `201` once enqueueing succeeds. A batch reserves queue capacity for every item before sending any, so it is queued all-or-nothing; a batch larger than the queue capacity returns `400`. Measurement values must be finite 32-bit floats; out-of-range numbers are rejected during deserialization.
 
 `handle_insert_measurement_bg_thread` receives measurements and calls private `insert_measurement`:
 

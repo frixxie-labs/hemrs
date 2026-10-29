@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de};
 use sqlx::{FromRow, PgPool};
 use std::fmt;
 use utoipa::ToSchema;
@@ -15,7 +15,20 @@ pub struct NewMeasurement {
     pub timestamp: Option<DateTime<Utc>>,
     pub device: DeviceId,
     pub sensor: SensorId,
+    #[serde(deserialize_with = "finite_f32")]
     pub measurement: f32,
+}
+
+/// JSON numbers beyond the f32 range would otherwise be stored as infinity.
+fn finite_f32<'de, D: Deserializer<'de>>(deserializer: D) -> Result<f32, D::Error> {
+    let value = f32::deserialize(deserializer)?;
+    if value.is_finite() {
+        Ok(value)
+    } else {
+        Err(de::Error::custom(
+            "measurement must be a finite 32-bit float",
+        ))
+    }
 }
 
 impl NewMeasurement {
@@ -128,16 +141,27 @@ impl Measurement {
         Ok(res)
     }
 
+    /// Reads the `limit` most recent measurements, returned in chronological order.
     pub async fn read_by_device_id_and_sensor_id(
         pool: &PgPool,
         device_id: DeviceId,
         sensor_id: SensorId,
+        limit: i64,
     ) -> Result<Vec<Self>> {
         let res = sqlx::query_as!(
             Measurement,
-            "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id where m.device_id = ($1) AND m.sensor_id = ($2) ORDER BY ts",
+            "SELECT timestamp AS \"timestamp!\", value AS \"value!\", unit AS \"unit!\", device_name AS \"device_name!\", device_location AS \"device_location!\", sensor_name AS \"sensor_name!\" \
+             FROM (SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name \
+                   FROM measurements m \
+                   JOIN devices d ON d.id = m.device_id \
+                   JOIN sensors s ON s.id = m.sensor_id \
+                   WHERE m.device_id = $1 AND m.sensor_id = $2 \
+                   ORDER BY m.ts DESC \
+                   LIMIT $3) recent \
+             ORDER BY timestamp",
             device_id.0,
-            sensor_id.0
+            sensor_id.0,
+            limit
         )
         .fetch_all(pool)
         .await?;
@@ -160,11 +184,25 @@ impl Measurement {
         Ok(res)
     }
 
-    pub async fn read_by_device_id(pool: &PgPool, device_id: DeviceId) -> Result<Vec<Self>> {
+    /// Reads the `limit` most recent measurements, returned in chronological order.
+    pub async fn read_by_device_id(
+        pool: &PgPool,
+        device_id: DeviceId,
+        limit: i64,
+    ) -> Result<Vec<Self>> {
         let res = sqlx::query_as!(
             Measurement,
-            "SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name FROM measurements m JOIN devices d ON d.id = m.device_id JOIN sensors s ON s.id = m.sensor_id where m.device_id = ($1) ORDER BY ts",
-            device_id.0
+            "SELECT timestamp AS \"timestamp!\", value AS \"value!\", unit AS \"unit!\", device_name AS \"device_name!\", device_location AS \"device_location!\", sensor_name AS \"sensor_name!\" \
+             FROM (SELECT m.ts AS timestamp, m.value, s.unit, d.name AS device_name, d.location AS device_location, s.name AS sensor_name \
+                   FROM measurements m \
+                   JOIN devices d ON d.id = m.device_id \
+                   JOIN sensors s ON s.id = m.sensor_id \
+                   WHERE m.device_id = $1 \
+                   ORDER BY m.ts DESC \
+                   LIMIT $2) recent \
+             ORDER BY timestamp",
+            device_id.0,
+            limit
         )
         .fetch_all(pool)
         .await?;
@@ -359,6 +397,17 @@ mod tests {
         }
     }
 
+    #[test]
+    fn measurement_values_outside_f32_range_are_rejected() {
+        for value in ["1e39", "-1e39"] {
+            let json = format!(r#"{{"device":1,"sensor":1,"measurement":{value}}}"#);
+            assert!(
+                serde_json::from_str::<NewMeasurement>(&json).is_err(),
+                "{value} would be stored as infinity"
+            );
+        }
+    }
+
     #[quickcheck_macros::quickcheck]
     fn vec_of_measurements_round_trips_through_json(items: Vec<(i32, i32)>) -> bool {
         use crate::measurements::NewMeasurements;
@@ -446,9 +495,30 @@ mod tests {
             .unwrap();
         }
 
-        let measurements = Measurement::read_all(&pool, 3).await.unwrap();
-        let values: Vec<f32> = measurements.iter().map(|m| m.value).collect();
-        assert_eq!(values, vec![2.0, 3.0, 4.0]);
+        let values = |measurements: Vec<Measurement>| -> Vec<f32> {
+            measurements.iter().map(|m| m.value).collect()
+        };
+        let expected = vec![2.0, 3.0, 4.0];
+        assert_eq!(
+            values(Measurement::read_all(&pool, 3).await.unwrap()),
+            expected
+        );
+        assert_eq!(
+            values(
+                Measurement::read_by_device_id(&pool, DeviceId(1), 3)
+                    .await
+                    .unwrap()
+            ),
+            expected
+        );
+        assert_eq!(
+            values(
+                Measurement::read_by_device_id_and_sensor_id(&pool, DeviceId(1), SensorId(1), 3)
+                    .await
+                    .unwrap()
+            ),
+            expected
+        );
     }
 
     #[sqlx::test]
@@ -479,7 +549,7 @@ mod tests {
         };
         measurement.insert(&pool).await.unwrap();
 
-        let measurements = Measurement::read_by_device_id(&pool, DeviceId(1))
+        let measurements = Measurement::read_by_device_id(&pool, DeviceId(1), 10)
             .await
             .unwrap();
         assert!(!measurements.is_empty());
@@ -498,7 +568,7 @@ mod tests {
         measurement.insert(&pool).await.unwrap();
 
         let measurements =
-            Measurement::read_by_device_id_and_sensor_id(&pool, DeviceId(1), SensorId(1))
+            Measurement::read_by_device_id_and_sensor_id(&pool, DeviceId(1), SensorId(1), 10)
                 .await
                 .unwrap();
         assert!(!measurements.is_empty());

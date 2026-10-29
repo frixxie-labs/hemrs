@@ -21,7 +21,14 @@ use crate::sensors::SensorId;
 
 use super::error::HandlerError;
 
-type ApplicationState = State<(PgPool, LatestMeasurements)>;
+/// Shared state for measurement read endpoints.
+#[derive(Clone, Debug)]
+pub struct MeasurementState {
+    pub pool: PgPool,
+    pub cache: LatestMeasurements,
+}
+
+type ApplicationState = State<MeasurementState>;
 
 #[utoipa::path(
     post,
@@ -29,6 +36,7 @@ type ApplicationState = State<(PgPool, LatestMeasurements)>;
     request_body = NewMeasurements,
     responses(
         (status = 201, description = "Measurement(s) inserted successfully"),
+        (status = 400, description = "Batch exceeds the ingestion queue capacity"),
         (status = 503, description = "Measurement ingestion unavailable"),
         (status = 500, description = "Internal server error"),
     )
@@ -41,20 +49,24 @@ pub async fn store_measurements(
 where
     Response: IntoResponse,
 {
-    match measurement {
-        NewMeasurements::Measurement(new_measurement) => {
-            tx.send(new_measurement)
-                .await
-                .map_err(|_| HandlerError::Unavailable("Measurement ingestion unavailable"))?;
-        }
-        NewMeasurements::Measurements(new_measurements) => {
-            for measurement in new_measurements {
-                tx.send(measurement)
-                    .await
-                    .map_err(|_| HandlerError::Unavailable("Measurement ingestion unavailable"))?;
-            }
-        }
+    let measurements = match measurement {
+        NewMeasurements::Measurement(new_measurement) => vec![new_measurement],
+        NewMeasurements::Measurements(new_measurements) => new_measurements,
     };
+    if measurements.len() > tx.max_capacity() {
+        return Err(HandlerError::InvalidInput(
+            "Measurement batch exceeds ingestion queue capacity",
+        ));
+    }
+
+    // Reserving every slot up front makes a batch all-or-nothing.
+    let permits = tx
+        .reserve_many(measurements.len())
+        .await
+        .map_err(|_| HandlerError::Unavailable("Measurement ingestion unavailable"))?;
+    permits
+        .zip(measurements)
+        .for_each(|(permit, measurement)| permit.send(measurement));
 
     let resp = Response::builder()
         .status(201)
@@ -75,10 +87,8 @@ where
 )]
 #[instrument]
 pub async fn fetch_latest_measurement(
-    State(app_state): ApplicationState,
+    State(MeasurementState { pool, .. }): ApplicationState,
 ) -> Result<Json<Measurement>, HandlerError> {
-    let (pool, _cache) = app_state;
-
     let entry = Measurement::read_latest(&pool)
         .await
         .context("Failed to fetch data from database")?;
@@ -96,18 +106,17 @@ pub async fn fetch_latest_measurement(
 )]
 #[instrument]
 pub async fn fetch_measurements_count(
-    State(app_state): ApplicationState,
+    State(MeasurementState { pool, .. }): ApplicationState,
 ) -> Result<Json<usize>, HandlerError> {
-    let (pool, _cache) = app_state;
     let count = Measurement::read_total_measurements(&pool)
         .await
         .context("Failed to fetch data from database")?;
     Ok(Json(count as usize))
 }
 
-/// Default number of measurements returned by `GET /api/measurements`.
+/// Default number of measurements returned by bounded measurement list endpoints.
 pub const DEFAULT_MEASUREMENTS_LIMIT: i64 = 1_000;
-/// Hard cap on `GET /api/measurements` to keep response memory bounded.
+/// Hard cap on bounded measurement list endpoints to keep response memory bounded.
 pub const MAX_MEASUREMENTS_LIMIT: i64 = 10_000;
 
 #[derive(Debug, Deserialize, IntoParams)]
@@ -135,10 +144,9 @@ impl MeasurementsLimitParams {
 )]
 #[instrument]
 pub async fn fetch_all_measurements(
-    State(app_state): ApplicationState,
+    State(MeasurementState { pool, .. }): ApplicationState,
     Query(params): Query<MeasurementsLimitParams>,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
-    let (pool, _cache) = app_state;
     let entries = Measurement::read_all(&pool, params.effective_limit())
         .await
         .context("Failed to fetch data from database")?;
@@ -150,20 +158,21 @@ pub async fn fetch_all_measurements(
     get,
     path = "api/measurements/device/{device_id}",
     params(
-        ("device_id" = i32, Path, description = "Device ID")
+        ("device_id" = i32, Path, description = "Device ID"),
+        MeasurementsLimitParams
     ),
     responses(
-        (status = 200, description = "List of measurements for device", body = [Measurement]),
+        (status = 200, description = "Most recent measurements for device in chronological order, bounded by `limit`", body = [Measurement]),
         (status = 500, description = "Internal server error"),
     )
 )]
 #[instrument]
 pub async fn fetch_measurement_by_device_id(
-    State(app_state): ApplicationState,
+    State(MeasurementState { pool, .. }): ApplicationState,
     Path(device_id): Path<DeviceId>,
+    Query(params): Query<MeasurementsLimitParams>,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
-    let (pool, _cache) = app_state;
-    let measurements = Measurement::read_by_device_id(&pool, device_id)
+    let measurements = Measurement::read_by_device_id(&pool, device_id, params.effective_limit())
         .await
         .context("Failed to fetch data from database")?;
     Ok(Json(measurements))
@@ -184,10 +193,9 @@ pub async fn fetch_measurement_by_device_id(
 )]
 #[instrument]
 pub async fn fetch_latest_measurement_by_device_id_and_sensor_id(
-    State(app_state): ApplicationState,
+    State(MeasurementState { pool, cache }): ApplicationState,
     Path((device_id, sensor_id)): Path<(DeviceId, SensorId)>,
 ) -> Result<Json<Measurement>, HandlerError> {
-    let (pool, cache) = app_state;
     let measurement = cache
         .read(
             &pool,
@@ -206,22 +214,28 @@ pub async fn fetch_latest_measurement_by_device_id_and_sensor_id(
     path = "api/measurements/device/{device_id}/sensor/{sensor_id}",
     params(
         ("device_id" = i32, Path, description = "Device ID"),
-        ("sensor_id" = i32, Path, description = "Sensor ID")
+        ("sensor_id" = i32, Path, description = "Sensor ID"),
+        MeasurementsLimitParams
     ),
     responses(
-        (status = 200, description = "List of measurements for device and sensor", body = [Measurement]),
+        (status = 200, description = "Most recent measurements for device and sensor in chronological order, bounded by `limit`", body = [Measurement]),
         (status = 500, description = "Internal server error"),
     )
 )]
 #[instrument]
 pub async fn fetch_measurement_by_device_id_and_sensor_id(
-    State(app_state): ApplicationState,
+    State(MeasurementState { pool, .. }): ApplicationState,
     Path((device_id, sensor_id)): Path<(DeviceId, SensorId)>,
+    Query(params): Query<MeasurementsLimitParams>,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
-    let (pool, _cache) = app_state;
-    let measurements = Measurement::read_by_device_id_and_sensor_id(&pool, device_id, sensor_id)
-        .await
-        .context("Failed to fetch data from database")?;
+    let measurements = Measurement::read_by_device_id_and_sensor_id(
+        &pool,
+        device_id,
+        sensor_id,
+        params.effective_limit(),
+    )
+    .await
+    .context("Failed to fetch data from database")?;
     Ok(Json(measurements))
 }
 
@@ -235,9 +249,8 @@ pub async fn fetch_measurement_by_device_id_and_sensor_id(
 )]
 #[instrument]
 pub async fn fetch_all_latest_measurements(
-    State(app_state): ApplicationState,
+    State(MeasurementState { pool, .. }): ApplicationState,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
-    let (pool, _cache) = app_state;
     let measurements = Measurement::read_all_latest_measurements(&pool)
         .await
         .context("Failed to fetch data from database")?;
@@ -258,10 +271,9 @@ pub async fn fetch_all_latest_measurements(
 )]
 #[instrument]
 pub async fn fetch_stats_by_device_id_and_sensor_id(
-    State(app_state): ApplicationState,
+    State(MeasurementState { pool, .. }): ApplicationState,
     Path((device_id, sensor_id)): Path<(DeviceId, SensorId)>,
 ) -> Result<Json<MeasurementStats>, HandlerError> {
-    let (pool, _cache) = app_state;
     let stats = Measurement::read_stats_by_device_id_and_sensor_id(&pool, device_id, sensor_id)
         .await
         .context("Failed to fetch data from database")?;
@@ -288,10 +300,9 @@ pub struct DateRangeParams {
 )]
 #[instrument]
 pub async fn fetch_measurements_by_date_range(
-    State(app_state): ApplicationState,
+    State(MeasurementState { pool, .. }): ApplicationState,
     Query(params): Query<DateRangeParams>,
 ) -> Result<Json<Vec<Measurement>>, HandlerError> {
-    let (pool, _cache) = app_state;
     let range = DateRange::new(params.start, params.end.unwrap_or_else(Utc::now))
         .map_err(HandlerError::InvalidInput)?;
     let measurements = Measurement::read_by_date_range(&pool, range)
@@ -383,6 +394,27 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn batch_larger_than_queue_capacity_is_rejected_without_queueing_any() {
+        let (tx, mut rx) = tokio::sync::mpsc::channel(2);
+        let batch = (0..3)
+            .map(|i| NewMeasurement {
+                timestamp: None,
+                device: DeviceId(1),
+                sensor: SensorId(1),
+                measurement: i as f32,
+            })
+            .collect();
+        let error = store_measurements(State(tx), Json(NewMeasurements::Measurements(batch)))
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.into_response().status(),
+            axum::http::StatusCode::BAD_REQUEST
+        );
+        assert!(rx.try_recv().is_err());
+    }
+
     fn store_measurements_queues_expected(
         payload: NewMeasurements,
         expected: Vec<NewMeasurement>,
@@ -442,7 +474,7 @@ mod tests {
 
     fn make_app_state(pool: PgPool) -> ApplicationState {
         let cache = LatestMeasurements::new(128, Duration::from_secs(60));
-        State((pool, cache))
+        State(MeasurementState { pool, cache })
     }
 
     async fn setup_device_and_sensor(pool: &PgPool) {
