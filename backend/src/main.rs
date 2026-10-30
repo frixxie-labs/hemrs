@@ -109,6 +109,12 @@ async fn main() -> Result<(), anyhow::Error> {
         .await
         .context("Connecting to database")?;
 
+    info!("Running database migrations");
+    sqlx::migrate!("./migrations")
+        .run(&connection)
+        .await
+        .context("Running database migrations")?;
+
     let measurement_cache = LatestMeasurements::new(512, std::time::Duration::from_secs(60));
 
     let bg_pool = connection.clone();
