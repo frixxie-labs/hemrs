@@ -192,6 +192,7 @@ mod tests {
         let device = NewDevice {
             name: "test".to_string(),
             location: "test".to_string(),
+            coordinates: None,
         };
         device.clone().insert(&pool).await.unwrap();
         let sensor = NewSensor {

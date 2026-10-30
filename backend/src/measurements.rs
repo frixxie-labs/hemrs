@@ -20,7 +20,7 @@ pub struct NewMeasurement {
 }
 
 /// JSON numbers beyond the f32 range would otherwise be stored as infinity.
-fn finite_f32<'de, D: Deserializer<'de>>(deserializer: D) -> Result<f32, D::Error> {
+pub(crate) fn finite_f32<'de, D: Deserializer<'de>>(deserializer: D) -> Result<f32, D::Error> {
     let value = f32::deserialize(deserializer)?;
     if value.is_finite() {
         Ok(value)
@@ -42,7 +42,7 @@ impl NewMeasurement {
     }
 
     #[cfg(test)]
-    pub async fn insert(self, pool: &PgPool) -> Result<()> {
+    pub async fn insert(self, pool: &PgPool) -> Result<InsertOutcome> {
         self.resolve_timestamp(Utc::now()).insert(pool).await
     }
 }
@@ -55,10 +55,18 @@ pub struct ResolvedMeasurement {
     pub measurement: f32,
 }
 
+/// Whether a reading was new, or repeated an already stored (device, sensor, timestamp).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InsertOutcome {
+    Inserted,
+    Duplicate,
+}
+
 impl ResolvedMeasurement {
-    pub async fn insert(self, pool: &PgPool) -> Result<()> {
-        sqlx::query!(
-            "INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES ($1, $2, $3, $4)",
+    pub async fn insert(self, pool: &PgPool) -> Result<InsertOutcome> {
+        let result = sqlx::query!(
+            "INSERT INTO measurements (ts, device_id, sensor_id, value) VALUES ($1, $2, $3, $4) \
+             ON CONFLICT DO NOTHING",
             self.timestamp,
             self.device.0,
             self.sensor.0,
@@ -66,7 +74,10 @@ impl ResolvedMeasurement {
         )
         .execute(pool)
         .await?;
-        Ok(())
+        Ok(match result.rows_affected() {
+            0 => InsertOutcome::Duplicate,
+            _ => InsertOutcome::Inserted,
+        })
     }
 }
 
@@ -272,7 +283,7 @@ mod tests {
     use crate::{devices::DeviceId, sensors::SensorId};
     use sqlx::PgPool;
 
-    use crate::measurements::NewMeasurement;
+    use crate::measurements::{InsertOutcome, NewMeasurement};
     use crate::sensors::NewSensor;
     use crate::{devices::NewDevice, measurements::Measurement};
 
@@ -280,6 +291,7 @@ mod tests {
         NewDevice {
             name: "test".to_string(),
             location: "test".to_string(),
+            coordinates: None,
         }
         .insert(pool)
         .await
@@ -461,6 +473,35 @@ mod tests {
             measurement: 1.0,
         };
         measurement.insert(&pool).await.unwrap();
+    }
+
+    #[sqlx::test]
+    async fn repeated_reading_is_stored_once_and_reported_as_duplicate(pool: PgPool) {
+        setup_device_and_sensor(&pool).await;
+        let now = chrono::Utc::now();
+        let first = NewMeasurement {
+            timestamp: Some(now),
+            device: DeviceId(1),
+            sensor: SensorId(1),
+            measurement: 1.0,
+        };
+        let repeat = NewMeasurement {
+            measurement: 2.0,
+            ..first.clone()
+        };
+
+        let outcomes = (
+            first.resolve_timestamp(now).insert(&pool).await.unwrap(),
+            repeat.resolve_timestamp(now).insert(&pool).await.unwrap(),
+        );
+
+        assert_eq!(
+            outcomes,
+            (InsertOutcome::Inserted, InsertOutcome::Duplicate)
+        );
+        let stored = Measurement::read_all(&pool, 10).await.unwrap();
+        assert_eq!(stored.len(), 1);
+        assert_eq!(stored[0].value, 1.0);
     }
 
     #[sqlx::test]

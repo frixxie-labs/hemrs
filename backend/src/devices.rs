@@ -1,9 +1,11 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use sqlx::{FromRow, PgPool};
+use sqlx::PgPool;
 use std::fmt;
 use tracing::{debug, info};
 use utoipa::ToSchema;
+
+use crate::coordinates::Coordinates;
 
 /// Identifies a device; serialized and stored as a plain integer.
 #[derive(
@@ -37,9 +39,12 @@ pub struct NewDevice {
     pub name: String,
     /// The physical location where the device is deployed
     pub location: String,
+    /// Geographic position of the device, if known
+    #[serde(default)]
+    pub coordinates: Option<Coordinates>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, FromRow, ToSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct Device {
     /// Unique identifier for the device
     pub id: DeviceId,
@@ -47,6 +52,36 @@ pub struct Device {
     pub name: String,
     /// The physical location where the device is deployed
     pub location: String,
+    /// Geographic position of the device, if known
+    #[serde(default)]
+    pub coordinates: Option<Coordinates>,
+}
+
+struct DeviceRow {
+    id: DeviceId,
+    name: String,
+    location: String,
+    latitude: Option<f64>,
+    longitude: Option<f64>,
+}
+
+impl TryFrom<DeviceRow> for Device {
+    type Error = anyhow::Error;
+
+    fn try_from(row: DeviceRow) -> Result<Self> {
+        Ok(Device {
+            id: row.id,
+            name: row.name,
+            location: row.location,
+            coordinates: Coordinates::from_columns(row.latitude, row.longitude)?,
+        })
+    }
+}
+
+fn split(coordinates: Option<Coordinates>) -> (Option<f64>, Option<f64>) {
+    coordinates
+        .map(|c| (Some(c.latitude()), Some(c.longitude())))
+        .unwrap_or_default()
 }
 
 impl Device {
@@ -60,24 +95,30 @@ impl Device {
     }
 
     pub async fn read(pool: &PgPool) -> Result<Vec<Device>> {
-        let devices = sqlx::query_as!(
-            Device,
-            "SELECT id AS \"id: DeviceId\", name, location FROM devices"
+        sqlx::query_as!(
+            DeviceRow,
+            "SELECT id AS \"id: DeviceId\", name, location, \
+             ST_Y(geom::geometry) AS latitude, ST_X(geom::geometry) AS longitude \
+             FROM devices"
         )
         .fetch_all(pool)
-        .await?;
-        Ok(devices)
+        .await?
+        .into_iter()
+        .map(Device::try_from)
+        .collect()
     }
 
     pub async fn read_by_id(pool: &PgPool, device_id: DeviceId) -> Result<Device> {
-        let device = sqlx::query_as!(
-            Device,
-            "SELECT id AS \"id: DeviceId\", name, location FROM devices WHERE id = $1",
+        sqlx::query_as!(
+            DeviceRow,
+            "SELECT id AS \"id: DeviceId\", name, location, \
+             ST_Y(geom::geometry) AS latitude, ST_X(geom::geometry) AS longitude \
+             FROM devices WHERE id = $1",
             device_id.0
         )
         .fetch_one(pool)
-        .await?;
-        Ok(device)
+        .await?
+        .try_into()
     }
 
     pub async fn delete(self, pool: &PgPool) -> Result<()> {
@@ -91,11 +132,16 @@ impl Device {
 
     pub async fn update(self, pool: &PgPool) -> Result<()> {
         info!(device_id = %self.id, name = %self.name, location = %self.location, "Updating device");
+        let (latitude, longitude) = split(self.coordinates);
         sqlx::query!(
-            "UPDATE devices SET name = $1,location = $2 WHERE id = $3",
+            "UPDATE devices SET name = $1, location = $2, \
+             geom = ST_SetSRID(ST_MakePoint($4, $5), 4326)::geography \
+             WHERE id = $3",
             self.name,
             self.location,
-            self.id.0
+            self.id.0,
+            longitude,
+            latitude
         )
         .execute(pool)
         .await?;
@@ -108,10 +154,14 @@ impl Device {
 impl NewDevice {
     pub async fn insert(self, pool: &PgPool) -> Result<()> {
         info!(name = %self.name, location = %self.location, "Inserting new device");
+        let (latitude, longitude) = split(self.coordinates);
         sqlx::query!(
-            "INSERT INTO devices (name, location) VALUES ($1, $2)",
+            "INSERT INTO devices (name, location, geom) \
+             VALUES ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography)",
             self.name,
-            self.location
+            self.location,
+            longitude,
+            latitude
         )
         .execute(pool)
         .await?;
@@ -130,9 +180,43 @@ mod tests {
             && serde_json::from_str::<super::DeviceId>(&json).unwrap() == super::DeviceId(raw)
     }
 
+    #[test]
+    fn device_without_coordinates_still_deserializes() {
+        let device: NewDevice = serde_json::from_str(r#"{"name":"n","location":"l"}"#).unwrap();
+        assert_eq!(device.coordinates, None);
+    }
+
     use sqlx::PgPool;
 
-    use crate::devices::{Device, NewDevice};
+    use crate::{
+        coordinates::Coordinates,
+        devices::{Device, NewDevice},
+    };
+
+    #[sqlx::test]
+    async fn coordinates_round_trip_through_insert_and_update(pool: PgPool) {
+        let home = Coordinates::new(59.3293, 18.0686).unwrap();
+        NewDevice {
+            name: "test".to_string(),
+            location: "test".to_string(),
+            coordinates: Some(home),
+        }
+        .insert(&pool)
+        .await
+        .unwrap();
+        let device = Device::read(&pool).await.unwrap().remove(0);
+        assert_eq!(device.coordinates, Some(home));
+
+        Device {
+            coordinates: None,
+            ..device.clone()
+        }
+        .update(&pool)
+        .await
+        .unwrap();
+        let device = Device::read_by_id(&pool, device.id).await.unwrap();
+        assert_eq!(device.coordinates, None);
+    }
 
     // ── sqlx integration tests ────────────────────────────────────────────────
 
@@ -141,6 +225,7 @@ mod tests {
         let device = NewDevice {
             name: "test".to_string(),
             location: "test".to_string(),
+            coordinates: None,
         };
         device.insert(&pool).await.unwrap();
         let devices = Device::read(&pool).await.unwrap();
@@ -154,6 +239,7 @@ mod tests {
         let device = NewDevice {
             name: "test".to_string(),
             location: "test".to_string(),
+            coordinates: None,
         };
         device.clone().insert(&pool).await.unwrap();
         let devices = Device::read(&pool).await.unwrap();
@@ -169,6 +255,7 @@ mod tests {
         let device = NewDevice {
             name: "test".to_string(),
             location: "test".to_string(),
+            coordinates: None,
         };
         device.clone().insert(&pool).await.unwrap();
         let devices = Device::read(&pool).await.unwrap();
@@ -177,6 +264,7 @@ mod tests {
             id: device.id,
             name: "test2".to_string(),
             location: "test2".to_string(),
+            coordinates: None,
         };
         device.clone().update(&pool).await.unwrap();
 

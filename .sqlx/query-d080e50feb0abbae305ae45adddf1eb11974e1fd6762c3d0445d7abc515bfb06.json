@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO lightning_strikes (ts, device_id, geom) SELECT ts, device_id, ST_SetSRID(ST_MakePoint(lon, lat), 4326)::geography FROM UNNEST($1::timestamptz[], $2::int4[], $3::float8[], $4::float8[]) AS s(ts, device_id, lat, lon)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TimestamptzArray",
+        "Int4Array",
+        "Float8Array",
+        "Float8Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d080e50feb0abbae305ae45adddf1eb11974e1fd6762c3d0445d7abc515bfb06"
+}

@@ -4,10 +4,16 @@ import {
   sendBackendCommand,
 } from "./backend_client.ts";
 
+export interface Coordinates {
+  latitude: number;
+  longitude: number;
+}
+
 export interface Device {
   id: number;
   name: string;
   location: string;
+  coordinates?: Coordinates | null;
 }
 
 export function getDeviceById(deviceId: number): Promise<Device | null> {

@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT timestamp AS \"timestamp!\", device_id AS \"device_id!: DeviceId\", latitude, longitude FROM (SELECT ts AS timestamp, device_id, ST_Y(geom::geometry) AS latitude, ST_X(geom::geometry) AS longitude FROM lightning_strikes WHERE ts >= $1 AND ts <= $2 AND ($5::float8 IS NULL OR ST_DWithin(geom, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography, $5)) ORDER BY ts DESC LIMIT $6) recent ORDER BY timestamp",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "timestamp!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "lightning_strikes",
+            "name": "ts"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "device_id!: DeviceId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "lightning_strikes",
+            "name": "device_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "latitude",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "longitude",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Timestamptz",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "018c95d4961031df929a951fdd7c10aa602206768d9652d5defbfa9fc56681ca"
+}

@@ -133,6 +133,7 @@ mod tests {
         let device = NewDevice {
             name: "test".to_string(),
             location: "test".to_string(),
+            coordinates: None,
         };
 
         let result = insert_device(State(pool), Json(device)).await;
@@ -144,6 +145,7 @@ mod tests {
         let device = NewDevice {
             name: "test".to_string(),
             location: "test".to_string(),
+            coordinates: None,
         };
         device.insert(&pool).await.unwrap();
 
@@ -160,6 +162,7 @@ mod tests {
         let device = NewDevice {
             name: "test".to_string(),
             location: "test".to_string(),
+            coordinates: None,
         };
         device.insert(&pool).await.unwrap();
 
@@ -176,6 +179,7 @@ mod tests {
         let device = NewDevice {
             name: "test".to_string(),
             location: "test".to_string(),
+            coordinates: None,
         };
         device.insert(&pool).await.unwrap();
 
@@ -184,6 +188,7 @@ mod tests {
             id: devices[0].id,
             name: "updated".to_string(),
             location: "updated".to_string(),
+            coordinates: None,
         };
         let result = update_device(State(pool.clone()), Json(updated_device)).await;
         assert!(result.is_ok());

@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE devices SET name = $1, location = $2, geom = ST_SetSRID(ST_MakePoint($4, $5), 4326)::geography WHERE id = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int4",
+        "Float8",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ad84d81f3019729fb03f641398c89c3db60eb8367340bddd43382106fd191278"
+}

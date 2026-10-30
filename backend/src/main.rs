@@ -13,7 +13,9 @@ use crate::{
 };
 
 mod background_tasks;
+mod coordinates;
 mod devices;
+mod geo_events;
 mod handlers;
 mod measurements;
 mod sensors;

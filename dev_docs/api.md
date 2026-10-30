@@ -4,7 +4,7 @@
 
 The backend binds to `0.0.0.0:65534` by default. Most routes are under `/api`.
 
-OpenAPI JSON is available at `/openapi` and is generated with `utoipa` from route annotations and schema derives.
+OpenAPI JSON is available at `/openapi` and is generated with `utoipa` from route annotations and schema derives. A copy is committed as `dev_docs/openapi.json` for client integrations (such as wictk); a backend test fails when it drifts from the code, and `just openapi` regenerates it.
 
 ## Backend JSON Shapes
 
@@ -14,16 +14,20 @@ OpenAPI JSON is available at `/openapi` and is generated with `utoipa` from rout
 {
   "id": 1,
   "name": "Living Room Sensor",
-  "location": "Living Room"
+  "location": "Living Room",
+  "coordinates": { "latitude": 59.3293, "longitude": 18.0686 }
 }
 ```
+
+`coordinates` is optional (`null` or omitted when unknown). It is stored as a PostGIS `geography(Point, 4326)`; latitude must be within `-90..=90` and longitude within `-180..=180`, otherwise the request body is rejected. `PUT /api/devices` replaces the coordinates, so omitting them clears the stored position.
 
 ### NewDevice
 
 ```json
 {
   "name": "Living Room Sensor",
-  "location": "Living Room"
+  "location": "Living Room",
+  "coordinates": { "latitude": 59.3293, "longitude": 18.0686 }
 }
 ```
 
@@ -152,6 +156,40 @@ There is also an annotated handler path `api/sensors/device/{device_id}`, but th
 | `GET` | `/api/devices/{device_id}/sensors/{sensor_id}/measurements/latest` | Latest measurement for a device/sensor pair | None | `Measurement` |
 | `GET` | `/api/devices/{device_id}/sensors/{sensor_id}/measurements/stats` | Aggregate stats for a device/sensor pair | None | `MeasurementStats` |
 | `GET` | `/api/devices/{device_id}/sensors/{sensor_id}/measurements/stream` | Live updates plus a database refresh of the latest value every 15 seconds for a device/sensor pair | None | `text/event-stream` |
+
+A reading is identified by `(device, sensor, timestamp)`. Ingesting the same triple again is accepted but ignored: the first stored value wins, and the duplicate is neither cached nor published to streams.
+
+### Geo Events
+
+Lightning strikes and earthquakes are stored as PostGIS points in their own tables, not as `lat`/`lon` measurements. Sending positions as measurements no longer works: several strikes share a timestamp, so all but the first would be dropped as duplicates.
+
+| Method | Path | Purpose | Body/Query | Success |
+| --- | --- | --- | --- | --- |
+| `POST` | `/api/lightning` | Store strikes | `NewLightningStrike` or `NewLightningStrike[]` (max 10,000) | `201` |
+| `GET` | `/api/lightning` | Most recent strikes, chronological order | `GeoEventParams` | `LightningStrike[]` |
+| `POST` | `/api/earthquakes` | Store an earthquake | `NewEarthquake` | `201`, or `200` if already stored |
+| `GET` | `/api/earthquakes` | Most recent earthquakes, chronological order | `GeoEventParams` | `Earthquake[]` |
+
+`GeoEventParams`:
+- `start` is required and `end` defaults to now (RFC 3339, inclusive).
+- `limit` defaults to `1000`, clamped to `1..=10000`.
+- `latitude`, `longitude` and `radius_km` are optional but must be given together; they keep only events within that many kilometres of the point.
+
+Invalid combinations return `400`. Posting a strike or earthquake for a device that does not exist also returns `400` with `Unknown device`.
+
+```text
+/api/lightning?start=2026-10-29T00:00:00Z&latitude=63.4305&longitude=10.3951&radius_km=50
+```
+
+```json
+// NewLightningStrike (timestamp optional, defaults to ingestion time) / LightningStrike
+{ "timestamp": "2026-10-29T12:00:00Z", "device": 1, "coordinates": { "latitude": 63.2893, "longitude": 25.1497 } }
+{ "timestamp": "2026-10-29T12:00:00Z", "device_id": 1, "coordinates": { "latitude": 63.2893, "longitude": 25.1497 } }
+
+// NewEarthquake (all fields required) / Earthquake (same, with device_id)
+{ "timestamp": "2026-08-10T10:36:42.622Z", "device": 34, "coordinates": { "latitude": 44.0156, "longitude": 147.4942 },
+  "depth_km": 66.149, "magnitude": 4.7, "significance": 340, "tsunami": false }
+```
 
 `/api/measurements` and the per-device measurement lists are intentionally bounded so they cannot load the whole table into memory; use `/api/measurements/range` for time windows.
 

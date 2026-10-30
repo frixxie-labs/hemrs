@@ -7,7 +7,7 @@ use tracing::{debug, error, info, warn};
 use crate::{
     devices::Device,
     measurements::{
-        Measurement, MeasurementUpdate, NewMeasurement,
+        InsertOutcome, Measurement, MeasurementUpdate, NewMeasurement,
         latest::{LatestMeasurements, MeasurementKey},
     },
     sensors::Sensor,
@@ -75,7 +75,7 @@ pub async fn handle_insert_measurement_bg_thread(
 
         let start = Instant::now();
         match insert_measurement(measurement, &pool, &cache).await {
-            Ok(update) => {
+            Ok(Some(update)) => {
                 let _ = updates.send(update);
                 let elapsed = start.elapsed();
                 histogram!("db_insert_duration_seconds").record(elapsed);
@@ -84,6 +84,10 @@ pub async fn handle_insert_measurement_bg_thread(
                     duration_ms = elapsed.as_millis() as u64,
                     "Measurement inserted successfully"
                 );
+            }
+            Ok(None) => {
+                counter!("duplicate_measurements").increment(1);
+                info!("Ignored duplicate measurement");
             }
             Err(e) => {
                 let elapsed = start.elapsed();
@@ -102,7 +106,7 @@ async fn insert_measurement(
     measurement: NewMeasurement,
     pool: &PgPool,
     cache: &LatestMeasurements,
-) -> anyhow::Result<MeasurementUpdate> {
+) -> anyhow::Result<Option<MeasurementUpdate>> {
     debug!(
         device_id = %measurement.device,
         sensor_id = %measurement.sensor,
@@ -135,8 +139,11 @@ async fn insert_measurement(
     };
 
     let measurement_insert_start = Instant::now();
-    measurement.insert(pool).await?;
+    let outcome = measurement.insert(pool).await?;
     histogram!("measurement_insert_duration_seconds").record(measurement_insert_start.elapsed());
+    if outcome == InsertOutcome::Duplicate {
+        return Ok(None);
+    }
 
     let cache_insert_start = Instant::now();
     if let Err(error) = cache
@@ -155,11 +162,11 @@ async fn insert_measurement(
     }
     histogram!("cache_insert_duration_seconds").record(cache_insert_start.elapsed());
 
-    Ok(MeasurementUpdate {
+    Ok(Some(MeasurementUpdate {
         device_id: device.id,
         sensor_id: sensor.id,
         measurement: entry,
-    })
+    }))
 }
 
 pub async fn refresh_views(pool: &PgPool) {
@@ -190,6 +197,7 @@ mod tests {
         NewDevice {
             name: "stream-device".to_string(),
             location: "stream-location".to_string(),
+            coordinates: None,
         }
         .insert(pool)
         .await
@@ -326,6 +334,35 @@ mod tests {
             23.5
         );
         assert_eq!(Measurement::read_all(&pool, 100).await.unwrap().len(), 2);
+    }
+
+    #[sqlx::test]
+    async fn duplicate_insert_is_not_published_or_cached(pool: PgPool) {
+        setup_device_and_sensor(&pool).await;
+        let cache = LatestMeasurements::new(8, Duration::from_secs(60));
+        let now = chrono::Utc::now();
+        let mut updates = Vec::new();
+        for value in [23.5, 8.0] {
+            let update = insert_measurement(
+                NewMeasurement {
+                    timestamp: Some(now),
+                    device: DeviceId(1),
+                    sensor: SensorId(1),
+                    measurement: value,
+                },
+                &pool,
+                &cache,
+            )
+            .await
+            .unwrap();
+            updates.push(update.map(|u| u.measurement.value));
+        }
+        assert_eq!(updates, vec![Some(23.5), None]);
+        let key = MeasurementKey {
+            device_id: DeviceId(1),
+            sensor_id: SensorId(1),
+        };
+        assert_eq!(cache.read(&pool, key).await.unwrap().value, 23.5);
     }
 
     #[sqlx::test]

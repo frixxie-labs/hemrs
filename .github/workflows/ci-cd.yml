@@ -87,25 +87,30 @@ jobs:
     runs-on: arc-frixxie-runner
     container:
       image: rust:latest
-    services:
-      postgres:
-        image: postgres:latest
-        env:
-          POSTGRES_DB: postgres
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: admin
-          POSTGRES_HOST_AUTH_METHOD: trust
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
       SQLX_OFFLINE: "1"
       DATABASE_URL: postgresql://postgres:admin@localhost:5432/postgres
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Install PostgreSQL with TimescaleDB and PostGIS
+        run: |
+          set -eux
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl gnupg postgresql-common
+          /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          . /etc/os-release
+          curl -fsSL https://packagecloud.io/timescale/timescaledb/gpgkey \
+            | gpg --dearmor -o /usr/share/keyrings/timescaledb.gpg
+          echo "deb [signed-by=/usr/share/keyrings/timescaledb.gpg] https://packagecloud.io/timescale/timescaledb/debian/ ${VERSION_CODENAME} main" \
+            > /etc/apt/sources.list.d/timescaledb.list
+          apt-get update
+          apt-get install -y --no-install-recommends postgresql-18 timescaledb-2-postgresql-18 postgresql-18-postgis-3
+          echo "shared_preload_libraries = 'timescaledb'" >> /etc/postgresql/18/main/postgresql.conf
+          echo "timescaledb.telemetry_level = off" >> /etc/postgresql/18/main/postgresql.conf
+          pg_ctlcluster 18 main start
+          su postgres -c "psql -c \"ALTER USER postgres PASSWORD 'admin'\""
 
       - name: Show Rust versions
         run: rustc --version && cargo --version

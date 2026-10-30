@@ -1,0 +1,1544 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "backend",
+    "description": "",
+    "license": {
+      "name": ""
+    },
+    "version": "0.39.0"
+  },
+  "paths": {
+    "/metrics": {
+      "get": {
+        "tags": [],
+        "operationId": "metrics",
+        "responses": {
+          "200": {
+            "description": "Prometheus metrics in exposition format",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/status/ping": {
+      "get": {
+        "tags": [
+          "ping"
+        ],
+        "operationId": "ping",
+        "responses": {
+          "200": {
+            "description": "Health check successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PingResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "api/devices": {
+      "get": {
+        "tags": [
+          "devices"
+        ],
+        "operationId": "fetch_devices",
+        "responses": {
+          "200": {
+            "description": "List of devices",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Device"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "devices"
+        ],
+        "operationId": "update_device",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Device"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Device updated successfully",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "devices"
+        ],
+        "operationId": "insert_device",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewDevice"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Device created successfully",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "devices"
+        ],
+        "operationId": "delete_device",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Device"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Device deleted successfully",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "api/devices/{device_id}": {
+      "get": {
+        "tags": [
+          "devices"
+        ],
+        "operationId": "fetch_devices_by_id",
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "description": "Device ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Device"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Device not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "api/devices/{device_id}/sensors/{sensor_id}/measurements/stream": {
+      "get": {
+        "tags": [
+          "measurement_stream"
+        ],
+        "operationId": "stream_measurements",
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "description": "Device ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "sensor_id",
+            "in": "path",
+            "description": "Sensor ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Live measurement event stream",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasurementUpdate"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "api/earthquakes": {
+      "get": {
+        "tags": [
+          "geo_events"
+        ],
+        "operationId": "fetch_earthquakes",
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "description": "Start of the time range (required), RFC 3339",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "description": "End of the time range (optional, defaults to now), RFC 3339",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "latitude",
+            "in": "query",
+            "description": "Latitude of the search centre; requires `longitude` and `radius_km`",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "description": "Longitude of the search centre; requires `latitude` and `radius_km`",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "radius_km",
+            "in": "query",
+            "description": "Search radius in kilometres; requires `latitude` and `longitude`",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of most recent events to return (default 1000, clamped to 1..=10000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Most recent earthquakes in chronological order, bounded by `limit`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Earthquake"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "geo_events"
+        ],
+        "operationId": "store_earthquake",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewEarthquake"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Earthquake already stored for this device and timestamp; ignored"
+          },
+          "201": {
+            "description": "Earthquake stored"
+          },
+          "400": {
+            "description": "Invalid payload or unknown device"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "api/lightning": {
+      "get": {
+        "tags": [
+          "geo_events"
+        ],
+        "operationId": "fetch_lightning_strikes",
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "description": "Start of the time range (required), RFC 3339",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "description": "End of the time range (optional, defaults to now), RFC 3339",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "latitude",
+            "in": "query",
+            "description": "Latitude of the search centre; requires `longitude` and `radius_km`",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "description": "Longitude of the search centre; requires `latitude` and `radius_km`",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "radius_km",
+            "in": "query",
+            "description": "Search radius in kilometres; requires `latitude` and `longitude`",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of most recent events to return (default 1000, clamped to 1..=10000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Most recent strikes in chronological order, bounded by `limit`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LightningStrike"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "geo_events"
+        ],
+        "operationId": "store_lightning_strikes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewLightningStrikes"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Strikes stored"
+          },
+          "400": {
+            "description": "Invalid payload or unknown device"
+          },
+          "413": {
+            "description": "Too many strikes in one request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "api/measurements": {
+      "get": {
+        "tags": [
+          "measurements"
+        ],
+        "operationId": "fetch_all_measurements",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of most recent measurements to return (default 1000, clamped to 1..=10000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Most recent measurements in chronological order, bounded by `limit`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Measurement"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "measurements"
+        ],
+        "operationId": "store_measurements",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewMeasurements"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Measurement(s) inserted successfully"
+          },
+          "400": {
+            "description": "Batch exceeds the ingestion queue capacity"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "503": {
+            "description": "Measurement ingestion unavailable"
+          }
+        }
+      }
+    },
+    "api/measurements/count": {
+      "get": {
+        "tags": [
+          "measurements"
+        ],
+        "operationId": "fetch_measurements_count",
+        "responses": {
+          "200": {
+            "description": "Total count of measurements",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "api/measurements/device/{device_id}": {
+      "get": {
+        "tags": [
+          "measurements"
+        ],
+        "operationId": "fetch_measurement_by_device_id",
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "description": "Device ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of most recent measurements to return (default 1000, clamped to 1..=10000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Most recent measurements for device in chronological order, bounded by `limit`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Measurement"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "api/measurements/device/{device_id}/sensor/{sensor_id}": {
+      "get": {
+        "tags": [
+          "measurements"
+        ],
+        "operationId": "fetch_measurement_by_device_id_and_sensor_id",
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "description": "Device ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "sensor_id",
+            "in": "path",
+            "description": "Sensor ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of most recent measurements to return (default 1000, clamped to 1..=10000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Most recent measurements for device and sensor in chronological order, bounded by `limit`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Measurement"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "api/measurements/device/{device_id}/sensor/{sensor_id}/latest": {
+      "get": {
+        "tags": [
+          "measurements"
+        ],
+        "operationId": "fetch_latest_measurement_by_device_id_and_sensor_id",
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "description": "Device ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "sensor_id",
+            "in": "path",
+            "description": "Sensor ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Latest measurement for device and sensor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Measurement"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No measurements found for device and sensor"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "api/measurements/device/{device_id}/sensor/{sensor_id}/stats": {
+      "get": {
+        "tags": [
+          "measurements"
+        ],
+        "operationId": "fetch_stats_by_device_id_and_sensor_id",
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "description": "Device ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "sensor_id",
+            "in": "path",
+            "description": "Sensor ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Statistics for measurements by device and sensor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasurementStats"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "api/measurements/latest": {
+      "get": {
+        "tags": [
+          "measurements"
+        ],
+        "operationId": "fetch_latest_measurement",
+        "responses": {
+          "200": {
+            "description": "Latest measurement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Measurement"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No measurements found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "api/measurements/latest/all": {
+      "get": {
+        "tags": [
+          "measurements"
+        ],
+        "operationId": "fetch_all_latest_measurements",
+        "responses": {
+          "200": {
+            "description": "List of all latest measurements",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Measurement"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "api/measurements/range": {
+      "get": {
+        "tags": [
+          "measurements"
+        ],
+        "operationId": "fetch_measurements_by_date_range",
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "description": "Start of the date range (required), ISO 8601 / RFC 3339 format",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "description": "End of the date range (optional, defaults to now), ISO 8601 / RFC 3339 format",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of measurements within date range",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Measurement"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid query parameters"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "api/sensors": {
+      "get": {
+        "tags": [
+          "sensors"
+        ],
+        "operationId": "fetch_sensors",
+        "responses": {
+          "200": {
+            "description": "List of sensors",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Sensor"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "sensors"
+        ],
+        "operationId": "update_sensor",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Sensor"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sensor updated successfully",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "sensors"
+        ],
+        "operationId": "insert_sensor",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewSensor"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sensor created successfully",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "sensors"
+        ],
+        "operationId": "delete_sensor",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Sensor"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sensor deleted successfully",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "api/sensors/device/{device_id}": {
+      "get": {
+        "tags": [
+          "sensors"
+        ],
+        "operationId": "fetch_sensors_by_device_id",
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "description": "Device ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of sensors for device",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Sensor"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "api/sensors/{sensor_id}": {
+      "get": {
+        "tags": [
+          "sensors"
+        ],
+        "operationId": "fetch_sensor_by_sensor_id",
+        "parameters": [
+          {
+            "name": "sensor_id",
+            "in": "path",
+            "description": "Sensor ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sensor found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sensor"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Sensor not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Coordinates": {
+        "type": "object",
+        "description": "A WGS 84 position, stored as a PostGIS `geography(Point, 4326)`.",
+        "required": [
+          "latitude",
+          "longitude"
+        ],
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "format": "double"
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "Device": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "location"
+        ],
+        "properties": {
+          "coordinates": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Coordinates",
+                "description": "Geographic position of the device, if known"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/DeviceId",
+            "description": "Unique identifier for the device"
+          },
+          "location": {
+            "type": "string",
+            "description": "The physical location where the device is deployed"
+          },
+          "name": {
+            "type": "string",
+            "description": "The human-readable name of the device"
+          }
+        }
+      },
+      "DeviceId": {
+        "type": "integer",
+        "format": "int32",
+        "description": "Identifies a device; serialized and stored as a plain integer."
+      },
+      "Earthquake": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "device_id",
+          "coordinates",
+          "depth_km",
+          "magnitude",
+          "significance",
+          "tsunami"
+        ],
+        "properties": {
+          "coordinates": {
+            "$ref": "#/components/schemas/Coordinates"
+          },
+          "depth_km": {
+            "type": "number",
+            "format": "float"
+          },
+          "device_id": {
+            "$ref": "#/components/schemas/DeviceId"
+          },
+          "magnitude": {
+            "type": "number",
+            "format": "float"
+          },
+          "significance": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "tsunami": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LightningStrike": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "device_id",
+          "coordinates"
+        ],
+        "properties": {
+          "coordinates": {
+            "$ref": "#/components/schemas/Coordinates"
+          },
+          "device_id": {
+            "$ref": "#/components/schemas/DeviceId"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Measurement": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "value",
+          "unit",
+          "device_name",
+          "device_location",
+          "sensor_name"
+        ],
+        "properties": {
+          "device_location": {
+            "type": "string"
+          },
+          "device_name": {
+            "type": "string"
+          },
+          "sensor_name": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number",
+            "format": "float"
+          }
+        }
+      },
+      "MeasurementStats": {
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "avg": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "float"
+          },
+          "min": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "float"
+          },
+          "stddev": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "variance": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "MeasurementUpdate": {
+        "type": "object",
+        "required": [
+          "device_id",
+          "sensor_id",
+          "measurement"
+        ],
+        "properties": {
+          "device_id": {
+            "$ref": "#/components/schemas/DeviceId"
+          },
+          "measurement": {
+            "$ref": "#/components/schemas/Measurement"
+          },
+          "sensor_id": {
+            "$ref": "#/components/schemas/SensorId"
+          }
+        }
+      },
+      "NewDevice": {
+        "type": "object",
+        "required": [
+          "name",
+          "location"
+        ],
+        "properties": {
+          "coordinates": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Coordinates",
+                "description": "Geographic position of the device, if known"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "type": "string",
+            "description": "The physical location where the device is deployed"
+          },
+          "name": {
+            "type": "string",
+            "description": "The human-readable name of the device"
+          }
+        }
+      },
+      "NewEarthquake": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "device",
+          "coordinates",
+          "depth_km",
+          "magnitude",
+          "significance",
+          "tsunami"
+        ],
+        "properties": {
+          "coordinates": {
+            "$ref": "#/components/schemas/Coordinates",
+            "description": "Epicentre"
+          },
+          "depth_km": {
+            "type": "number",
+            "format": "float",
+            "description": "Hypocentre depth in kilometres"
+          },
+          "device": {
+            "$ref": "#/components/schemas/DeviceId",
+            "description": "The device that reported the earthquake"
+          },
+          "magnitude": {
+            "type": "number",
+            "format": "float"
+          },
+          "significance": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Significance score from the reporting source"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the earthquake happened"
+          },
+          "tsunami": {
+            "type": "boolean",
+            "description": "Whether a tsunami was flagged"
+          }
+        }
+      },
+      "NewLightningStrike": {
+        "type": "object",
+        "required": [
+          "device",
+          "coordinates"
+        ],
+        "properties": {
+          "coordinates": {
+            "$ref": "#/components/schemas/Coordinates",
+            "description": "Where the strike hit"
+          },
+          "device": {
+            "$ref": "#/components/schemas/DeviceId",
+            "description": "The device that reported the strike"
+          },
+          "timestamp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the strike happened; defaults to the time of ingestion"
+          }
+        }
+      },
+      "NewLightningStrikes": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/NewLightningStrike"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NewLightningStrike"
+            }
+          }
+        ]
+      },
+      "NewMeasurement": {
+        "type": "object",
+        "required": [
+          "device",
+          "sensor",
+          "measurement"
+        ],
+        "properties": {
+          "device": {
+            "$ref": "#/components/schemas/DeviceId"
+          },
+          "measurement": {
+            "type": "number",
+            "format": "float"
+          },
+          "sensor": {
+            "$ref": "#/components/schemas/SensorId"
+          },
+          "timestamp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "NewMeasurements": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/NewMeasurement"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NewMeasurement"
+            }
+          }
+        ]
+      },
+      "NewSensor": {
+        "type": "object",
+        "required": [
+          "name",
+          "unit"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          }
+        }
+      },
+      "PingResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "timestamp"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          }
+        }
+      },
+      "Sensor": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "unit"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/SensorId"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          }
+        }
+      },
+      "SensorId": {
+        "type": "integer",
+        "format": "int32",
+        "description": "Identifies a sensor; serialized and stored as a plain integer."
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "devices",
+      "description": "Device management endpoints"
+    },
+    {
+      "name": "sensors",
+      "description": "Sensor management endpoints"
+    },
+    {
+      "name": "measurements",
+      "description": "Measurement data endpoints"
+    },
+    {
+      "name": "geo_events",
+      "description": "Lightning strike and earthquake endpoints"
+    },
+    {
+      "name": "system",
+      "description": "System health and metrics endpoints"
+    }
+  ]
+}

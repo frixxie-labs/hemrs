@@ -1,0 +1,107 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT timestamp AS \"timestamp!\", device_id AS \"device_id!: DeviceId\", latitude, longitude, depth_km AS \"depth_km!\", magnitude AS \"magnitude!\", significance AS \"significance!\", tsunami AS \"tsunami!\" FROM (SELECT ts AS timestamp, device_id, ST_Y(geom::geometry) AS latitude, ST_X(geom::geometry) AS longitude, depth_km, magnitude, significance, tsunami FROM earthquakes WHERE ts >= $1 AND ts <= $2 AND ($5::float8 IS NULL OR ST_DWithin(geom, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography, $5)) ORDER BY ts DESC LIMIT $6) recent ORDER BY timestamp",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "timestamp!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "earthquakes",
+            "name": "ts"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "device_id!: DeviceId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "earthquakes",
+            "name": "device_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "latitude",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "longitude",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "depth_km!",
+        "type_info": "Float4",
+        "origin": {
+          "Table": {
+            "table": "earthquakes",
+            "name": "depth_km"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "magnitude!",
+        "type_info": "Float4",
+        "origin": {
+          "Table": {
+            "table": "earthquakes",
+            "name": "magnitude"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "significance!",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "earthquakes",
+            "name": "significance"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "tsunami!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "earthquakes",
+            "name": "tsunami"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Timestamptz",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "2ded53bb91683f5c43365f2096461a66b732e3f39ccee809730db0cc64bcf8eb"
+}

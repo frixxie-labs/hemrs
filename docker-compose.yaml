@@ -14,7 +14,7 @@ services:
     depends_on:
       - hemrs
   postgres:
-    image: postgres:18
+    build: ./db
     restart: always
     ports:
       - 5432:5432

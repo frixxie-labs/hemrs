@@ -6,6 +6,9 @@ use axum::{
     routing::{delete, get, post, put},
 };
 use devices::{delete_device, fetch_devices, insert_device, update_device};
+use geo_events::{
+    fetch_earthquakes, fetch_lightning_strikes, store_earthquake, store_lightning_strikes,
+};
 use measurement_stream::{MeasurementStreamState, stream_measurements};
 use measurements::{
     MeasurementState, fetch_all_latest_measurements, fetch_all_measurements,
@@ -36,6 +39,7 @@ use crate::{
 
 mod devices;
 mod error;
+mod geo_events;
 mod measurement_stream;
 mod measurements;
 mod ping;
@@ -132,6 +136,13 @@ pub fn create_router(
         .route("/sensors/{sensor_id}", get(fetch_sensor_by_sensor_id))
         .with_state(connection.clone());
 
+    let geo_events = Router::new()
+        .route("/lightning", get(fetch_lightning_strikes))
+        .route("/lightning", post(store_lightning_strikes))
+        .route("/earthquakes", get(fetch_earthquakes))
+        .route("/earthquakes", post(store_earthquake))
+        .with_state(connection.clone());
+
     let measurement_stream = Router::new()
         .route(
             "/devices/{device_id}/sensors/{sensor_id}/measurements/stream",
@@ -147,6 +158,7 @@ pub fn create_router(
         .nest("/api", measurements)
         .nest("/api", devices)
         .nest("/api", sensors)
+        .nest("/api", geo_events)
         .nest("/api", measurement_stream)
         .route("/", post(store_measurements))
         .with_state(tx)
@@ -207,11 +219,18 @@ async fn metrics(State(handle): State<PrometheusHandle>) -> String {
         measurements::fetch_stats_by_device_id_and_sensor_id,
         measurements::fetch_measurements_by_date_range,
         measurement_stream::stream_measurements,
+
+        // Geo events
+        geo_events::store_lightning_strikes,
+        geo_events::fetch_lightning_strikes,
+        geo_events::store_earthquake,
+        geo_events::fetch_earthquakes,
     ),
     components(
         schemas(
             crate::devices::Device,
             crate::devices::NewDevice,
+            crate::coordinates::Coordinates,
             crate::sensors::Sensor,
             crate::sensors::NewSensor,
             crate::measurements::Measurement,
@@ -219,6 +238,11 @@ async fn metrics(State(handle): State<PrometheusHandle>) -> String {
             crate::measurements::NewMeasurements,
             crate::measurements::MeasurementStats,
             crate::measurements::MeasurementUpdate,
+            crate::geo_events::lightning::NewLightningStrike,
+            crate::geo_events::lightning::NewLightningStrikes,
+            crate::geo_events::lightning::LightningStrike,
+            crate::geo_events::earthquakes::NewEarthquake,
+            crate::geo_events::earthquakes::Earthquake,
             ping::PingResponse,
         )
     ),
@@ -226,6 +250,7 @@ async fn metrics(State(handle): State<PrometheusHandle>) -> String {
         (name = "devices", description = "Device management endpoints"),
         (name = "sensors", description = "Sensor management endpoints"),
         (name = "measurements", description = "Measurement data endpoints"),
+        (name = "geo_events", description = "Lightning strike and earthquake endpoints"),
         (name = "system", description = "System health and metrics endpoints"),
     )
 )]
@@ -234,4 +259,45 @@ pub struct ApiDoc;
 pub async fn get_openapi() -> String {
     let doc = ApiDoc::openapi();
     serde_json::to_string_pretty(&doc).unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    async fn path_parameters_appear_in_their_path_template() {
+        let doc: serde_json::Value = serde_json::from_str(&super::get_openapi().await).unwrap();
+        let misplaced: Vec<String> = doc["paths"]
+            .as_object()
+            .unwrap()
+            .iter()
+            .flat_map(|(path, operations)| {
+                operations
+                    .as_object()
+                    .unwrap()
+                    .values()
+                    .flat_map(|op| op["parameters"].as_array().cloned().unwrap_or_default())
+                    .filter(move |p| {
+                        p["in"] == "path"
+                            && !path.contains(&format!("{{{}}}", p["name"].as_str().unwrap()))
+                    })
+                    .map(move |p| format!("{path}: {}", p["name"]))
+            })
+            .collect();
+        assert!(misplaced.is_empty(), "{misplaced:?}");
+    }
+
+    /// Run `just openapi` to regenerate the committed spec after API changes.
+    #[tokio::test]
+    async fn committed_openapi_spec_matches_the_code() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../dev_docs/openapi.json");
+        let generated = super::get_openapi().await + "\n";
+        if std::env::var_os("UPDATE_OPENAPI").is_some() {
+            std::fs::write(path, &generated).unwrap();
+        }
+        let committed = std::fs::read_to_string(path).unwrap_or_default();
+        assert!(
+            committed == generated,
+            "dev_docs/openapi.json is out of date; run `just openapi`"
+        );
+    }
 }

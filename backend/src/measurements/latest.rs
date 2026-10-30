@@ -116,6 +116,7 @@ mod tests {
             NewDevice {
                 name: name.to_string(),
                 location: name.to_string(),
+                coordinates: None,
             }
             .insert(&pool)
             .await
@@ -195,6 +196,7 @@ mod tests {
         NewDevice {
             name: "device".into(),
             location: "home".into(),
+            coordinates: None,
         }
         .insert(&pool)
         .await

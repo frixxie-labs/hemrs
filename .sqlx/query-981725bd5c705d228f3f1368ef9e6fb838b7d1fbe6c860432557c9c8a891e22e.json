@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id AS \"id: DeviceId\", name, location FROM devices WHERE id = $1",
+  "query": "SELECT id AS \"id: DeviceId\", name, location, ST_Y(geom::geometry) AS latitude, ST_X(geom::geometry) AS longitude FROM devices WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -35,6 +35,18 @@
             "name": "location"
           }
         }
+      },
+      {
+        "ordinal": 3,
+        "name": "latitude",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "longitude",
+        "type_info": "Float8",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -45,8 +57,10 @@
     "nullable": [
       false,
       false,
-      false
+      false,
+      null,
+      null
     ]
   },
-  "hash": "2b8cdc4c866221474a5a45a7341e3a847f1b95bb7a3079fa42b0eaf8cb9a349c"
+  "hash": "981725bd5c705d228f3f1368ef9e6fb838b7d1fbe6c860432557c9c8a891e22e"
 }

@@ -29,6 +29,10 @@ test-plotter: build-plotter
 check:
     cargo check --workspace
 
+# Regenerate dev_docs/openapi.json from the backend's utoipa annotations.
+openapi:
+    UPDATE_OPENAPI=1 cargo test --workspace committed_openapi_spec_matches_the_code
+
 build: build-backend
 
 build-backend:

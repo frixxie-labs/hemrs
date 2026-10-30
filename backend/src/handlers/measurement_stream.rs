@@ -471,6 +471,7 @@ mod tests {
         NewDevice {
             name: "test-device".to_string(),
             location: "test-location".to_string(),
+            coordinates: None,
         }
         .insert(pool)
         .await

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO devices (name, location, geom) VALUES ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Float8",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5db4625cebf584a910d0ad05ccc37018acb86a4b4518432f4f067ebad17341f5"
+}

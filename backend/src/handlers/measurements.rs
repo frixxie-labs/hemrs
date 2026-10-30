@@ -120,6 +120,7 @@ pub const DEFAULT_MEASUREMENTS_LIMIT: i64 = 1_000;
 pub const MAX_MEASUREMENTS_LIMIT: i64 = 10_000;
 
 #[derive(Debug, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
 pub struct MeasurementsLimitParams {
     /// Number of most recent measurements to return (default 1000, clamped to 1..=10000)
     pub limit: Option<i64>,
@@ -281,6 +282,7 @@ pub async fn fetch_stats_by_device_id_and_sensor_id(
 }
 
 #[derive(Debug, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
 pub struct DateRangeParams {
     /// Start of the date range (required), ISO 8601 / RFC 3339 format
     pub start: DateTime<Utc>,
@@ -481,6 +483,7 @@ mod tests {
         NewDevice {
             name: "test-device".to_string(),
             location: "test-location".to_string(),
+            coordinates: None,
         }
         .insert(pool)
         .await
